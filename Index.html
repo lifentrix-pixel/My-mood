@@ -1,0 +1,117 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0d0d14">
+  <title>Innerscape</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Sync Status Indicator -->
+    <div id="sync-status" class="sync-status">📱 Loading...</div>
+    
+    <!-- Nav -->
+    <nav id="nav">
+      <button class="nav-btn active" data-group="track">
+        <span class="nav-icon">✦</span><span class="nav-label">Track</span>
+      </button>
+      <button class="nav-btn" data-group="reflect">
+        <span class="nav-icon">🌙</span><span class="nav-label">Reflect</span>
+      </button>
+      <button class="nav-btn" data-group="activity">
+        <span class="nav-icon">⏱</span><span class="nav-label">Activity</span>
+      </button>
+      <button class="nav-btn" data-group="insights">
+        <span class="nav-icon">📊</span><span class="nav-label">Insights</span>
+      </button>
+      <button class="nav-btn" data-group="todos">
+        <span class="nav-icon">✓</span><span class="nav-label">To-Do's</span>
+      </button>
+      <button class="nav-btn" data-group="wishlist">
+        <span class="nav-icon">✨</span><span class="nav-label">Want To</span>
+      </button>
+    </nav>
+
+    <!-- Sub-navigation -->
+    <div id="sub-nav" class="sub-nav">
+      <div class="sub-nav-group active" data-group="track">
+        <button class="sub-nav-btn active" data-view="checkin">Check In</button>
+        <button class="sub-nav-btn" data-view="food">Food</button>
+        <button class="sub-nav-btn" data-view="medication">Medication</button>
+      </div>
+      <div class="sub-nav-group" data-group="reflect">
+        <button class="sub-nav-btn" data-view="dreams">Dreams</button>
+        <button class="sub-nav-btn" data-view="meditate">Meditate</button>
+        <button class="sub-nav-btn" data-view="studio">Studio</button>
+      </div>
+      <div class="sub-nav-group" data-group="activity">
+        <button class="sub-nav-btn" data-view="timer">Timer</button>
+      </div>
+      <div class="sub-nav-group" data-group="insights">
+        <button class="sub-nav-btn" data-view="mood">Mood</button>
+        <button class="sub-nav-btn" data-view="export">Export</button>
+      </div>
+      <div class="sub-nav-group" data-group="todos">
+        <button class="sub-nav-btn" data-view="todos">All Tasks</button>
+      </div>
+      <div class="sub-nav-group" data-group="wishlist">
+        <button class="sub-nav-btn" data-view="wishlist">My Wishes</button>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <main id="main">
+
+    <!-- ======= Check-In View ======= -->
+    <section id="view-checkin" class="view active">
+      <div class="checkin-header">
+        <h1 id="checkin-date">Today</h1>
+        <div class="checkin-summary">
+          <span id="checkin-count">0 check-ins today</span>
+        </div>
+      </div>
+
+      <div class="mood-slider-container">
+        <div class="mood-labels">
+          <span class="mood-label-left">😔</span>
+          <span class="mood-label-right">😊</span>
+        </div>
+        <input type="range" id="mood-slider" class="mood-slider" min="1" max="10" value="5">
+        <div class="mood-value" id="mood-display">5</div>
+      </div>
+
+      <textarea id="mood-note" class="mood-note" placeholder="How are you feeling right now? What's on your mind?"></textarea>
+
+      <div class="quick-moods">
+        <button class="quick-mood-btn" data-mood="3" data-note="Feeling low today">😔 Low</button>
+        <button class="quick-mood-btn" data-mood="5" data-note="Just checking in">😐 Neutral</button>
+        <button class="quick-mood-btn" data-mood="8" data-note="Feeling good today!">😊 Good</button>
+```
+        ```html
+       <button class="quick-mood-btn" data-mood="9" data-note="Great day so far!">😄 Great</button>
+      </div>
+
+      <button id="save-checkin" class="save-btn">Save Check-In</button>
+
+      <div class="recent-checkins">
+        <h3>Recent Check-Ins</h3>
+        <div id="checkins-list" class="checkins-list"></div>
+        <div id="checkins-empty" class="empty-state">
+          <span class="empty-icon">☀</span>
+          <p>No check-ins yet today</p>
+        </div>
+      </div>
+    </section>
+
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
+```
