@@ -2,96 +2,1117 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Innerscape - Mood Tracker</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { 
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
-      background: #0d0d14; 
-      color: white; 
-      padding: 20px; 
-      line-height: 1.6;
-    }
-    .container { max-width: 400px; margin: 0 auto; }
-    h1 { text-align: center; margin-bottom: 30px; color: #a78bfa; }
-    .mood-section { 
-      background: #1a1a24; 
-      padding: 30px; 
-      border-radius: 20px; 
-      margin-bottom: 30px; 
-    }
-    .slider { width: 100%; margin: 20px 0; }
-    input[type="range"] { 
-      width: 100%; 
-      height: 8px; 
-      background: #333; 
-      border-radius: 5px; 
-      outline: none; 
-    }
-    .mood-value { 
-      text-align: center; 
-      font-size: 48px; 
-      color: #a78bfa; 
-      font-weight: bold; 
-    }
-    textarea { 
-      width: 100%; 
-      padding: 15px; 
-      border-radius: 10px; 
-      border: 1px solid #333; 
-      background: #0d0d14; 
-      color: white; 
-      font-family: inherit; 
-      resize: vertical; 
-      min-height: 100px; 
-    }
-    button { 
-      width: 100%; 
-      padding: 15px; 
-      background: linear-gradient(135deg, #a78bfa, #8b5cf6); 
-      border: none; 
-      border-radius: 15px; 
-      color: white; 
-      font-size: 16px; 
-      font-weight: 600; 
-      cursor: pointer; 
-      margin-top: 20px; 
-    }
-    button:active { transform: scale(0.98); }
-    .status { text-align: center; margin-top: 20px; color: #10b981; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0d0d14">
+  <title>Innerscape</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%230d0d14'/><text x='256' y='340' font-size='280' text-anchor='middle' fill='%23a78bfa'>✦</text></svg>">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js" defer></script>
 </head>
 <body>
-  <div class="container">
-    <h1>✨ Innerscape</h1>
-    <div class="mood-section">
-      <h2>How are you feeling?</h2>
-      <div class="mood-value" id="moodDisplay">5</div>
-      <input type="range" id="moodSlider" class="slider" min="1" max="10" value="5">
-      <div style="display: flex; justify-content: space-between; margin-top: 10px;">
-        <span>😔</span>
-        <span>😊</span>
+  <div id="app">
+    <!-- Sync Status Indicator -->
+    <div id="sync-status" class="sync-status">📱 Loading...</div>
+    
+    <!-- Nav -->
+    <nav id="nav">
+      <button class="nav-btn active" data-group="track">
+        <span class="nav-icon">✦</span><span class="nav-label">Track</span>
+      </button>
+      <button class="nav-btn" data-group="reflect">
+        <span class="nav-icon">🌙</span><span class="nav-label">Reflect</span>
+      </button>
+      <button class="nav-btn" data-group="activity">
+        <span class="nav-icon">⏱</span><span class="nav-label">Activity</span>
+      </button>
+      <button class="nav-btn" data-group="insights">
+        <span class="nav-icon">📊</span><span class="nav-label">Insights</span>
+      </button>
+      <button class="nav-btn" data-group="todos">
+        <span class="nav-icon">✓</span><span class="nav-label">To-Do's</span>
+      </button>
+      <button class="nav-btn" data-group="wishlist">
+        <span class="nav-icon">✨</span><span class="nav-label">Want To</span>
+      </button>
+    </nav>
+
+    <!-- Sub-navigation -->
+    <div id="sub-nav" class="sub-nav">
+      <div class="sub-nav-group active" data-group="track">
+        <button class="sub-nav-btn active" data-view="checkin">Check In</button>
+        <button class="sub-nav-btn" data-view="food">Food</button>
+        <button class="sub-nav-btn" data-view="medication">Medication</button>
+      </div>
+      <div class="sub-nav-group" data-group="reflect">
+        <button class="sub-nav-btn" data-view="dreams">Dreams</button>
+        <button class="sub-nav-btn" data-view="meditate">Meditate</button>
+        <button class="sub-nav-btn" data-view="studio">Studio</button>
+      </div>
+      <div class="sub-nav-group" data-group="activity">
+        <button class="sub-nav-btn" data-view="timer">Timer</button>
+      </div>
+      <div class="sub-nav-group" data-group="insights">
+        <button class="sub-nav-btn" data-view="today">Today</button>
+        <button class="sub-nav-btn" data-view="weekly">Week</button>
+        <button class="sub-nav-btn" data-view="monthly">Month</button>
+        <button class="sub-nav-btn" data-view="trends">Trends</button>
+        <button class="sub-nav-btn" data-view="export">Export</button>
+      </div>
+      <div class="sub-nav-group" data-group="todos">
+        <button class="sub-nav-btn" data-view="todos">All Tasks</button>
+      </div>
+      <div class="sub-nav-group" data-group="wishlist">
+        <button class="sub-nav-btn" data-view="wishlist">My Wishes</button>
       </div>
     </div>
-    <textarea id="note" placeholder="What's on your mind?"></textarea>
-    <button onclick="saveEntry()">Save Check-In</button>
-    <div class="status" id="status"></div>
+
+    <!-- Check-in View -->
+    <section id="view-checkin" class="view active">
+      <div class="view-header">
+        <h1>How are you?</h1>
+        <p class="subtitle" id="checkin-time"></p>
+      </div>
+      <div class="sliders-container" id="sliders-container"></div>
+      <button id="submit-btn" class="submit-btn">
+        <span class="submit-text">Save Check-in</span>
+        <span class="submit-done">✓ Saved</span>
+      </button>
+    </section>
+
+    <!-- Dreams View -->
+    <section id="view-dreams" class="view">
+      <div class="view-header">
+        <h1>Dream Diary</h1>
+        <p class="subtitle" id="dreams-date"></p>
+        <div class="dream-nav-tabs">
+          <button id="dream-tab-record" class="dream-tab active">Record</button>
+          <button id="dream-tab-history" class="dream-tab">History</button>
+        </div>
+      </div>
+
+      <!-- Recording Panel -->
+      <div id="dream-record-panel" class="dream-panel">
+        <div id="dream-recorder">
+          <div id="dream-rec-idle">
+            <div class="dream-input-options">
+              <button id="dream-record-btn" class="dream-record-btn">
+                <span class="dream-rec-icon">🎙</span>
+                <span class="dream-rec-rings"></span>
+              </button>
+              <button id="dream-type-btn" class="dream-type-btn">
+                <span class="dream-type-icon">✍️</span>
+              </button>
+            </div>
+            <p class="dream-rec-hint">Record or type your dream</p>
+            <div class="dream-action-buttons">
+              <button id="dream-no-recall-btn" class="dream-no-recall-btn">😶‍🌫️ No dream remembered</button>
+              <button id="dream-recover-btn" class="dream-recover-btn">🔍 Recover lost dreams</button>
+              <button id="dream-cleanup-btn" class="dream-recover-btn">🧹 Remove duplicates</button>
+            </div>
+          </div>
+
+          <div id="dream-rec-active" class="hidden">
+            <div class="dream-waveform">
+              <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+              <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+              <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+            </div>
+            <div id="dream-live-text" class="dream-live-text">Listening…</div>
+            <button id="dream-stop-btn" class="dream-stop-btn">Stop Recording</button>
+          </div>
+
+          <div id="dream-rec-edit" class="hidden">
+            <textarea id="dream-transcript" class="dream-transcript" placeholder="Describe your dream…"></textarea>
+            <div class="dream-tags" id="dream-tags"></div>
+            <div class="dream-edit-actions">
+              <button id="dream-discard-btn" class="dream-btn-secondary">Discard</button>
+              <button id="dream-save-btn" class="dream-btn-primary">Save Dream</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Dreams (last 3) -->
+        <div id="dream-recent-section" class="recent-dreams-section">
+          <h3>Recent Dreams</h3>
+          <div id="dream-recent-list" class="entries-list"></div>
+          <div id="dream-recent-empty" class="empty-state">
+            <span class="empty-icon">🌙</span>
+            <p>No dreams recorded yet</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- History Panel -->
+      <div id="dream-history-panel" class="dream-panel hidden">
+        <div class="dream-history-controls">
+          <div class="dream-search-box">
+            <input type="text" id="dream-search" placeholder="🔍 Search dreams..." class="dream-search-input">
+          </div>
+          <div class="dream-filter-buttons">
+            <button id="dream-filter-all" class="dream-filter-btn active">All</button>
+            <button id="dream-filter-vivid" class="dream-filter-btn">Vivid</button>
+            <button id="dream-filter-nightmare" class="dream-filter-btn">Nightmares</button>
+            <button id="dream-filter-lucid" class="dream-filter-btn">Lucid</button>
+          </div>
+        </div>
+        
+        <div id="dream-history-stats" class="dream-stats">
+          <div class="dream-stat">
+            <span class="dream-stat-number" id="dream-total-count">0</span>
+            <span class="dream-stat-label">Total Dreams</span>
+          </div>
+          <div class="dream-stat">
+            <span class="dream-stat-number" id="dream-month-count">0</span>
+            <span class="dream-stat-label">This Month</span>
+          </div>
+          <div class="dream-stat">
+            <span class="dream-stat-number" id="dream-recall-rate">0%</span>
+            <span class="dream-stat-label">Recall Rate</span>
+          </div>
+        </div>
+
+        <div id="dream-history-timeline" class="dream-timeline"></div>
+        <div id="dream-history-empty" class="empty-state">
+          <span class="empty-icon">🌙</span>
+          <p>No dreams in history</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Meditate View -->
+    <section id="view-meditate" class="view">
+      <div class="view-header">
+        <h1>Meditative Cleaning</h1>
+        <p class="subtitle">Clean body, clear mind</p>
+      </div>
+
+      <!-- Setup Screen -->
+      <div id="med-setup">
+        <div class="med-setup-card">
+          <div class="med-setup-label">Phase Duration</div>
+          <div class="med-duration-control">
+            <button class="med-dur-btn" id="med-dur-down">−</button>
+            <span class="med-dur-value" id="med-dur-value">8</span>
+            <span class="med-dur-unit">min</span>
+            <button class="med-dur-btn" id="med-dur-up">+</button>
+          </div>
+          <input type="range" id="med-dur-slider" min="7" max="10" step="1" value="8" class="med-slider">
+        </div>
+        <button id="med-begin-btn" class="med-begin-btn">
+          <span class="med-begin-icon">🧹</span>
+          <span>Begin Session</span>
+        </button>
+      </div>
+
+      <!-- Active Session Screen -->
+      <div id="med-active" class="hidden">
+        <canvas id="med-bg-canvas" class="med-bg-canvas"></canvas>
+        <div class="med-phase-container" id="med-phase-container">
+          <div class="med-phase-label" id="med-phase-icon">🧹</div>
+          <div class="med-phase-name" id="med-phase-name">Clean</div>
+          <div class="med-round" id="med-round">Round 1</div>
+          <div class="med-timer-wrap">
+            <svg class="med-timer-svg" viewBox="0 0 200 200">
+              <circle class="med-timer-bg" cx="100" cy="100" r="90" />
+              <circle class="med-timer-ring" id="med-timer-ring" cx="100" cy="100" r="90" />
+            </svg>
+            <div class="med-timer-text" id="med-timer-text">8:00</div>
+          </div>
+          <div class="med-sound-controls">
+            <button class="med-sound-btn" id="med-mute-btn" title="Toggle sound">🔊</button>
+            <input type="range" id="med-vol-slider" min="0" max="100" value="30" class="med-vol-slider">
+          </div>
+          <button id="med-end-btn" class="med-end-btn">End Session</button>
+        </div>
+      </div>
+
+      <!-- Complete Screen -->
+      <div id="med-complete" class="hidden">
+        <div class="med-complete-card">
+          <div class="med-complete-icon">✦</div>
+          <h2 class="med-complete-title">Session Complete</h2>
+          <div class="med-complete-stats">
+            <div class="med-stat"><span class="med-stat-val" id="med-stat-time">0</span><span class="med-stat-label">minutes</span></div>
+            <div class="med-stat"><span class="med-stat-val" id="med-stat-rounds">0</span><span class="med-stat-label">rounds</span></div>
+          </div>
+          <div class="med-mood-check">
+            <div class="med-mood-label">How do you feel now?</div>
+            <div class="med-mood-row">
+              <span class="med-mood-val" id="med-mood-val">5</span>
+              <input type="range" id="med-mood-slider" min="1" max="10" step="1" value="5" class="med-slider med-mood-input">
+            </div>
+          </div>
+          <button id="med-save-btn" class="med-begin-btn">Save</button>
+        </div>
+      </div>
+
+      <!-- History -->
+      <div id="med-history" class="entries-list" style="margin-top:24px"></div>
+      <div id="med-empty" class="empty-state">
+        <span class="empty-icon">🧹</span>
+        <p>No sessions yet</p>
+      </div>
+    </section>
+
+    <!-- Today View -->
+    <section id="view-today" class="view">
+      <div class="view-header">
+        <h1>Today</h1>
+        <p class="subtitle" id="today-date"></p>
+      </div>
+      
+      <!-- Intraday trend chart -->
+      <div id="today-chart-section" class="chart-section" style="display: none;">
+        <h3>Your day timeline</h3>
+        <div class="chart-toggles" id="today-toggles"></div>
+        <div class="chart-wrap"><canvas id="today-chart"></canvas></div>
+      </div>
+      
+      <div id="today-entries" class="entries-list"></div>
+      <div id="today-empty" class="empty-state">
+        <span class="empty-icon">☀</span>
+        <p>No check-ins yet today</p>
+      </div>
+    </section>
+
+    <!-- Weekly View -->
+    <section id="view-weekly" class="view">
+      <div class="view-header">
+        <h1>This Week</h1>
+        <p class="subtitle">Daily averages over 7 days</p>
+      </div>
+      <div class="chart-toggles" id="weekly-toggles"></div>
+      <div class="chart-wrap"><canvas id="weekly-chart"></canvas></div>
+    </section>
+
+    <!-- Monthly View -->
+    <section id="view-monthly" class="view">
+      <div class="view-header">
+        <h1>This Month</h1>
+        <p class="subtitle">Daily averages over 30 days</p>
+      </div>
+      <div class="chart-toggles" id="monthly-toggles"></div>
+      <div class="chart-wrap"><canvas id="monthly-chart"></canvas></div>
+    </section>
+
+    <!-- Long-term Trends View -->
+    <section id="view-trends" class="view">
+      <div class="view-header">
+        <h1>Long-term Trends</h1>
+        <p class="subtitle">Daily averages over 90 days</p>
+      </div>
+      <div class="chart-toggles" id="trends-toggles"></div>
+      <div class="chart-wrap"><canvas id="trends-chart"></canvas></div>
+    </section>
+
+    <!-- Medication View -->
+    <section id="view-medication" class="view">
+      <div class="view-header">
+        <h1>💊 Medication</h1>
+        <p class="subtitle" id="medication-date"></p>
+      </div>
+
+      <!-- Today's medications -->
+      <div id="medication-today" class="medication-today">
+        <div id="medication-list" class="medication-list"></div>
+        <div id="medication-empty" class="empty-state">
+          <span class="empty-icon">💊</span>
+          <p>No medications added yet</p>
+        </div>
+      </div>
+
+      <!-- Add medication button -->
+      <div class="medication-actions">
+        <button id="medication-add-btn" class="medication-add-btn">+ Add Medication</button>
+        <button id="medication-history-btn" class="medication-history-btn">📋 History</button>
+      </div>
+
+      <!-- History view -->
+      <div id="medication-history" class="medication-history hidden">
+        <div class="medication-history-header">
+          <button id="medication-history-back" class="medication-back-btn">← Back</button>
+          <h2>Medication History</h2>
+        </div>
+        <div id="medication-history-list" class="medication-history-list"></div>
+      </div>
+    </section>
+
+    <!-- Timer View -->
+    <section id="view-timer" class="view">
+      <div class="view-header">
+        <h1>Activity Timer</h1>
+        <p class="subtitle" id="timer-subtitle">Track your time</p>
+      </div>
+
+      <!-- Main screen -->
+      <div id="timer-main">
+        <div class="timer-top-bar">
+          <input type="text" id="timer-search" class="timer-search" placeholder="Search activities…">
+          <button id="timer-add-btn" class="timer-add-btn">+</button>
+          <button id="timer-stats-btn" class="timer-stats-toggle-btn">📊</button>
+        </div>
+        <div id="timer-category-filters" class="timer-category-filters"></div>
+        <div id="timer-grid" class="timer-grid"></div>
+        <div id="timer-empty-activities" class="empty-state">
+          <span class="empty-icon">⏱</span>
+          <p>Tap + to add your first activity</p>
+        </div>
+      </div>
+
+      <!-- Active timer -->
+      <div id="timer-active" class="hidden">
+        <!-- Main session view -->
+        <div id="timer-session-display" class="timer-active-display">
+          <div class="timer-active-emoji" id="timer-active-emoji">🏃</div>
+          <div class="timer-active-name" id="timer-active-name">Running</div>
+          <div class="timer-active-clock" id="timer-active-clock">00:00:00</div>
+          
+          <div class="timer-sub-section" id="timer-sub-section">
+            <div class="timer-sub-grid" id="timer-sub-grid"></div>
+            <button id="timer-add-sub-btn" class="timer-add-sub-btn">+ Add Subcategory</button>
+          </div>
+          
+          <div class="timer-notes-section">
+            <textarea id="timer-session-notes" class="timer-session-notes" placeholder="Add notes for this session..." rows="2"></textarea>
+          </div>
+          
+          <div class="timer-control-buttons">
+            <button id="timer-cancel-btn" class="timer-cancel-btn">Cancel</button>
+            <button id="timer-stop-btn" class="timer-stop-btn">Save Session</button>
+          </div>
+        </div>
+
+        <!-- Sub-activity focused view -->
+        <div id="timer-sub-display" class="timer-active-display hidden">
+          <div class="timer-active-emoji" id="timer-sub-active-emoji">✏️</div>
+          <div class="timer-active-name" id="timer-sub-active-name">Drawing</div>
+          <div class="timer-active-clock" id="timer-sub-active-clock">00:00:00</div>
+          <div class="timer-sub-parent-info" id="timer-sub-parent-info">
+            <!-- shows parent session time -->
+          </div>
+          
+          <div class="timer-sub-section" id="timer-subsub-section">
+            <div class="timer-sub-grid" id="timer-subsub-grid"></div>
+            <button id="timer-add-subsub-btn" class="timer-add-sub-btn">+ Add Sub-subcategory</button>
+          </div>
+          
+          <div class="timer-notes-section">
+            <textarea id="timer-sub-notes" class="timer-session-notes" placeholder="Notes for this sub-activity..." rows="2"></textarea>
+          </div>
+          <div class="timer-sub-control-buttons">
+            <button id="timer-sub-back" class="timer-sub-back-btn">← Cancel</button>
+            <button id="timer-sub-done" class="timer-sub-done-btn">Save & Back</button>
+          </div>
+        </div>
+
+        <!-- Sub-sub-activity focused view -->
+        <div id="timer-subsub-display" class="timer-active-display hidden">
+          <div class="timer-active-emoji" id="timer-subsub-active-emoji">🎯</div>
+          <div class="timer-active-name" id="timer-subsub-active-name">Details</div>
+          <div class="timer-active-clock" id="timer-subsub-active-clock">00:00:00</div>
+          <div class="timer-sub-parent-info" id="timer-subsub-parent-info">
+            <!-- shows parent activity and sub-activity time -->
+          </div>
+          <div class="timer-notes-section">
+            <textarea id="timer-subsub-notes" class="timer-session-notes" placeholder="Notes for this detailed activity..." rows="2"></textarea>
+          </div>
+          <div class="timer-sub-control-buttons">
+            <button id="timer-subsub-back" class="timer-sub-back-btn">← Cancel</button>
+            <button id="timer-subsub-done" class="timer-sub-done-btn">Save & Back</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Create activity modal -->
+      <div id="timer-create-modal" class="timer-modal hidden">
+        <div class="timer-modal-card">
+          <h3>New Activity</h3>
+          <div class="timer-modal-field">
+            <label>Emoji</label>
+            <input type="text" id="timer-new-emoji" class="timer-modal-input" placeholder="🏃" maxlength="10">
+          </div>
+          <div class="timer-modal-field">
+            <label>Name</label>
+            <input type="text" id="timer-new-name" class="timer-modal-input" placeholder="Running">
+          </div>
+          <div class="timer-modal-field">
+            <label>Category</label>
+            <div class="timer-category-select-wrap">
+              <select id="timer-new-category" class="timer-modal-input">
+                <option value="">None</option>
+              </select>
+              <button id="timer-new-category-btn" class="timer-new-cat-btn" title="New category">+</button>
+            </div>
+          </div>
+          <div class="timer-modal-field">
+            <label>Color</label>
+            <div class="timer-color-picks" id="timer-color-picks"></div>
+          </div>
+          <div class="timer-modal-actions">
+            <button id="timer-create-cancel" class="dream-btn-secondary">Cancel</button>
+            <button id="timer-create-save" class="dream-btn-primary">Create</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Create sub-activity modal -->
+      <div id="timer-sub-modal" class="timer-modal hidden">
+        <div class="timer-modal-card">
+          <h3>Add Subcategory</h3>
+          <div class="timer-modal-field">
+            <label>Emoji</label>
+            <input type="text" id="timer-sub-emoji" class="timer-modal-input" placeholder="🎯" maxlength="10">
+          </div>
+          <div class="timer-modal-field">
+            <label>Name</label>
+            <input type="text" id="timer-sub-name" class="timer-modal-input" placeholder="Sub-activity name">
+          </div>
+          <div class="timer-modal-actions">
+            <button id="timer-sub-cancel" class="dream-btn-secondary">Cancel</button>
+            <button id="timer-sub-create" class="dream-btn-primary">Add</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edit activity modal -->
+      <div id="timer-edit-modal" class="timer-modal hidden">
+        <div class="timer-modal-card">
+          <h3>Edit Activity</h3>
+          <div class="timer-modal-field">
+            <label>Emoji</label>
+            <input type="text" id="timer-edit-emoji" class="timer-modal-input" placeholder="🏃" maxlength="10">
+          </div>
+          <div class="timer-modal-field">
+            <label>Name</label>
+            <input type="text" id="timer-edit-name" class="timer-modal-input" placeholder="Running">
+          </div>
+          <div class="timer-modal-field">
+            <label>Color</label>
+            <div class="timer-color-picks" id="timer-edit-color-picks"></div>
+          </div>
+          <div class="timer-modal-actions">
+            <button id="timer-edit-cancel" class="dream-btn-secondary">Cancel</button>
+            <button id="timer-edit-save" class="dream-btn-primary">Save Changes</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Create category modal -->
+      <div id="timer-cat-modal" class="timer-modal hidden">
+        <div class="timer-modal-card">
+          <h3>New Category</h3>
+          <div class="timer-modal-field">
+            <label>Emoji</label>
+            <input type="text" id="timer-cat-emoji" class="timer-modal-input" placeholder="💼" maxlength="10">
+          </div>
+          <div class="timer-modal-field">
+            <label>Name</label>
+            <input type="text" id="timer-cat-name" class="timer-modal-input" placeholder="Work">
+          </div>
+          <div class="timer-modal-field">
+            <label>Color</label>
+            <div class="timer-cat-color-picks" id="timer-cat-color-picks"></div>
+          </div>
+          <div class="timer-modal-field">
+            <label>Description (optional)</label>
+            <input type="text" id="timer-cat-desc" class="timer-modal-input" placeholder="Notes about this category…">
+          </div>
+          <div class="timer-modal-actions">
+            <button id="timer-cat-cancel" class="dream-btn-secondary">Cancel</button>
+            <button id="timer-cat-save" class="dream-btn-primary">Create</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stop timer notes modal -->
+      <div id="timer-stop-modal" class="timer-modal hidden">
+        <div class="timer-modal-card">
+          <h3 id="timer-stop-modal-title">Session Complete</h3>
+          <div class="timer-stop-summary" id="timer-stop-summary"></div>
+          <div class="timer-stop-notes-section">
+            <button class="notes-toggle" id="timer-stop-notes-toggle">
+              <span class="chevron">›</span> Add a note
+            </button>
+            <div class="notes-field" id="timer-stop-notes-field">
+              <textarea id="timer-stop-notes" placeholder="How did it go? Any thoughts…"></textarea>
+            </div>
+          </div>
+          <div class="timer-modal-actions">
+            <button id="timer-stop-save" class="dream-btn-primary">Save</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- medication modals moved outside view sections -->
+
+      <!-- Edit time entry modal -->
+      <div id="entry-edit-modal" class="timer-modal hidden">
+        <div class="timer-modal-card">
+          <h3 id="entry-edit-title">Edit Entry</h3>
+          <div class="timer-modal-field">
+            <label>Date</label>
+            <input type="date" id="entry-edit-date" class="timer-modal-input">
+          </div>
+          <div class="timer-modal-field">
+            <label>Start Time</label>
+            <input type="time" id="entry-edit-start" class="timer-modal-input">
+          </div>
+          <div class="timer-modal-field">
+            <label>End Time</label>
+            <input type="time" id="entry-edit-end" class="timer-modal-input">
+          </div>
+          <div class="timer-modal-field">
+            <label>Note (optional)</label>
+            <input type="text" id="entry-edit-note" class="timer-modal-input" placeholder="Add a note...">
+          </div>
+          <div class="timer-modal-actions">
+            <button id="entry-edit-cancel" class="dream-btn-secondary">Cancel</button>
+            <button id="entry-edit-save" class="dream-btn-primary">Save Changes</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Manual entry modal -->
+      <div id="timer-manual-modal" class="timer-modal hidden">
+        <div class="timer-modal-card">
+          <h3>Add Time Entry</h3>
+          <div class="timer-modal-field">
+            <label>Activity</label>
+            <select id="timer-manual-activity" class="timer-modal-input"></select>
+          </div>
+          <div class="timer-modal-field">
+            <label>Date</label>
+            <input type="date" id="timer-manual-date" class="timer-modal-input">
+          </div>
+          <div class="timer-modal-field">
+            <label>Start Time</label>
+            <input type="time" id="timer-manual-start" class="timer-modal-input">
+          </div>
+          <div class="timer-modal-field">
+            <label>End Time</label>
+            <input type="time" id="timer-manual-end" class="timer-modal-input">
+          </div>
+          <div class="timer-modal-field">
+            <label>Note (optional)</label>
+            <input type="text" id="timer-manual-note" class="timer-modal-input" placeholder="Optional note…">
+          </div>
+          <div class="timer-modal-actions">
+            <button id="timer-manual-cancel" class="dream-btn-secondary">Cancel</button>
+            <button id="timer-manual-save" class="dream-btn-primary">Add</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats view -->
+      <div id="timer-stats" class="hidden">
+        <div class="timer-stats-top-bar">
+          <button id="timer-stats-back" class="timer-stats-back">← Back</button>
+          <button id="timer-manual-add-btn" class="timer-add-btn" title="Add entry manually">+</button>
+        </div>
+        <div class="timer-stats-period">
+          <button class="timer-period-btn active" data-period="today">Today</button>
+          <button class="timer-period-btn" data-period="week">Week</button>
+          <button class="timer-period-btn" data-period="month">Month</button>
+        </div>
+        <div id="timer-stats-timeline" class="timer-stats-section">
+          <h4>Entries</h4>
+          <div id="timer-timeline-bars" class="timer-timeline-bars"></div>
+        </div>
+        <div class="timer-stats-section">
+          <h4>Weekly Overview</h4>
+          <div class="chart-wrap"><canvas id="timer-weekly-chart"></canvas></div>
+        </div>
+        <div class="timer-stats-section">
+          <h4>Total Time</h4>
+          <div id="timer-totals" class="timer-totals"></div>
+        </div>
+        <div id="timer-cat-stats" class="timer-cat-stats-section">
+          <h4>By Category</h4>
+          <div id="timer-cat-totals"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Food diary view -->
+    <section id="view-food" class="view">
+      <h2>🍎 Food Diary</h2>
+      
+      <!-- Quick Add -->
+      <div class="food-quick-add">
+        <div class="food-camera-area" id="food-camera-area">
+          <div class="food-camera-placeholder">
+            <span class="camera-icon">📸</span>
+            <p>Tap to capture your food or drink</p>
+          </div>
+          <img id="food-preview" class="food-preview hidden" alt="Food photo">
+          <input type="file" id="food-camera" accept="image/*" capture="camera" class="hidden">
+        </div>
+        <button id="food-quick-save" class="food-quick-save-btn">✓ Quick Save</button>
+      </div>
+
+      <!-- Detailed Entry -->
+      <div class="food-detailed">
+        <div class="food-section">
+          <h3>Meal Details</h3>
+          <div class="food-row">
+            <label>Meal Type</label>
+            <select id="food-meal-type" class="food-select">
+              <option value="breakfast">🌅 Breakfast</option>
+              <option value="lunch">☀️ Lunch</option>
+              <option value="dinner">🌆 Dinner</option>
+              <option value="snack">🍪 Snack</option>
+              <option value="drink">🥤 Drink</option>
+            </select>
+          </div>
+          <div class="food-row">
+            <label>Description</label>
+            <input type="text" id="food-description" class="food-input" placeholder="What did you eat or drink?">
+          </div>
+          <div class="food-row">
+            <label>Satisfaction</label>
+            <div class="food-rating">
+              <input type="range" id="food-satisfaction" class="food-slider" min="1" max="10" value="5">
+              <span id="food-satisfaction-val" class="food-rating-val">5</span>/10
+            </div>
+          </div>
+        </div>
+
+        <!-- Tags -->
+        <div class="food-section">
+          <h3>Tags</h3>
+          <div class="food-tags" id="food-tags">
+            <button class="food-tag-btn" data-tag="healthy">🥗 Healthy</button>
+            <button class="food-tag-btn" data-tag="comfort">🍲 Comfort</button>
+            <button class="food-tag-btn" data-tag="restaurant">🏪 Restaurant</button>
+            <button class="food-tag-btn" data-tag="homemade">🏠 Homemade</button>
+            <button class="food-tag-btn" data-tag="social">👥 Social</button>
+            <button class="food-tag-btn" data-tag="indulgent">🍰 Indulgent</button>
+            <button class="food-tag-btn" data-tag="fresh">🌱 Fresh</button>
+            <button class="food-tag-btn" data-tag="processed">📦 Processed</button>
+          </div>
+        </div>
+
+        <button id="food-save" class="food-save-btn">Save Food Entry</button>
+      </div>
+
+      <!-- Food History -->
+      <div class="food-history-section">
+        <h3>Recent Meals</h3>
+        <div id="food-history" class="food-history"></div>
+        <div id="food-empty" class="empty-state">
+          <span class="empty-icon">🍽️</span>
+          <p>No meals logged yet</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Art Studio View -->
+    <section id="view-studio" class="view">
+      <div class="view-header">
+        <h1>🎨 Art Studio</h1>
+        <p class="subtitle">Your creative assets for the app</p>
+      </div>
+
+      <!-- Upload Section -->
+      <div class="studio-upload-section">
+        <div class="studio-upload-zone" id="studio-upload-zone">
+          <span class="studio-upload-icon">🖼️</span>
+          <p>Tap to upload artwork</p>
+          <p class="studio-upload-hint">Images, SVGs, animations</p>
+          <input type="file" id="studio-file-input" accept="image/*,.svg,.gif,.json,.mp4,.webm" multiple hidden>
+        </div>
+      </div>
+
+      <!-- Category Tabs -->
+      <div class="studio-categories">
+        <button class="studio-cat-btn active" data-cat="all">All</button>
+        <button class="studio-cat-btn" data-cat="icons">Icons</button>
+        <button class="studio-cat-btn" data-cat="backgrounds">Backgrounds</button>
+        <button class="studio-cat-btn" data-cat="animations">Animations</button>
+        <button class="studio-cat-btn" data-cat="ui">UI Elements</button>
+        <button class="studio-cat-btn" data-cat="illustrations">Illustrations</button>
+      </div>
+
+      <!-- Asset Stats -->
+      <div class="studio-stats">
+        <div class="studio-stat">
+          <span class="studio-stat-number" id="studio-total">0</span>
+          <span class="studio-stat-label">Assets</span>
+        </div>
+        <div class="studio-stat">
+          <span class="studio-stat-number" id="studio-implemented">0</span>
+          <span class="studio-stat-label">In App</span>
+        </div>
+        <div class="studio-stat">
+          <span class="studio-stat-number" id="studio-pending">0</span>
+          <span class="studio-stat-label">Pending</span>
+        </div>
+      </div>
+
+      <!-- Asset Gallery -->
+      <div id="studio-gallery" class="studio-gallery"></div>
+      <div id="studio-empty" class="empty-state">
+        <span class="empty-icon">🎨</span>
+        <p>No assets yet — upload your first artwork!</p>
+      </div>
+
+      <!-- Asset Detail Modal -->
+      <div id="studio-detail-modal" class="timer-modal hidden">
+        <div class="timer-modal-card studio-detail-card">
+          <div class="studio-detail-preview" id="studio-detail-preview"></div>
+          <div class="timer-modal-field">
+            <label>Name</label>
+            <input type="text" id="studio-detail-name" class="timer-modal-input" placeholder="Asset name">
+          </div>
+          <div class="timer-modal-field">
+            <label>Category</label>
+            <select id="studio-detail-cat" class="timer-modal-input">
+              <option value="icons">Icons</option>
+              <option value="backgrounds">Backgrounds</option>
+              <option value="animations">Animations</option>
+              <option value="ui">UI Elements</option>
+              <option value="illustrations">Illustrations</option>
+            </select>
+          </div>
+          <div class="timer-modal-field">
+            <label>Notes for Daisy</label>
+            <textarea id="studio-detail-notes" class="timer-modal-input" rows="3" placeholder="Where should this go? What's it for? Any instructions..."></textarea>
+          </div>
+          <div class="timer-modal-field">
+            <label>Status</label>
+            <select id="studio-detail-status" class="timer-modal-input">
+              <option value="pending">🟡 Pending</option>
+              <option value="implemented">🟢 In App</option>
+              <option value="revision">🔴 Needs Revision</option>
+            </select>
+          </div>
+          <div class="timer-modal-actions">
+            <button id="studio-detail-delete" class="timer-modal-cancel">Delete</button>
+            <button id="studio-detail-save" class="timer-modal-save">Save</button>
+            <button id="studio-detail-close" class="timer-modal-cancel">Close</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- To-Do's View -->
+    <section id="view-todos" class="view">
+      <div class="view-header">
+        <h1>✓ To-Do's</h1>
+        <p class="subtitle">Stay organized and focused</p>
+      </div>
+
+      <!-- To-Do Modal -->
+      <div id="todo-modal" class="timer-modal hidden">
+        <div class="timer-modal-card">
+          <h3 id="todo-modal-title">Add Task</h3>
+          <div class="timer-modal-field">
+            <label>Task</label>
+            <input type="text" id="todo-text" class="timer-modal-input" placeholder="What needs to be done?">
+          </div>
+          <div class="timer-modal-field">
+            <label>Category</label>
+            <select id="todo-category" class="timer-modal-input">
+              <option value="important">🔴 Important</option>
+              <option value="urgent">🟠 Urgent</option>
+              <option value="other">🔵 Other</option>
+            </select>
+          </div>
+          <div class="timer-modal-field">
+            <label>Priority Level</label>
+            <div class="todo-priority-picker" id="todo-priority-picker">
+              <button class="todo-priority-btn" data-priority="1">1</button>
+              <button class="todo-priority-btn" data-priority="2">2</button>
+              <button class="todo-priority-btn" data-priority="3">3</button>
+              <button class="todo-priority-btn" data-priority="4">4</button>
+              <button class="todo-priority-btn" data-priority="5">5</button>
+            </div>
+            <div class="todo-priority-legend">
+              <span>1: Low</span> • <span>3: Medium</span> • <span>5: Critical</span>
+            </div>
+          </div>
+          <div class="timer-modal-field">
+            <label>Notes (optional)</label>
+            <textarea id="todo-notes" class="timer-modal-input" placeholder="Additional details..." rows="3"></textarea>
+          </div>
+          <div class="timer-modal-actions">
+            <button id="todo-cancel" class="dream-btn-secondary">Cancel</button>
+            <button id="todo-save" class="dream-btn-primary">Save Task</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Important Category -->
+      <div class="todo-category" data-category="important">
+        <div class="todo-category-header">
+          <h2 class="todo-category-title">🔴 Important</h2>
+          <button class="todo-add-btn" data-category="important">+</button>
+        </div>
+        <div class="todo-list" id="todo-list-important"></div>
+        <div class="todo-empty" id="todo-empty-important">
+          <span class="empty-icon">📝</span>
+          <p>No important tasks yet</p>
+        </div>
+      </div>
+
+      <!-- Urgent Category -->
+      <div class="todo-category" data-category="urgent">
+        <div class="todo-category-header">
+          <h2 class="todo-category-title">🟠 Urgent</h2>
+          <button class="todo-add-btn" data-category="urgent">+</button>
+        </div>
+        <div class="todo-list" id="todo-list-urgent"></div>
+        <div class="todo-empty" id="todo-empty-urgent">
+          <span class="empty-icon">⚡</span>
+          <p>No urgent tasks yet</p>
+        </div>
+      </div>
+
+      <!-- Other Category -->
+      <div class="todo-category" data-category="other">
+        <div class="todo-category-header">
+          <h2 class="todo-category-title">🔵 Other</h2>
+          <button class="todo-add-btn" data-category="other">+</button>
+        </div>
+        <div class="todo-list" id="todo-list-other"></div>
+        <div class="todo-empty" id="todo-empty-other">
+          <span class="empty-icon">📋</span>
+          <p>No other tasks yet</p>
+        </div>
+      </div>
+
+      <!-- Completed Tasks -->
+      <div class="todo-completed-section">
+        <button id="todo-show-completed" class="todo-show-completed-btn">
+          Show Completed Tasks <span id="completed-count"></span>
+        </button>
+        <div class="todo-completed-list hidden" id="todo-completed-list"></div>
+      </div>
+    </section>
+
+    <!-- ======= Wishlist View ======= -->
+    <section id="view-wishlist" class="view">
+      <div class="wishlist-header">
+        <h1>✨ Things I Want To Do</h1>
+        <button id="wishlist-add-btn" class="wishlist-add-btn">+ Add Wish</button>
+      </div>
+
+      <!-- Add/Edit Modal -->
+      <div id="wishlist-modal" class="timer-modal hidden">
+        <div class="timer-modal-card">
+          <h3 id="wishlist-modal-title">Add New Wish</h3>
+          <div class="timer-modal-field">
+            <label>What do you want to do?</label>
+            <input type="text" id="wishlist-text" class="timer-modal-input" placeholder="Learn to paint, visit Tokyo, write a song...">
+          </div>
+          <div class="timer-modal-field">
+            <label>Category</label>
+            <select id="wishlist-category" class="timer-modal-input">
+              <option value="creative">🎨 Creative</option>
+              <option value="travel">✈️ Travel</option>
+              <option value="learn">📚 Learn</option>
+              <option value="experience">🌟 Experience</option>
+              <option value="personal">💭 Personal</option>
+            </select>
+          </div>
+          <div class="timer-modal-field">
+            <label>Dream Level</label>
+            <div class="wishlist-level-picker" id="wishlist-level-picker">
+              <button class="wishlist-level-btn" data-level="someday">✨ Someday</button>
+              <button class="wishlist-level-btn" data-level="this-year">🎯 This Year</button>
+              <button class="wishlist-level-btn" data-level="soon">⚡ Soon</button>
+            </div>
+          </div>
+          <div class="timer-modal-field">
+            <label>Notes (optional)</label>
+            <textarea id="wishlist-notes" class="timer-modal-input" placeholder="Why is this meaningful to you? Any ideas on how to start?" rows="3"></textarea>
+          </div>
+          <div class="timer-modal-actions">
+            <button id="wishlist-cancel" class="dream-btn-secondary">Cancel</button>
+            <button id="wishlist-save" class="dream-btn-primary">Save Wish</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Wishes by Level -->
+      <div class="wishlist-level" data-level="soon">
+        <div class="wishlist-level-header">
+          <h2 class="wishlist-level-title">⚡ Soon</h2>
+          <span class="wishlist-count" id="wishlist-count-soon">0</span>
+        </div>
+        <div class="wishlist-list" id="wishlist-list-soon"></div>
+        <div class="wishlist-empty" id="wishlist-empty-soon">
+          <span class="wishlist-empty-icon">⚡</span>
+          <p>Things you want to do soon</p>
+        </div>
+      </div>
+
+      <div class="wishlist-level" data-level="this-year">
+        <div class="wishlist-level-header">
+          <h2 class="wishlist-level-title">🎯 This Year</h2>
+          <span class="wishlist-count" id="wishlist-count-this-year">0</span>
+        </div>
+        <div class="wishlist-list" id="wishlist-list-this-year"></div>
+        <div class="wishlist-empty" id="wishlist-empty-this-year">
+          <span class="wishlist-empty-icon">🎯</span>
+          <p>Goals for this year</p>
+        </div>
+      </div>
+
+      <div class="wishlist-level" data-level="someday">
+        <div class="wishlist-level-header">
+          <h2 class="wishlist-level-title">✨ Someday</h2>
+          <span class="wishlist-count" id="wishlist-count-someday">0</span>
+        </div>
+        <div class="wishlist-list" id="wishlist-list-someday"></div>
+        <div class="wishlist-empty" id="wishlist-empty-someday">
+          <span class="wishlist-empty-icon">✨</span>
+          <p>Dreams for the future</p>
+        </div>
+      </div>
+
+      <!-- Completed Wishes -->
+      <div class="wishlist-completed-section">
+        <button id="wishlist-show-completed" class="wishlist-show-completed-btn">
+          🌟 Completed Dreams <span id="wishlist-completed-count"></span>
+        </button>
+        <div class="wishlist-completed-list hidden" id="wishlist-completed-list"></div>
+      </div>
+    </section>
+
+    <!-- Export view -->
+    <section id="view-export" class="view">
+      <h2>📤 Export Your Data</h2>
+      
+      <div class="export-section">
+        <h3>📊 Mood Data</h3>
+        <div class="export-buttons">
+          <button id="export-mood-csv" class="export-btn">CSV Spreadsheet</button>
+          <button id="export-mood-text" class="export-btn">Readable Text</button>
+        </div>
+      </div>
+
+      <div class="export-section">
+        <h3>🌙 Dream Journal</h3>
+        <div class="export-buttons">
+          <button id="export-dreams-text" class="export-btn">Text Journal</button>
+          <button id="export-dreams-json" class="export-btn">Full Data + Audio</button>
+        </div>
+      </div>
+
+      <div class="export-section">
+        <h3>⏱ Activity Timer</h3>
+        <div class="export-buttons">
+          <button id="export-timer-csv" class="export-btn">CSV Time Log</button>
+          <button id="export-timer-summary" class="export-btn">Weekly Summary</button>
+        </div>
+      </div>
+
+      <div class="export-section">
+        <h3>🧹 Meditation Log</h3>
+        <div class="export-buttons">
+          <button id="export-meditation-csv" class="export-btn">CSV Sessions</button>
+        </div>
+      </div>
+
+      <div class="export-section">
+        <h3>💾 Complete Backup</h3>
+        <div class="export-buttons">
+          <button id="export-all-json" class="export-btn primary">Full JSON Backup</button>
+        </div>
+        <p class="export-note">Complete data backup — import this to restore everything</p>
+      </div>
+
+      <div class="export-section">
+        <h3>📋 Pretty Report</h3>
+        <div class="export-buttons">
+          <button id="export-html-report" class="export-btn primary">HTML Report</button>
+        </div>
+        <p class="export-note">Beautiful formatted view of all your data</p>
+      </div>
+
+      <div class="export-section">
+        <h3>🌼 Share with Daisy</h3>
+        <div class="export-buttons">
+          <button id="share-with-daisy" class="export-btn primary">📄 Download for Daisy</button>
+        </div>
+        <p class="export-note">Downloads a file with ALL your data — send it to Daisy via WhatsApp!</p>
+      </div>
+    </section>
+
+    <!-- Medication modals (outside view sections for iOS compatibility) -->
+    <div id="medication-modal" class="timer-modal hidden">
+      <div class="timer-modal-card">
+        <h3>Add Medication</h3>
+        <div class="timer-modal-field">
+          <label>Name</label>
+          <input type="text" id="medication-name" class="timer-modal-input" placeholder="Medication name">
+        </div>
+        <div class="timer-modal-field">
+          <label>Dosage</label>
+          <input type="text" id="medication-dosage" class="timer-modal-input" placeholder="e.g., 10mg, 1 pill">
+        </div>
+        <div class="timer-modal-field">
+          <label>Frequency</label>
+          <select id="medication-frequency" class="timer-modal-input">
+            <option value="once">Once daily</option>
+            <option value="multiple">Multiple times daily</option>
+          </select>
+        </div>
+        <div class="timer-modal-field">
+          <label>Color</label>
+          <div class="timer-color-picks" id="medication-color-picks"></div>
+        </div>
+        <div class="timer-modal-actions">
+          <button id="medication-cancel" class="dream-btn-secondary">Cancel</button>
+          <button id="medication-save" class="dream-btn-primary">Add</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="medication-log-modal" class="timer-modal hidden">
+      <div class="timer-modal-card">
+        <h3 id="medication-log-title">Log Medication</h3>
+        <div class="timer-modal-field">
+          <label>Time</label>
+          <input type="time" id="medication-log-time" class="timer-modal-input">
+        </div>
+        <div class="timer-modal-field">
+          <label>Notes (optional)</label>
+          <input type="text" id="medication-log-notes" class="timer-modal-input" placeholder="With food, side effects, etc.">
+        </div>
+        <div class="timer-modal-actions">
+          <button id="medication-log-cancel" class="dream-btn-secondary">Cancel</button>
+          <button id="medication-log-save" class="dream-btn-primary">Log</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
   </div>
-  <script>
-    const slider = document.getElementById('moodSlider');
-    const display = document.getElementById('moodDisplay');
-    slider.addEventListener('input', function() {
-      display.textContent = this.value;
-    });
-    function saveEntry() {
-      const mood = slider.value;
-      const note = document.getElementById('note').value;
-      const status = document.getElementById('status');
-      status.textContent = '✅ Saved! Mood: ' + mood + '/10';
-      document.getElementById('note').value = '';
-      setTimeout(function() { status.textContent = ''; }, 3000);
-    }
-  </script>
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+  
+  <script src="core.js"></script>
+  <script src="mood.js"></script>
+  <script src="dreams.js"></script>
+  <script src="timer.js"></script>
+  <script src="meditation.js"></script>
+  <script src="food.js"></script>
+  <script src="insights.js"></script>
+  <script src="sync.js"></script>
+  <script src="medication.js"></script>
+  <script src="todos.js"></script>
+  <script src="wishlist.js"></script>
+  <script src="studio.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
