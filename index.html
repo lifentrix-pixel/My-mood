@@ -17,6 +17,16 @@
     <!-- Sync Status Indicator -->
     <div id="sync-status" class="sync-status">📱 Loading...</div>
     
+    <!-- Import Banner (shows only when no data) -->
+    <div id="import-banner" style="display:none; background:linear-gradient(135deg,#7c3aed,#a78bfa); padding:12px 20px; text-align:center; border-radius:12px; margin:8px 16px;">
+      <a href="import-data.html" style="color:white; text-decoration:none; font-weight:600; font-size:14px;">📥 Tap here to import your data</a>
+    </div>
+    <script>
+      if(!localStorage.getItem('innerscape_entries') || JSON.parse(localStorage.getItem('innerscape_entries')||'[]').length===0){
+        document.getElementById('import-banner').style.display='block';
+      }
+    </script>
+    
     <!-- Nav -->
     <nav id="nav">
       <button class="nav-btn active" data-group="track">
