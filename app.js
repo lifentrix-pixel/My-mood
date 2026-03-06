@@ -27,4 +27,5 @@ document.addEventListener('DOMContentLoaded', () => {
   initWishlist();
   initStudio();
   initStoolModule();
+  initOuraModule();
 });

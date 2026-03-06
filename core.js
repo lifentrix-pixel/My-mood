@@ -311,6 +311,7 @@ function switchView(view) {
   if (view === 'food') initFood();
   if (view === 'medication') renderMedication();
   if (view === 'stool') showStoolPage();
+  if (view === 'oura') showOuraPage();
   if (view === 'todos') renderTodos();
   if (view === 'today') renderToday();
   if (view === 'dreams') renderDreams();
