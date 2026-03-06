@@ -310,6 +310,7 @@ function switchView(view) {
   if (view === 'checkin') renderTodayStats();
   if (view === 'food') initFood();
   if (view === 'medication') renderMedication();
+  if (view === 'stool') showStoolPage();
   if (view === 'todos') renderTodos();
   if (view === 'today') renderToday();
   if (view === 'dreams') renderDreams();

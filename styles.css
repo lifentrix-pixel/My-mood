@@ -3122,3 +3122,169 @@ input[type="range"]::-moz-range-thumb {
   flex-direction: column;
   gap: 12px;
 }
+
+/* Stool Tracker Styles */
+.stool-form {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.bristol-chart {
+  margin-bottom: 2rem;
+}
+
+.bristol-chart h3 {
+  margin-bottom: 1rem;
+  color: var(--text-color);
+  text-align: center;
+}
+
+.bristol-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bristol-option {
+  display: block;
+  cursor: pointer;
+}
+
+.bristol-option input[type="radio"] {
+  display: none;
+}
+
+.bristol-type {
+  padding: 12px 16px;
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--card-bg);
+  transition: all 0.2s ease;
+}
+
+.bristol-option input[type="radio"]:checked + .bristol-type {
+  border-color: var(--primary-color);
+  background: var(--primary-color)20;
+}
+
+.bristol-number {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--text-color);
+}
+
+.bristol-desc {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.stool-details {
+  background: var(--card-bg);
+  padding: 1.5rem;
+  border-radius: 16px;
+  margin-bottom: 2rem;
+}
+
+.symptom-checks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.symptom-checks label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.symptom-checks input[type="checkbox"] {
+  accent-color: var(--primary-color);
+}
+
+.stool-history {
+  max-width: 600px;
+  margin: 2rem auto 0;
+}
+
+.stool-entry {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  position: relative;
+}
+
+.stool-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.stool-time {
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.bristol-badge {
+  background: var(--primary-color);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.stool-entry .stool-details {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  background: none;
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+}
+
+.stool-entry .stool-details > div {
+  margin-bottom: 6px;
+}
+
+.entry-actions {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  color: var(--error-color);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.delete-btn:hover {
+  opacity: 1;
+}
+
+/* Responsive adjustments for stool tracker */
+@media (max-width: 768px) {
+  .symptom-checks {
+    grid-template-columns: 1fr;
+  }
+  
+  .bristol-type {
+    padding: 10px 12px;
+  }
+  
+  .stool-entry {
+    padding: 1rem;
+  }
+}
+/* Stool Tracker Styles End */

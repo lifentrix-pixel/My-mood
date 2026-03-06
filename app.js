@@ -26,4 +26,5 @@ document.addEventListener('DOMContentLoaded', () => {
   initTodos();
   initWishlist();
   initStudio();
+  initStoolModule();
 });
