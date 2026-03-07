@@ -267,6 +267,59 @@ function initExport() {
   $('#export-all-json').addEventListener('click', () => exportAllJSON());
   $('#export-html-report').addEventListener('click', () => exportHTMLReport());
   $('#share-with-daisy').addEventListener('click', () => shareWithDaisy());
+
+  const importInput = $('#import-file-input');
+  if (importInput) {
+    importInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        try {
+          const data = JSON.parse(evt.target.result);
+          importBackup(data);
+        } catch(err) {
+          $('#import-result').innerHTML = '<p style="color:#f87171;margin-top:8px">❌ ' + err.message + '</p>';
+        }
+      };
+      reader.readAsText(file);
+    });
+  }
+}
+
+function importBackup(data) {
+  const logs = [];
+
+  function mergeKey(key, arr, label) {
+    if (arr && arr.length) {
+      const existing = JSON.parse(localStorage.getItem(key) || '[]');
+      const ids = new Set(existing.map(e => e.id || e.ts));
+      const fresh = arr.filter(e => !ids.has(e.id || e.ts));
+      localStorage.setItem(key, JSON.stringify([...existing, ...fresh]));
+      logs.push('✅ ' + label + ': ' + arr.length + ' (' + fresh.length + ' new)');
+    }
+  }
+
+  mergeKey('innerscape_entries', data.mood_entries, 'Mood');
+  mergeKey('innerscape_dreams', data.dreams, 'Dreams');
+  mergeKey('innerscape_activities', data.activities, 'Activities');
+  mergeKey('innerscape_time_entries', data.time_entries, 'Time entries');
+  mergeKey('innerscape_meditations', data.meditation_sessions, 'Meditations');
+  mergeKey('innerscape_food_entries', data.food_entries, 'Food');
+  mergeKey('innerscape_medications', data.medications, 'Medications');
+  mergeKey('innerscape_medication_logs', data.medication_logs, 'Med logs');
+  mergeKey('innerscape_todos', data.todos, 'Todos');
+  mergeKey('innerscape_wishes', data.wishes, 'Wishes');
+  mergeKey('innerscape_stool_entries', data.stool_entries, 'Stool');
+  if (data.oura_config) { localStorage.setItem('innerscape_oura_config', JSON.stringify(data.oura_config)); logs.push('✅ Oura config'); }
+  if (data.oura_data) { localStorage.setItem('innerscape_oura_data', JSON.stringify(data.oura_data)); logs.push('✅ Oura data'); }
+
+  if (!logs.length) {
+    $('#import-result').innerHTML = '<p style="color:#fbbf24;margin-top:8px">⚠️ No data found in file</p>';
+  } else {
+    $('#import-result').innerHTML = '<p style="color:#4ade80;margin-top:8px">🎉 Imported!<br>' + logs.join('<br>') + '</p>';
+    showToast('Import complete ✓');
+  }
 }
 
 function exportMoodCSV() {

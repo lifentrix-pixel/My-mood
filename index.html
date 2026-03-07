@@ -1044,6 +1044,16 @@
       </div>
 
       <div class="export-section">
+        <h3>📥 Import Backup</h3>
+        <div class="export-buttons">
+          <label class="export-btn primary" for="import-file-input" style="cursor:pointer;text-align:center">Choose Backup File</label>
+          <input type="file" id="import-file-input" accept=".json,application/json" style="display:none">
+        </div>
+        <p class="export-note">Restore from a backup file — merges with existing data</p>
+        <div id="import-result"></div>
+      </div>
+
+      <div class="export-section">
         <h3>📋 Pretty Report</h3>
         <div class="export-buttons">
           <button id="export-html-report" class="export-btn primary">HTML Report</button>
