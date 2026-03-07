@@ -113,9 +113,9 @@ async function connectOura() {
         return;
     }
     
-    // Test the token
+    // Test the token using CORS proxy
     try {
-        const response = await fetch('https://api.ouraring.com/v2/usercollection/personal_info', {
+        const response = await fetch('https://corsproxy.io/?' + encodeURIComponent('https://api.ouraring.com/v2/usercollection/personal_info'), {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -162,21 +162,21 @@ async function syncOuraData() {
         };
         
         // Fetch sleep data
-        const sleepResponse = await fetch(`https://api.ouraring.com/v2/usercollection/sleep?start_date=${startDate}&end_date=${endDate}`, { headers });
+        const sleepResponse = await fetch('https://corsproxy.io/?' + encodeURIComponent(`https://api.ouraring.com/v2/usercollection/sleep?start_date=${startDate}&end_date=${endDate}`), { headers });
         if (sleepResponse.ok) {
             const sleepData = await sleepResponse.json();
             ouraData.sleep = sleepData.data || [];
         }
         
         // Fetch readiness data
-        const readinessResponse = await fetch(`https://api.ouraring.com/v2/usercollection/daily_readiness?start_date=${startDate}&end_date=${endDate}`, { headers });
+        const readinessResponse = await fetch('https://corsproxy.io/?' + encodeURIComponent(`https://api.ouraring.com/v2/usercollection/daily_readiness?start_date=${startDate}&end_date=${endDate}`), { headers });
         if (readinessResponse.ok) {
             const readinessData = await readinessResponse.json();
             ouraData.readiness = readinessData.data || [];
         }
         
         // Fetch activity data
-        const activityResponse = await fetch(`https://api.ouraring.com/v2/usercollection/daily_activity?start_date=${startDate}&end_date=${endDate}`, { headers });
+        const activityResponse = await fetch('https://corsproxy.io/?' + encodeURIComponent(`https://api.ouraring.com/v2/usercollection/daily_activity?start_date=${startDate}&end_date=${endDate}`), { headers });
         if (activityResponse.ok) {
             const activityData = await activityResponse.json();
             ouraData.activity = activityData.data || [];
