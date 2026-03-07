@@ -412,17 +412,39 @@ function exportMeditationCSV() {
 function exportAllJSON() {
   const data = {
     exported: new Date().toISOString(),
-    version: 'innerscape-v13',
+    version: 'innerscape-v14',
     mood_entries: loadEntries(),
     dreams: loadDreams(),
     activities: loadActivities(),
     time_entries: loadTimeEntries(),
     meditation_sessions: loadMeditations(),
+    food_entries: JSON.parse(localStorage.getItem('innerscape_food_entries') || '[]'),
+    medications: JSON.parse(localStorage.getItem('innerscape_medications') || '[]'),
+    medication_logs: JSON.parse(localStorage.getItem('innerscape_medication_logs') || '[]'),
+    todos: JSON.parse(localStorage.getItem('innerscape_todos') || '[]'),
+    wishes: JSON.parse(localStorage.getItem('innerscape_wishes') || '[]'),
+    stool_entries: JSON.parse(localStorage.getItem('innerscape_stool_entries') || '[]'),
+    oura_config: JSON.parse(localStorage.getItem('innerscape_oura_config') || 'null'),
+    oura_data: JSON.parse(localStorage.getItem('innerscape_oura_data') || 'null'),
   };
   
+  // Count what's included
+  const counts = [];
+  if (data.mood_entries.length) counts.push(`${data.mood_entries.length} mood`);
+  if (data.dreams.length) counts.push(`${data.dreams.length} dreams`);
+  if (data.time_entries.length) counts.push(`${data.time_entries.length} time`);
+  if (data.meditation_sessions.length) counts.push(`${data.meditation_sessions.length} meditation`);
+  if (data.food_entries.length) counts.push(`${data.food_entries.length} food`);
+  if (data.medication_logs.length) counts.push(`${data.medication_logs.length} med logs`);
+  if (data.todos.length) counts.push(`${data.todos.length} todos`);
+  if (data.wishes.length) counts.push(`${data.wishes.length} wishes`);
+  if (data.stool_entries.length) counts.push(`${data.stool_entries.length} stool`);
+  if (data.oura_data) counts.push('Oura data');
+  
   const json = JSON.stringify(data, null, 2);
-  downloadFile(json, `innerscape-backup-${dayKey(Date.now())}.json`, 'application/json');
-  showToast('Complete backup exported ✓');
+  const uid = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+  downloadFile(json, `innerscape-backup-${dayKey(Date.now())}---${uid}.json`, 'application/json');
+  showToast(`Backup exported ✓ (${counts.join(', ')})`);
 }
 
 function exportHTMLReport() {
