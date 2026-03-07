@@ -129,14 +129,19 @@ async function connectOura() {
         
         ouraConfig.apiToken = token;
         ouraConfig.connected = true;
-        ouraConfig.lastSync = Date.now();
         saveOuraConfig();
         
         showToast('🎉 Oura Ring connected successfully!');
         
-        // Initial sync
-        await syncOuraData();
+        // Show dashboard first, then sync
         showOuraPage();
+        
+        // Sync in background
+        try {
+            await syncOuraData();
+        } catch(e) {
+            console.log('Initial sync issue:', e);
+        }
         
     } catch (error) {
         console.error('Oura connection error:', error);
@@ -194,7 +199,7 @@ async function syncOuraData() {
         
     } catch (error) {
         console.error('Sync error:', error);
-        showToast('❌ Sync failed. Check connection.');
+        showToast('❌ Sync failed: ' + error.message);
     }
 }
 
