@@ -2851,9 +2851,9 @@ input[type="range"]::-moz-range-thumb {
 /* ── Wishlist Dreamland ── */
 .wishlist-dreamland {
   background: linear-gradient(170deg, #1a0a1e 0%, #170818 30%, #1a0a20 60%, #0d0a1a 100%);
-  min-height: 100vh;
+  min-height: 60vh;
   position: relative;
-  overflow: hidden;
+  padding-bottom: 2rem;
 }
 .wishlist-dreamland::before {
   content: '';
