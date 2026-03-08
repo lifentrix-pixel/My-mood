@@ -88,6 +88,19 @@
         <span class="submit-text">Save Check-in</span>
         <span class="submit-done">✓ Saved</span>
       </button>
+
+      <!-- Quick Note -->
+      <div class="quick-note-section">
+        <div class="quick-note-header" onclick="toggleQuickNote()">
+          <span>📝 Quick Note</span>
+          <span id="quick-note-arrow">›</span>
+        </div>
+        <div id="quick-note-body" class="quick-note-body hidden">
+          <textarea id="quick-note-text" class="quick-note-input" placeholder="What's on your mind right now..."></textarea>
+          <button id="quick-note-save" class="quick-note-save-btn">Save Note</button>
+        </div>
+        <div id="quick-notes-list"></div>
+      </div>
     </section>
 
     <!-- Dreams View -->

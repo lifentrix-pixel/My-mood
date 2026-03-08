@@ -311,6 +311,7 @@ function importBackup(data) {
   mergeKey('innerscape_todos', data.todos, 'Todos');
   mergeKey('innerscape_wishes', data.wishes, 'Wishes');
   mergeKey('innerscape_stool_entries', data.stool_entries, 'Stool');
+  mergeKey('innerscape_quick_notes', data.quick_notes, 'Quick notes');
   if (data.oura_config) { localStorage.setItem('innerscape_oura_config', JSON.stringify(data.oura_config)); logs.push('✅ Oura config'); }
   if (data.oura_data) { localStorage.setItem('innerscape_oura_data', JSON.stringify(data.oura_data)); logs.push('✅ Oura data'); }
 
@@ -477,6 +478,7 @@ function exportAllJSON() {
     todos: JSON.parse(localStorage.getItem('innerscape_todos') || '[]'),
     wishes: JSON.parse(localStorage.getItem('innerscape_wishes') || '[]'),
     stool_entries: JSON.parse(localStorage.getItem('innerscape_stool_entries') || '[]'),
+    quick_notes: JSON.parse(localStorage.getItem('innerscape_quick_notes') || '[]'),
     oura_config: JSON.parse(localStorage.getItem('innerscape_oura_config') || 'null'),
     oura_data: JSON.parse(localStorage.getItem('innerscape_oura_data') || 'null'),
   };

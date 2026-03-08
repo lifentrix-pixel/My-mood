@@ -3311,6 +3311,61 @@ body.in-dreamland #sub-nav { display: none !important; }
 .fc-dim-val { font-size: 0.85rem; font-weight: 600; color: var(--text-color); width: 30px; text-align: right; }
 /* ── Forecast End ── */
 
+/* ── Quick Notes ── */
+.quick-note-section {
+  margin-top: 24px; padding-top: 20px;
+  border-top: 1px solid var(--border-color);
+}
+.quick-note-header {
+  display: flex; justify-content: space-between; align-items: center;
+  cursor: pointer; padding: 10px 0;
+  color: var(--text-muted); font-size: 0.95rem; font-weight: 500;
+}
+#quick-note-arrow {
+  font-size: 1.2rem; transition: transform 0.2s;
+  color: var(--text-muted);
+}
+.quick-note-body { padding-top: 8px; }
+.quick-note-body.hidden { display: none; }
+.quick-note-input {
+  width: 100%; min-height: 80px; padding: 12px;
+  border-radius: 12px; border: 1.5px solid var(--border-color);
+  background: var(--surface-color, #1e1e2a);
+  color: var(--text-color); font-family: inherit;
+  font-size: 0.9rem; resize: vertical; box-sizing: border-box;
+  margin-bottom: 10px;
+}
+.quick-note-input:focus { border-color: var(--primary-color); outline: none; }
+.quick-note-input::placeholder { color: var(--text-muted); }
+.quick-note-save-btn {
+  width: 100%; padding: 12px; border-radius: 12px; border: none;
+  background: var(--primary-color); color: white;
+  font-size: 0.9rem; font-weight: 600; cursor: pointer;
+}
+.quick-note-save-btn:active { opacity: 0.85; }
+
+.quick-note-card {
+  background: var(--card-bg); border-radius: 12px;
+  padding: 12px 14px; margin-top: 10px;
+  border: 1px solid var(--border-color);
+  position: relative;
+}
+.quick-note-card-time {
+  font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;
+}
+.quick-note-card-text {
+  font-size: 0.88rem; color: var(--text-color); line-height: 1.5;
+  white-space: pre-wrap;
+}
+.quick-note-delete {
+  position: absolute; top: 8px; right: 10px;
+  background: none; border: none; color: var(--text-muted);
+  font-size: 0.9rem; cursor: pointer; opacity: 0.4;
+  padding: 4px;
+}
+.quick-note-delete:active { opacity: 1; }
+/* ── Quick Notes End ── */
+
 /* ── Update Banner ── */
 #update-banner {
   position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
