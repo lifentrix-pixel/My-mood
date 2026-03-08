@@ -2851,10 +2851,26 @@ input[type="range"]::-moz-range-thumb {
 /* ── Wishlist Dreamland ── */
 .wishlist-dreamland {
   background: linear-gradient(170deg, #1a0a1e 0%, #170818 30%, #1a0a20 60%, #0d0a1a 100%);
-  min-height: 60vh;
+  min-height: 100vh;
   position: relative;
+  overflow: hidden;
   padding-bottom: 2rem;
 }
+/* Hide nav when in dreamland */
+body.in-dreamland #nav,
+body.in-dreamland #sub-nav { display: none !important; }
+
+.wish-back-btn {
+  position: absolute; top: 16px; left: 16px;
+  background: #f472b618; border: 1px solid #f472b625;
+  color: #f9a8d4; width: 38px; height: 38px;
+  border-radius: 50%; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; z-index: 10;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s;
+}
+.wish-back-btn:active { background: #f472b640; transform: scale(0.9); }
 .wishlist-dreamland::before {
   content: '';
   position: absolute; top: 0; left: 0; right: 0; bottom: 0;

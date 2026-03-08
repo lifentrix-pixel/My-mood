@@ -306,6 +306,9 @@ function switchView(view) {
   
   $$('.sub-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   currentView = view;
+
+  // Dreamland mode: hide nav when in wishlist
+  document.body.classList.toggle('in-dreamland', view === 'wishlist');
   
   if (view === 'checkin') renderTodayStats();
   if (view === 'food') initFood();
@@ -325,6 +328,12 @@ function switchView(view) {
   if (view === 'export') initExport();
   
   migrateMeditationToTimer();
+}
+
+function exitDreamland() {
+  document.body.classList.remove('in-dreamland');
+  switchGroup('track');
+  switchView('checkin');
 }
 
 // ── Slider helpers ──
