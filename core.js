@@ -369,22 +369,56 @@ function scheduleReminder() {
 
 // ── Service Worker ──
 function registerSW() {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js')
-      .then(registration => {
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          if (newWorker) {
-            newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
-                showToast('✨ App updated! New features available', null, 3000);
-              }
-            });
-          }
-        });
-        setInterval(() => { registration.update(); }, 60000);
-      })
-  }
+  if (!('serviceWorker' in navigator)) return;
+
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) { refreshing = true; window.location.reload(); }
+  });
+
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    // Check for updates on load
+    reg.update();
+
+    // Check every 2 minutes
+    setInterval(() => { reg.update(); }, 120000);
+
+    // When a new SW is found
+    function trackInstalling(worker) {
+      worker.addEventListener('statechange', () => {
+        if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+          showUpdateBanner(worker);
+        }
+      });
+    }
+
+    if (reg.waiting) {
+      showUpdateBanner(reg.waiting);
+    }
+    reg.addEventListener('updatefound', () => {
+      if (reg.installing) trackInstalling(reg.installing);
+    });
+  });
+}
+
+function showUpdateBanner(worker) {
+  // Don't show duplicates
+  if (document.getElementById('update-banner')) return;
+
+  const banner = document.createElement('div');
+  banner.id = 'update-banner';
+  banner.innerHTML = `
+    <div class="update-banner-inner">
+      <span>✨ Update available</span>
+      <button id="update-btn">Refresh</button>
+    </div>
+  `;
+  document.body.appendChild(banner);
+
+  document.getElementById('update-btn').addEventListener('click', () => {
+    worker.postMessage('SKIP_WAITING');
+    banner.remove();
+  });
 }
 
 // ── Data Safety Net ──

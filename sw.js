@@ -1,25 +1,17 @@
-const CACHE = 'innerscape-v87';
+const CACHE = 'innerscape-v88';
 const ASSETS = ['/', '/index.html', '/styles.css', '/core.js', '/mood.js', '/dreams.js', '/timer.js', '/meditation.js', '/food.js', '/insights.js', '/sync.js', '/medication.js', '/todos.js', '/wishlist.js', '/studio.js', '/stool.js', '/forecast.js', '/oura.js', '/app.js', '/manifest.json', '/import-data.html'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
-  // Skip waiting to activate immediately
   self.skipWaiting();
 });
 
 self.addEventListener('activate', e => {
   e.waitUntil(
-    caches.keys().then(keys => {
-      // Delete old caches but don't touch localStorage
-      return Promise.all(
-        keys.filter(k => k.startsWith('innerscape-') && k !== CACHE)
-          .map(k => {
-            return caches.delete(k);
-          })
-      );
-    })
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k.startsWith('innerscape-') && k !== CACHE).map(k => caches.delete(k)))
+    )
   );
-  // Immediately claim all clients (existing tabs)
   self.clients.claim();
 });
 
@@ -29,7 +21,11 @@ self.addEventListener('fetch', e => {
   );
 });
 
-// Notification click
+// Listen for message from app to skip waiting
+self.addEventListener('message', e => {
+  if (e.data === 'SKIP_WAITING') self.skipWaiting();
+});
+
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   e.waitUntil(
