@@ -3080,6 +3080,16 @@ body.in-dreamland #sub-nav { display: none !important; }
   background: linear-gradient(135deg, #f472b6, #e879f9);
   border-color: #f472b6; color: white;
 }
+/* Fairy dust */
+.fairy-spark {
+  position: fixed; pointer-events: none; z-index: 99999;
+  animation: sparkBurst 0.8s ease-out forwards;
+  font-weight: bold;
+}
+@keyframes sparkBurst {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+}
 /* ── Wishlist Dreamland End ── */
 
 /* Stool Tracker Styles */
