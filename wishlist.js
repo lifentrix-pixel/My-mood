@@ -78,12 +78,22 @@ function renderWishlist() {
   const achievedEmpty = $('#wish-achieved-empty');
   completedList.innerHTML = '';
 
-  // Recently done recurring (last 7 days)
-  const recentRecurring = active
-    .filter(w => (w.type === 'recurring' || !w.type) && w.lastDoneAt && (Date.now() - w.lastDoneAt < 7 * 86400000))
-    .sort((a, b) => b.lastDoneAt - a.lastDoneAt);
+  // Build log entries from doneHistory of recurring wishes
+  const doneEntries = [];
+  active.forEach(wish => {
+    if (wish.doneHistory && wish.doneHistory.length) {
+      wish.doneHistory.forEach((ts, idx) => {
+        doneEntries.push({ wish, ts, idx });
+      });
+    }
+  });
+  // Sort newest first
+  doneEntries.sort((a, b) => b.ts - a.ts);
 
-  const totalCompleted = completed.length + recentRecurring.length;
+  // One-time achieved dreams
+  const achievedEntries = completed.sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+
+  const totalCompleted = doneEntries.length + achievedEntries.length;
   completedCount.textContent = totalCompleted;
 
   if (totalCompleted === 0) {
@@ -92,23 +102,62 @@ function renderWishlist() {
     achievedEmpty.style.display = 'none';
   }
 
-  if (recentRecurring.length) {
+  if (doneEntries.length) {
     const recentHeader = document.createElement('div');
     recentHeader.className = 'wishlist-completed-subheader';
-    recentHeader.textContent = '🔁 Recently Done';
+    recentHeader.textContent = '🔁 Activity Log';
     completedList.appendChild(recentHeader);
-    recentRecurring.forEach(wish => completedList.appendChild(buildWishItem(wish)));
+    doneEntries.forEach(entry => {
+      completedList.appendChild(buildDoneLogItem(entry.wish, entry.ts, entry.idx));
+    });
   }
 
-  if (completed.length) {
+  if (achievedEntries.length) {
     const achievedHeader = document.createElement('div');
     achievedHeader.className = 'wishlist-completed-subheader';
     achievedHeader.textContent = '🌟 Achieved Dreams';
     completedList.appendChild(achievedHeader);
-    completed.sort((a, b) => b.completedAt - a.completedAt).forEach(wish => {
+    achievedEntries.forEach(wish => {
       completedList.appendChild(buildWishItem(wish));
     });
   }
+}
+
+function buildDoneLogItem(wish, ts, idx) {
+  const item = document.createElement('div');
+  item.className = 'wish-done-log-item';
+  const category = WISHLIST_CATEGORIES.find(c => c.id === wish.category);
+  const date = new Date(ts);
+  const timeStr = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' · ' +
+    date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+
+  item.innerHTML = `
+    <div class="wish-done-log-text">
+      <span class="wish-done-log-name">${wish.text}</span>
+      <span class="wish-done-log-meta">${category ? category.emoji : ''} ${timeStr}</span>
+    </div>
+    <button class="wish-done-log-undo" title="Undo this entry">×</button>
+  `;
+
+  item.querySelector('.wish-done-log-undo').addEventListener('click', (e) => {
+    e.stopPropagation();
+    undoDoneEntry(wish.id, idx);
+  });
+
+  return item;
+}
+
+function undoDoneEntry(wishId, historyIdx) {
+  const wishes = loadWishes();
+  const wish = wishes.find(w => w.id === wishId);
+  if (!wish || !wish.doneHistory) return;
+
+  wish.doneHistory.splice(historyIdx, 1);
+  wish.doneCount = Math.max(0, (wish.doneCount || 1) - 1);
+  wish.lastDoneAt = wish.doneHistory.length ? wish.doneHistory[wish.doneHistory.length - 1] : null;
+  saveWishes(wishes);
+  renderWishlist();
+  showToast('Entry removed ↩️');
 }
 
 function buildWishItem(wish) {
