@@ -1,14 +1,36 @@
 /* ── Food Diary ── */
 
+// Presets: each item is { name: "Button label", detail: "Full text with ingredients" }
 const DEFAULT_FOOD_PRESETS = {
-  foods: ['Oatmeal', 'Rice & veggies', 'Pasta', 'Salad', 'Toast & avocado', 'Soup', 'Fruit bowl', 'Noodles'],
-  drinks: ['Water', 'Coffee', 'Tea', 'Juice', 'Smoothie', 'Oat latte']
+  foods: [
+    { name: 'Oatmeal', detail: 'Oatmeal — oats, oat milk, banana, blueberries, cinnamon' },
+    { name: 'Pasta', detail: 'Pasta — pasta, tomato sauce, garlic, olive oil, nutritional yeast' },
+    { name: 'Toast & avocado', detail: 'Toast & avocado — sourdough bread, avocado, lemon, salt, chili flakes' },
+    { name: 'Rice & veggies', detail: 'Rice & veggies — rice, broccoli, tofu, soy sauce, sesame oil' },
+    { name: 'Salad', detail: 'Salad — mixed greens, tomato, cucumber, chickpeas, olive oil, lemon' },
+    { name: 'Soup', detail: 'Soup — vegetable broth, potatoes, carrots, onion, garlic' },
+  ],
+  drinks: [
+    { name: 'Water', detail: 'Water' },
+    { name: 'Coffee', detail: 'Coffee — oat milk' },
+    { name: 'Tea', detail: 'Tea — green tea' },
+    { name: 'Smoothie', detail: 'Smoothie — banana, berries, oat milk, spinach' },
+    { name: 'Oat latte', detail: 'Oat latte — espresso, oat milk' },
+  ]
 };
 
 function loadFoodPresets() {
   try {
     const saved = JSON.parse(localStorage.getItem('innerscape_food_presets'));
-    if (saved && saved.foods && saved.drinks) return saved;
+    // Migration: if old format (array of strings), convert
+    if (saved && saved.foods && saved.drinks) {
+      if (typeof saved.foods[0] === 'string') {
+        saved.foods = saved.foods.map(s => ({ name: s, detail: s }));
+        saved.drinks = saved.drinks.map(s => ({ name: s, detail: s }));
+        saveFoodPresets(saved);
+      }
+      return saved;
+    }
   } catch(e) {}
   return DEFAULT_FOOD_PRESETS;
 }
@@ -26,33 +48,41 @@ function renderFoodPresets() {
   foodsEl.innerHTML = '';
   drinksEl.innerHTML = '';
 
-  presets.foods.forEach(text => {
+  const buildPill = (item) => {
     const pill = document.createElement('button');
     pill.className = 'food-preset-pill';
-    pill.textContent = text;
+    pill.textContent = item.name;
     pill.addEventListener('click', () => {
       const input = $('#food-description');
-      input.value = text;
+      input.value = item.detail;
       input.focus();
     });
-    foodsEl.appendChild(pill);
-  });
+    return pill;
+  };
 
-  presets.drinks.forEach(text => {
-    const pill = document.createElement('button');
-    pill.className = 'food-preset-pill';
-    pill.textContent = text;
-    pill.addEventListener('click', () => {
-      const input = $('#food-description');
-      input.value = text;
-      input.focus();
-    });
-    drinksEl.appendChild(pill);
-  });
+  presets.foods.forEach(item => foodsEl.appendChild(buildPill(item)));
+  presets.drinks.forEach(item => drinksEl.appendChild(buildPill(item)));
+}
+
+function parsePresetText(text) {
+  // Format: "Name — ingredients" or "Name | ingredients" or just "Name"
+  return text.split('\n').map(line => {
+    line = line.trim();
+    if (!line) return null;
+    const sep = line.match(/\s*[—|]\s*/);
+    if (sep) {
+      const name = line.substring(0, sep.index).trim();
+      return { name, detail: line };
+    }
+    return { name: line, detail: line };
+  }).filter(Boolean);
+}
+
+function presetToText(items) {
+  return items.map(i => i.detail).join('\n');
 }
 
 function openPresetEditor() {
-  // Create modal if not exists
   let modal = $('#food-preset-modal');
   if (!modal) {
     modal = document.createElement('div');
@@ -61,9 +91,10 @@ function openPresetEditor() {
     modal.innerHTML = `
       <div class="food-preset-modal-inner">
         <h3>Edit Quick Presets</h3>
-        <label>🍽 Foods (one per line)</label>
+        <p style="font-size:12px;color:var(--text3);margin:0 0 12px">Format: <b>Name — ingredients</b> (one per line)</p>
+        <label>🍽 Foods</label>
         <textarea id="food-preset-foods-edit"></textarea>
-        <label>🥤 Drinks (one per line)</label>
+        <label>🥤 Drinks</label>
         <textarea id="food-preset-drinks-edit"></textarea>
         <div class="food-preset-modal-actions">
           <button class="food-preset-cancel" id="food-preset-cancel">Cancel</button>
@@ -75,8 +106,8 @@ function openPresetEditor() {
 
     $('#food-preset-cancel').addEventListener('click', () => modal.classList.add('hidden'));
     $('#food-preset-save').addEventListener('click', () => {
-      const foods = $('#food-preset-foods-edit').value.split('\n').map(s => s.trim()).filter(Boolean);
-      const drinks = $('#food-preset-drinks-edit').value.split('\n').map(s => s.trim()).filter(Boolean);
+      const foods = parsePresetText($('#food-preset-foods-edit').value);
+      const drinks = parsePresetText($('#food-preset-drinks-edit').value);
       saveFoodPresets({ foods, drinks });
       renderFoodPresets();
       modal.classList.add('hidden');
@@ -85,8 +116,8 @@ function openPresetEditor() {
   }
 
   const presets = loadFoodPresets();
-  $('#food-preset-foods-edit').value = presets.foods.join('\n');
-  $('#food-preset-drinks-edit').value = presets.drinks.join('\n');
+  $('#food-preset-foods-edit').value = presetToText(presets.foods);
+  $('#food-preset-drinks-edit').value = presetToText(presets.drinks);
   modal.classList.remove('hidden');
 }
 
