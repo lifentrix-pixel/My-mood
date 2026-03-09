@@ -319,6 +319,7 @@ function switchView(view) {
   if (view === 'stool') showStoolPage();
   if (view === 'forecast') showForecastPage();
   if (view === 'oura') showOuraPage();
+  if (view === 'activity-overview') showActivityOverview();
   if (view === 'todos') renderTodos();
   if (view === 'today') renderToday();
   if (view === 'dreams') renderDreams();
