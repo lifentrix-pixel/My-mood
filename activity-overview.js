@@ -250,15 +250,28 @@ function renderDayTimeline(entries, activities) {
     <div class="overview-section">
       <h3>🌅 Today's Timeline</h3>
       <div class="timeline-chart">
-        ${hours.map(hour => `
-          <div class="timeline-hour" title="${hour.entries.length} sessions">
-            <div class="timeline-bar" style="height:${maxHourTotal > 0 ? (hour.total / maxHourTotal * 100) : 0}%;background:${hour.total > 0 ? 'var(--accent)' : 'var(--surface2)'}"></div>
-            <div class="timeline-label">${hour.hour}</div>
-          </div>
-        `).join('')}
+        ${hours.map((hour, index) => {
+          const heightPercent = maxHourTotal > 0 ? Math.max(4, (hour.total / maxHourTotal * 100)) : 0;
+          const hasActivity = hour.total > 0;
+          const isKeyHour = hour.hour % 4 === 0; // 0, 4, 8, 12, 16, 20
+          const hourLabel = isKeyHour ? (hour.hour === 0 ? '12am' : hour.hour < 12 ? `${hour.hour}am` : hour.hour === 12 ? '12pm' : `${hour.hour - 12}pm`) : hour.hour.toString();
+          
+          return `
+            <div class="timeline-hour" title="${hour.entries.length} session${hour.entries.length !== 1 ? 's' : ''} • ${formatDuration(hour.total)}">
+              <div class="timeline-bar" style="height:${heightPercent}%;${hasActivity ? 'background:var(--accent);opacity:1;' : 'background:var(--surface3);opacity:0.3;'}"></div>
+              <div class="timeline-label">${hourLabel}</div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      <div class="timeline-periods">
+        <div class="timeline-period" style="left:12.5%;width:20.8%"><span>Morning</span></div>
+        <div class="timeline-period" style="left:37.5%;width:20.8%"><span>Afternoon</span></div>
+        <div class="timeline-period" style="left:62.5%;width:20.8%"><span>Evening</span></div>
+        <div class="timeline-period" style="left:87.5%;width:12.5%"><span>Night</span></div>
       </div>
       <div class="timeline-legend">
-        <span>Hourly activity distribution</span>
+        <span>Tap bars for details • Hover to see time spent</span>
       </div>
     </div>
   `;
