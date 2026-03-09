@@ -428,8 +428,10 @@ function showUpdateBanner(worker) {
   document.body.appendChild(banner);
 
   document.getElementById('update-btn').addEventListener('click', () => {
-    worker.postMessage('SKIP_WAITING');
+    try { worker.postMessage('SKIP_WAITING'); } catch(e) {}
     banner.remove();
+    // Fallback: if controllerchange doesn't fire within 1s, force reload
+    setTimeout(() => { window.location.reload(); }, 1000);
   });
 }
 
