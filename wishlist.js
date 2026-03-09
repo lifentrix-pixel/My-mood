@@ -39,10 +39,6 @@ function initWishlist() {
     });
   });
 
-  $('#wishlist-show-completed').addEventListener('click', () => {
-    $('#wishlist-completed-list').classList.toggle('hidden');
-  });
-
   renderWishlist();
 }
 
@@ -75,9 +71,11 @@ function renderWishlist() {
     combined.forEach(wish => listEl.appendChild(buildWishItem(wish)));
   });
 
-  // Completed section: achieved one-time dreams + recently done recurring
+  // Achieved Dreams Card
   const completedList = $('#wishlist-completed-list');
   const completedCount = $('#wishlist-completed-count');
+  const achievedCard = $('#wish-achieved-card');
+  const achievedEmpty = $('#wish-achieved-empty');
   completedList.innerHTML = '';
 
   // Recently done recurring (last 7 days)
@@ -86,11 +84,12 @@ function renderWishlist() {
     .sort((a, b) => b.lastDoneAt - a.lastDoneAt);
 
   const totalCompleted = completed.length + recentRecurring.length;
-  completedCount.textContent = totalCompleted ? `(${totalCompleted})` : '';
+  completedCount.textContent = totalCompleted;
 
-  // Auto-show if there are items
-  if (totalCompleted > 0) {
-    completedList.classList.remove('hidden');
+  if (totalCompleted === 0) {
+    achievedEmpty.style.display = '';
+  } else {
+    achievedEmpty.style.display = 'none';
   }
 
   if (recentRecurring.length) {

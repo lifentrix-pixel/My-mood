@@ -3033,25 +3033,43 @@ body.in-dreamland #sub-nav { display: none !important; }
   border-color: #f472b6; color: white;
 }
 
-.wishlist-completed-section {
-  margin-top: 28px; padding-top: 20px;
-  border-top: 1px solid #f472b615;
+/* Achieved Dreams Card */
+.wish-achieved-card {
+  margin-top: 32px;
+  background: linear-gradient(135deg, #f472b610, #e879f910, #a78bfa10);
+  border: 1px solid #f472b625;
+  border-radius: 20px;
+  padding: 20px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 24px #f472b610, inset 0 1px 0 #fff08;
 }
-.wishlist-show-completed-btn {
-  background: #f472b608;
-  border: 1px solid #f472b620;
-  color: #f9a8d460; padding: 12px 20px;
-  border-radius: 12px; cursor: pointer;
-  font-size: 14px; font-weight: 500;
-  width: 100%; margin-bottom: 16px;
-  transition: all 0.2s;
+.wish-achieved-card.empty-card { display: none; }
+.wish-achieved-header {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 16px;
 }
-.wishlist-show-completed-btn:active {
-  background: #f472b618; color: #f9a8d4;
+.wish-achieved-icon { font-size: 24px; }
+.wish-achieved-title {
+  flex: 1; margin: 0;
+  font-size: 16px; font-weight: 600;
+  color: #f9a8d4;
+  letter-spacing: 0.3px;
 }
-.wishlist-completed-list {
+.wish-achieved-count {
+  background: linear-gradient(135deg, #f472b6, #e879f9);
+  color: white; font-size: 13px; font-weight: 700;
+  padding: 4px 12px; border-radius: 20px;
+  min-width: 24px; text-align: center;
+}
+.wish-achieved-items {
   display: flex; flex-direction: column; gap: 10px;
 }
+.wish-achieved-empty {
+  text-align: center; padding: 12px 0;
+  color: #f9a8d440; font-size: 14px; font-style: italic;
+}
+.wish-achieved-empty p { margin: 0; }
 .wishlist-type-badge {
   font-size: 13px; opacity: 0.6;
 }
