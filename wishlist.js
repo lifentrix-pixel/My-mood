@@ -16,10 +16,10 @@ const WISHLIST_LEVELS = [
 
 let editingWishId = null;
 let wishSelectedLevel = 'someday';
+let wishSelectedType = 'recurring';
 
 function initWishlist() {
   $('#wishlist-add-btn').addEventListener('click', () => openWishlistModal());
-
   $('#wishlist-cancel').addEventListener('click', closeWishlistModal);
   $('#wishlist-save').addEventListener('click', saveWish);
 
@@ -31,9 +31,16 @@ function initWishlist() {
     });
   });
 
+  $$('.wishlist-type-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('.wishlist-type-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      wishSelectedType = btn.dataset.type;
+    });
+  });
+
   $('#wishlist-show-completed').addEventListener('click', () => {
-    const list = $('#wishlist-completed-list');
-    list.classList.toggle('hidden');
+    $('#wishlist-completed-list').classList.toggle('hidden');
   });
 
   renderWishlist();
@@ -44,29 +51,31 @@ function renderWishlist() {
   const active = wishes.filter(w => !w.completed);
   const completed = wishes.filter(w => w.completed);
 
+  // Split active into recurring and one-time
+  const recurring = active.filter(w => w.type === 'recurring' || !w.type);
+  const oneTime = active.filter(w => w.type === 'once');
+
   WISHLIST_LEVELS.forEach(level => {
-    const levelWishes = active
-      .filter(w => w.level === level.id)
-      .sort((a, b) => b.createdAt - a.createdAt);
+    const levelRecurring = recurring.filter(w => w.level === level.id).sort((a, b) => b.createdAt - a.createdAt);
+    const levelOneTime = oneTime.filter(w => w.level === level.id).sort((a, b) => b.createdAt - a.createdAt);
+    const combined = [...levelRecurring, ...levelOneTime];
 
     const listEl = $(`#wishlist-list-${level.id}`);
     const emptyEl = $(`#wishlist-empty-${level.id}`);
     const countEl = $(`#wishlist-count-${level.id}`);
-    
-    listEl.innerHTML = '';
-    countEl.textContent = levelWishes.length;
 
-    if (!levelWishes.length) {
+    listEl.innerHTML = '';
+    countEl.textContent = combined.length;
+
+    if (!combined.length) {
       emptyEl.classList.add('show');
       return;
     }
     emptyEl.classList.remove('show');
-
-    levelWishes.forEach(wish => {
-      listEl.appendChild(buildWishItem(wish));
-    });
+    combined.forEach(wish => listEl.appendChild(buildWishItem(wish)));
   });
 
+  // Completed (only one-time wishes)
   const completedList = $('#wishlist-completed-list');
   const completedCount = $('#wishlist-completed-count');
   completedList.innerHTML = '';
@@ -79,52 +88,87 @@ function renderWishlist() {
 
 function buildWishItem(wish) {
   const item = document.createElement('div');
+  const isRecurring = wish.type === 'recurring' || !wish.type;
   item.className = 'wishlist-item' + (wish.completed ? ' completed' : '');
-  
+
   const category = WISHLIST_CATEGORIES.find(c => c.id === wish.category);
   const level = WISHLIST_LEVELS.find(l => l.id === wish.level);
-  
+  const typeIcon = isRecurring ? '🔁' : '🌠';
+  const lastDone = wish.lastDoneAt ? timeAgo(wish.lastDoneAt) : null;
+  const doneCount = wish.doneCount || 0;
+
   item.innerHTML = `
-    <div class="wishlist-checkbox ${wish.completed ? 'checked' : ''}">${wish.completed ? '🌟' : '○'}</div>
+    <div class="wishlist-checkbox ${wish.completed ? 'checked' : ''}">${wish.completed ? '🌟' : isRecurring ? '🔁' : '○'}</div>
     <div class="wishlist-content">
       <div class="wishlist-text">${wish.text}</div>
       <div class="wishlist-meta">
         <span class="wishlist-category">${category ? category.emoji : ''}${category ? category.label.replace(/^..\s/, '') : wish.category}</span>
         ${!wish.completed ? `<span class="wishlist-level-badge">${level ? level.emoji : ''}</span>` : ''}
+        <span class="wishlist-type-badge">${typeIcon}</span>
       </div>
+      ${isRecurring && doneCount > 0 ? `
+        <div class="wishlist-recurring-stats">
+          Done ${doneCount} time${doneCount !== 1 ? 's' : ''}${lastDone ? ` · last ${lastDone}` : ''}
+        </div>
+      ` : ''}
       ${wish.notes ? `<div class="wishlist-notes-display">${wish.notes}</div>` : ''}
-      ${wish.completed ? `<div class="wishlist-completed-date">Completed ${new Date(wish.completedAt).toLocaleDateString()}</div>` : ''}
+      ${wish.completed ? `<div class="wishlist-completed-date">Achieved ${new Date(wish.completedAt).toLocaleDateString()}</div>` : ''}
     </div>
     <div class="wishlist-actions">
+      ${!wish.completed && isRecurring ? '<button class="wishlist-done-btn" title="Did it!">✨</button>' : ''}
       ${!wish.completed ? '<button class="wishlist-edit-btn" title="Edit">✏️</button>' : ''}
       <button class="wishlist-delete-btn" title="Delete">×</button>
     </div>
   `;
 
-  item.querySelector('.wishlist-checkbox').addEventListener('click', () => toggleWish(wish.id));
-  
+  // Checkbox: complete for one-time, or toggle for completed items
+  item.querySelector('.wishlist-checkbox').addEventListener('click', () => {
+    if (isRecurring && !wish.completed) {
+      logRecurringDone(wish.id);
+    } else {
+      toggleWish(wish.id);
+    }
+  });
+
+  // "Did it!" button for recurring
+  const doneBtn = item.querySelector('.wishlist-done-btn');
+  if (doneBtn) {
+    doneBtn.addEventListener('click', (e) => { e.stopPropagation(); logRecurringDone(wish.id); });
+  }
+
   const editBtn = item.querySelector('.wishlist-edit-btn');
   if (editBtn) {
-    editBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      openWishlistModal(wish);
-    });
+    editBtn.addEventListener('click', (e) => { e.stopPropagation(); openWishlistModal(wish); });
   }
-  
+
   item.querySelector('.wishlist-delete-btn').addEventListener('click', (e) => {
-    e.stopPropagation();
-    deleteWish(wish.id);
+    e.stopPropagation(); deleteWish(wish.id);
   });
 
   return item;
 }
 
+function logRecurringDone(id) {
+  const wishes = loadWishes();
+  const wish = wishes.find(w => w.id === id);
+  if (!wish) return;
+
+  wish.doneCount = (wish.doneCount || 0) + 1;
+  wish.lastDoneAt = Date.now();
+  if (!wish.doneHistory) wish.doneHistory = [];
+  wish.doneHistory.push(Date.now());
+
+  saveWishes(wishes);
+  renderWishlist();
+  showToast(`✨ Done! (${wish.doneCount} times total)`);
+}
+
 function openWishlistModal(existingWish) {
   editingWishId = existingWish ? existingWish.id : null;
-  $('#wishlist-modal-title').textContent = existingWish ? 'Edit Wish' : 'Add New Wish';
-  $('#wishlist-save').textContent = existingWish ? 'Save Changes' : 'Save Wish';
+  $('#wishlist-modal-title').textContent = existingWish ? 'Edit Wish' : 'Add New Dream';
+  $('#wishlist-save').textContent = existingWish ? 'Save Changes' : 'Save Dream';
   $('#wishlist-modal').classList.remove('hidden');
-  
+
   $('#wishlist-text').value = existingWish ? existingWish.text : '';
   $('#wishlist-category').value = existingWish ? existingWish.category : 'creative';
   $('#wishlist-notes').value = existingWish ? (existingWish.notes || '') : '';
@@ -132,6 +176,11 @@ function openWishlistModal(existingWish) {
   wishSelectedLevel = existingWish ? existingWish.level : 'someday';
   $$('.wishlist-level-btn').forEach(btn => {
     btn.classList.toggle('selected', btn.dataset.level === wishSelectedLevel);
+  });
+
+  wishSelectedType = existingWish ? (existingWish.type || 'recurring') : 'recurring';
+  $$('.wishlist-type-btn').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.type === wishSelectedType);
   });
 
   setTimeout(() => $('#wishlist-text').focus(), 100);
@@ -150,7 +199,7 @@ function saveWish() {
   try {
     const text = $('#wishlist-text').value.trim();
     if (!text) {
-      showToast('Enter what you want to do');
+      showToast('Enter your dream');
       $('#wishlist-text').focus();
       saveBtn.disabled = false;
       return;
@@ -166,27 +215,30 @@ function saveWish() {
         wish.text = text;
         wish.category = category;
         wish.level = wishSelectedLevel;
+        wish.type = wishSelectedType;
         wish.notes = notes;
         wish.updatedAt = Date.now();
       }
     } else {
       wishes.push({
         id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-        text,
-        category,
+        text, category,
         level: wishSelectedLevel,
+        type: wishSelectedType,
         notes,
         completed: false,
         completedAt: null,
         createdAt: Date.now(),
+        doneCount: 0,
+        lastDoneAt: null,
+        doneHistory: [],
       });
     }
 
     saveWishes(wishes);
     closeWishlistModal();
     renderWishlist();
-    showToast(editingWishId ? 'Wish updated ✨' : 'Wish added ✨');
-
+    showToast(editingWishId ? 'Dream updated ✨' : 'Dream added ✨');
   } finally {
     setTimeout(() => { saveBtn.disabled = false; }, 1000);
   }
@@ -201,12 +253,7 @@ function toggleWish(id) {
   wish.completedAt = wish.completed ? Date.now() : null;
   saveWishes(wishes);
   renderWishlist();
-  
-  if (wish.completed) {
-    showToast('Dream achieved! 🌟');
-  } else {
-    showToast('Wish reopened ✨');
-  }
+  showToast(wish.completed ? 'Dream achieved! 🌟' : 'Dream reopened ✨');
 }
 
 function deleteWish(id) {
@@ -216,7 +263,7 @@ function deleteWish(id) {
 
   saveWishes(wishes.filter(w => w.id !== id));
   renderWishlist();
-  showToast('Wish deleted', () => {
+  showToast('Dream deleted', () => {
     const current = loadWishes();
     current.push(deleted);
     saveWishes(current);
@@ -224,13 +271,21 @@ function deleteWish(id) {
   });
 }
 
-// Storage functions
+function timeAgo(ts) {
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days}d ago`;
+  return new Date(ts).toLocaleDateString();
+}
+
 function loadWishes() {
-  try {
-    return JSON.parse(localStorage.getItem('innerscape_wishes') || '[]');
-  } catch {
-    return [];
-  }
+  try { return JSON.parse(localStorage.getItem('innerscape_wishes') || '[]'); }
+  catch { return []; }
 }
 
 function saveWishes(wishes) {
