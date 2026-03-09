@@ -3080,6 +3080,11 @@ body.in-dreamland #sub-nav { display: none !important; }
   background: linear-gradient(135deg, #f472b6, #e879f9);
   border-color: #f472b6; color: white;
 }
+.wishlist-completed-subheader {
+  font-size: 13px; color: #f9a8d450; font-weight: 600;
+  padding: 12px 0 6px; letter-spacing: 0.5px;
+}
+
 /* Fairy dust */
 .fairy-spark {
   position: fixed; pointer-events: none; z-index: 99999;

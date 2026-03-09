@@ -75,15 +75,36 @@ function renderWishlist() {
     combined.forEach(wish => listEl.appendChild(buildWishItem(wish)));
   });
 
-  // Completed (only one-time wishes)
+  // Completed section: achieved one-time dreams + recently done recurring
   const completedList = $('#wishlist-completed-list');
   const completedCount = $('#wishlist-completed-count');
   completedList.innerHTML = '';
-  completedCount.textContent = completed.length ? `(${completed.length})` : '';
 
-  completed.sort((a, b) => b.completedAt - a.completedAt).forEach(wish => {
-    completedList.appendChild(buildWishItem(wish));
-  });
+  // Recently done recurring (last 7 days)
+  const recentRecurring = active
+    .filter(w => (w.type === 'recurring' || !w.type) && w.lastDoneAt && (Date.now() - w.lastDoneAt < 7 * 86400000))
+    .sort((a, b) => b.lastDoneAt - a.lastDoneAt);
+
+  const totalCompleted = completed.length + recentRecurring.length;
+  completedCount.textContent = totalCompleted ? `(${totalCompleted})` : '';
+
+  if (recentRecurring.length) {
+    const recentHeader = document.createElement('div');
+    recentHeader.className = 'wishlist-completed-subheader';
+    recentHeader.textContent = '🔁 Recently Done';
+    completedList.appendChild(recentHeader);
+    recentRecurring.forEach(wish => completedList.appendChild(buildWishItem(wish)));
+  }
+
+  if (completed.length) {
+    const achievedHeader = document.createElement('div');
+    achievedHeader.className = 'wishlist-completed-subheader';
+    achievedHeader.textContent = '🌟 Achieved Dreams';
+    completedList.appendChild(achievedHeader);
+    completed.sort((a, b) => b.completedAt - a.completedAt).forEach(wish => {
+      completedList.appendChild(buildWishItem(wish));
+    });
+  }
 }
 
 function buildWishItem(wish) {
