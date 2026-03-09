@@ -253,25 +253,26 @@ function renderDayTimeline(entries, activities) {
         ${hours.map((hour, index) => {
           const heightPercent = maxHourTotal > 0 ? Math.max(4, (hour.total / maxHourTotal * 100)) : 0;
           const hasActivity = hour.total > 0;
-          const isKeyHour = hour.hour % 4 === 0; // 0, 4, 8, 12, 16, 20
-          const hourLabel = isKeyHour ? (hour.hour === 0 ? '12am' : hour.hour < 12 ? `${hour.hour}am` : hour.hour === 12 ? '12pm' : `${hour.hour - 12}pm`) : hour.hour.toString();
+          
+          // Only show labels for key hours: 6am, 12pm, 6pm, 12am
+          const showLabel = [0, 6, 12, 18].includes(hour.hour);
+          const hourLabel = showLabel ? (
+            hour.hour === 0 ? '12am' : 
+            hour.hour === 6 ? '6am' : 
+            hour.hour === 12 ? '12pm' : 
+            hour.hour === 18 ? '6pm' : ''
+          ) : '';
           
           return `
             <div class="timeline-hour" title="${hour.entries.length} session${hour.entries.length !== 1 ? 's' : ''} • ${formatDuration(hour.total)}">
               <div class="timeline-bar" style="height:${heightPercent}%;${hasActivity ? 'background:var(--accent);opacity:1;' : 'background:var(--surface3);opacity:0.3;'}"></div>
-              <div class="timeline-label">${hourLabel}</div>
+              ${showLabel ? `<div class="timeline-label">${hourLabel}</div>` : '<div class="timeline-label"></div>'}
             </div>
           `;
         }).join('')}
       </div>
-      <div class="timeline-periods">
-        <div class="timeline-period" style="left:12.5%;width:20.8%"><span>Morning</span></div>
-        <div class="timeline-period" style="left:37.5%;width:20.8%"><span>Afternoon</span></div>
-        <div class="timeline-period" style="left:62.5%;width:20.8%"><span>Evening</span></div>
-        <div class="timeline-period" style="left:87.5%;width:12.5%"><span>Night</span></div>
-      </div>
       <div class="timeline-legend">
-        <span>Tap bars for details • Hover to see time spent</span>
+        <span>Hover bars to see activity details</span>
       </div>
     </div>
   `;
