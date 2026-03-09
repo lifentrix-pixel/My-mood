@@ -3518,7 +3518,10 @@ body.in-dreamland #sub-nav { display: none !important; }
 
 /* Export Formats */
 .export-formats {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;
+}
+@media (max-width: 600px) {
+  .export-formats { grid-template-columns: 1fr; }
 }
 .export-format-btn {
   display: flex; align-items: center; gap: 16px; padding: 20px;

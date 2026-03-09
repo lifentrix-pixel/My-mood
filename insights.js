@@ -315,7 +315,11 @@ function filterDataByTimeframe(data, timeframe, timestampField = 'ts') {
 
 // Main export function
 function performExport(format) {
+  console.log('performExport called with format:', format);
+  showToast(`Starting ${format} export...`);
+  
   const { timeframe, selectedTypes } = getExportSettings();
+  console.log('Export settings:', { timeframe, selectedTypes });
   
   if (selectedTypes.length === 0) {
     showToast('Please select at least one data type');
