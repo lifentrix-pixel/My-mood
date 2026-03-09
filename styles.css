@@ -2045,6 +2045,10 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text);
   font-size: 14px;
 }
+.food-description-box {
+  min-height: 80px; resize: vertical;
+  font-family: inherit; line-height: 1.5;
+}
 .food-rating {
   flex: 1;
   display: flex;
