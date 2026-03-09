@@ -37,6 +37,9 @@ function timeStr(d) {
 function dateStr(d) {
   return new Date(d).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
 }
+function formatDateTime(d) {
+  return dateStr(d) + ' at ' + timeStr(d);
+}
 function shortDate(d) {
   return new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
