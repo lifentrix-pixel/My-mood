@@ -3351,6 +3351,115 @@ body.in-dreamland #sub-nav { display: none !important; }
   font-size: 11px; color: var(--text3); font-style: italic; margin-left: auto;
 }
 
+/* Activity Overview */
+.overview-page { padding: 20px; max-width: 1000px; margin: 0 auto; }
+.overview-header { text-align: center; margin-bottom: 24px; }
+.overview-header h2 { margin: 0; font-size: 1.8rem; color: var(--text1); }
+.overview-subtitle { color: var(--text2); margin: 8px 0 0; }
+
+.overview-tabs {
+  display: flex; justify-content: center; gap: 8px; margin-bottom: 28px;
+}
+.overview-tab {
+  padding: 10px 20px; border: none; border-radius: 20px; cursor: pointer;
+  background: var(--surface2); color: var(--text2); font-size: 14px; font-weight: 500;
+  transition: all 0.2s;
+}
+.overview-tab.active { background: var(--accent); color: white; }
+
+.overview-empty, .overview-empty-period {
+  text-align: center; padding: 60px 20px; color: var(--text3);
+}
+.overview-empty-icon { font-size: 3rem; display: block; margin-bottom: 16px; }
+
+.overview-stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px; margin-bottom: 32px;
+}
+.overview-stat-card {
+  background: var(--surface2); border-radius: 16px; padding: 20px;
+  display: flex; align-items: center; gap: 16px;
+}
+.stat-icon { font-size: 1.5rem; }
+.stat-value { font-size: 1.5rem; font-weight: 700; color: var(--text1); margin-bottom: 4px; }
+.stat-label { font-size: 0.9rem; color: var(--text3); }
+
+.overview-section {
+  background: var(--surface2); border-radius: 16px; padding: 24px; margin-bottom: 24px;
+}
+.overview-section h3 {
+  margin: 0 0 20px; font-size: 1.2rem; color: var(--text1);
+}
+
+/* Timeline Chart */
+.timeline-chart {
+  display: flex; align-items: end; gap: 4px; height: 120px; margin-bottom: 8px;
+}
+.timeline-hour { flex: 1; display: flex; flex-direction: column; align-items: center; }
+.timeline-bar {
+  width: 100%; min-height: 2px; border-radius: 2px; margin-bottom: 8px;
+  transition: all 0.2s;
+}
+.timeline-label { font-size: 11px; color: var(--text3); }
+.timeline-legend { text-align: center; font-size: 12px; color: var(--text3); }
+
+/* Weekly Chart */
+.weekly-chart {
+  display: flex; align-items: end; justify-content: space-around; height: 120px; margin-bottom: 8px;
+}
+.weekly-day { display: flex; flex-direction: column; align-items: center; min-width: 60px; }
+.weekly-bar {
+  width: 40px; min-height: 2px; border-radius: 4px; margin-bottom: 8px;
+  transition: all 0.2s;
+}
+.weekly-time { font-size: 11px; color: var(--text2); margin-bottom: 4px; min-height: 14px; }
+.weekly-label { font-size: 12px; color: var(--text3); }
+
+/* Activity Breakdown */
+.activity-breakdown { display: flex; flex-direction: column; gap: 12px; }
+.activity-break-item {
+  display: flex; align-items: center; gap: 12px; position: relative;
+  background: var(--surface1); border-radius: 12px; padding: 16px;
+}
+.activity-break-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+.activity-break-emoji { font-size: 1.2rem; flex-shrink: 0; }
+.activity-break-name { font-weight: 600; color: var(--text1); }
+.activity-break-meta { font-size: 12px; color: var(--text3); margin-top: 2px; }
+.activity-break-right { text-align: right; flex-shrink: 0; }
+.activity-break-time { font-weight: 600; color: var(--text1); }
+.activity-break-percent { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.activity-break-bar {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 3px; border-radius: 0 0 12px 12px;
+  background: var(--surface3);
+}
+.activity-break-fill { height: 100%; border-radius: 0 0 12px 12px; }
+
+/* Session List */
+.session-list { display: flex; flex-direction: column; gap: 12px; }
+.session-item {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface1); border-radius: 12px; padding: 16px;
+}
+.session-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+.session-emoji { font-size: 1.2rem; flex-shrink: 0; }
+.session-activity { font-weight: 600; color: var(--text1); }
+.session-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.session-note { font-size: 12px; color: var(--text3); margin-top: 4px; font-style: italic; }
+.session-right { text-align: right; flex-shrink: 0; }
+.session-duration { font-weight: 600; color: var(--text1); }
+.session-time { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.session-date { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+@media (max-width: 480px) {
+  .overview-stats { grid-template-columns: 1fr; }
+  .overview-stat-card { padding: 16px; }
+  .activity-break-item { padding: 12px; }
+  .session-item { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .session-right { align-self: flex-end; }
+  .timeline-chart { gap: 2px; }
+  .weekly-chart .weekly-bar { width: 30px; }
+}
+
 /* Bristol grid */
 .bristol-grid {
   display: grid;
