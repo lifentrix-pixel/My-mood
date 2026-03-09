@@ -2097,6 +2097,67 @@ input[type="range"]::-moz-range-thumb {
 .food-tag-btn:hover { background: var(--surface3); }
 .food-tag-btn.selected:hover { background: var(--accent-hover); }
 
+/* Food presets */
+.food-presets { margin-top: 8px; }
+.food-preset-group { margin-bottom: 10px; }
+.food-preset-label {
+  font-size: 12px; color: var(--text2); font-weight: 600;
+  display: block; margin-bottom: 6px;
+}
+.food-preset-pills {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.food-preset-pill {
+  padding: 6px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px; cursor: pointer;
+  font-size: 13px; color: var(--text2);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.food-preset-pill:active {
+  background: var(--accent); color: white;
+  border-color: var(--accent);
+}
+.food-preset-edit-btn {
+  background: none; border: none; cursor: pointer;
+  font-size: 12px; color: var(--text3); padding: 6px 0;
+  margin-top: 4px;
+}
+/* Preset edit modal */
+.food-preset-modal {
+  position: fixed; inset: 0; z-index: 1000;
+  background: #000a; display: flex;
+  align-items: center; justify-content: center; padding: 20px;
+}
+.food-preset-modal.hidden { display: none; }
+.food-preset-modal-inner {
+  background: var(--bg2); border-radius: 16px;
+  padding: 20px; width: 100%; max-width: 400px;
+  max-height: 80vh; overflow-y: auto;
+}
+.food-preset-modal-inner h3 { margin: 0 0 16px; color: var(--text1); }
+.food-preset-modal-inner label {
+  font-size: 13px; color: var(--text2); font-weight: 600;
+  display: block; margin: 12px 0 6px;
+}
+.food-preset-modal-inner textarea {
+  width: 100%; min-height: 80px; padding: 10px;
+  background: var(--surface1); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text1); font-size: 14px;
+  resize: vertical; font-family: inherit;
+}
+.food-preset-modal-actions {
+  display: flex; gap: 10px; margin-top: 16px;
+}
+.food-preset-modal-actions button {
+  flex: 1; padding: 10px; border-radius: 10px;
+  border: none; cursor: pointer; font-size: 14px; font-weight: 600;
+}
+.food-preset-save { background: var(--accent); color: white; }
+.food-preset-cancel { background: var(--surface2); color: var(--text2); }
+
 .food-save-btn {
   width: 100%;
   background: var(--accent);

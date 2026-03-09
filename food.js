@@ -1,5 +1,95 @@
 /* ── Food Diary ── */
 
+const DEFAULT_FOOD_PRESETS = {
+  foods: ['Oatmeal', 'Rice & veggies', 'Pasta', 'Salad', 'Toast & avocado', 'Soup', 'Fruit bowl', 'Noodles'],
+  drinks: ['Water', 'Coffee', 'Tea', 'Juice', 'Smoothie', 'Oat latte']
+};
+
+function loadFoodPresets() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('innerscape_food_presets'));
+    if (saved && saved.foods && saved.drinks) return saved;
+  } catch(e) {}
+  return DEFAULT_FOOD_PRESETS;
+}
+
+function saveFoodPresets(presets) {
+  localStorage.setItem('innerscape_food_presets', JSON.stringify(presets));
+}
+
+function renderFoodPresets() {
+  const presets = loadFoodPresets();
+  const foodsEl = $('#food-preset-foods');
+  const drinksEl = $('#food-preset-drinks');
+  if (!foodsEl || !drinksEl) return;
+
+  foodsEl.innerHTML = '';
+  drinksEl.innerHTML = '';
+
+  presets.foods.forEach(text => {
+    const pill = document.createElement('button');
+    pill.className = 'food-preset-pill';
+    pill.textContent = text;
+    pill.addEventListener('click', () => {
+      const input = $('#food-description');
+      input.value = text;
+      input.focus();
+    });
+    foodsEl.appendChild(pill);
+  });
+
+  presets.drinks.forEach(text => {
+    const pill = document.createElement('button');
+    pill.className = 'food-preset-pill';
+    pill.textContent = text;
+    pill.addEventListener('click', () => {
+      const input = $('#food-description');
+      input.value = text;
+      input.focus();
+    });
+    drinksEl.appendChild(pill);
+  });
+}
+
+function openPresetEditor() {
+  // Create modal if not exists
+  let modal = $('#food-preset-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'food-preset-modal';
+    modal.className = 'food-preset-modal';
+    modal.innerHTML = `
+      <div class="food-preset-modal-inner">
+        <h3>Edit Quick Presets</h3>
+        <label>🍽 Foods (one per line)</label>
+        <textarea id="food-preset-foods-edit"></textarea>
+        <label>🥤 Drinks (one per line)</label>
+        <textarea id="food-preset-drinks-edit"></textarea>
+        <div class="food-preset-modal-actions">
+          <button class="food-preset-cancel" id="food-preset-cancel">Cancel</button>
+          <button class="food-preset-save" id="food-preset-save">Save</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    $('#food-preset-cancel').addEventListener('click', () => modal.classList.add('hidden'));
+    $('#food-preset-save').addEventListener('click', () => {
+      const foods = $('#food-preset-foods-edit').value.split('\n').map(s => s.trim()).filter(Boolean);
+      const drinks = $('#food-preset-drinks-edit').value.split('\n').map(s => s.trim()).filter(Boolean);
+      saveFoodPresets({ foods, drinks });
+      renderFoodPresets();
+      modal.classList.add('hidden');
+      showToast('Presets saved ✨');
+    });
+  }
+
+  const presets = loadFoodPresets();
+  $('#food-preset-foods-edit').value = presets.foods.join('\n');
+  $('#food-preset-drinks-edit').value = presets.drinks.join('\n');
+  modal.classList.remove('hidden');
+}
+
 function saveFoodEntry(entry) {
   const entries = loadFoodEntries();
   entries.push(entry);
@@ -50,6 +140,9 @@ function initFood() {
   
   renderFoodHistory();
   updateQuickSaveButton();
+  renderFoodPresets();
+  const presetEditBtn = $('#food-preset-edit');
+  if (presetEditBtn) presetEditBtn.addEventListener('click', openPresetEditor);
 }
 
 function handleFoodPhoto(e) {
