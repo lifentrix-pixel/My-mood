@@ -98,7 +98,7 @@ function buildWishItem(wish) {
   const doneCount = wish.doneCount || 0;
 
   item.innerHTML = `
-    <div class="wishlist-checkbox ${wish.completed ? 'checked' : ''}">${wish.completed ? '🌟' : isRecurring ? '🔁' : '○'}</div>
+    <div class="wishlist-checkbox ${wish.completed ? 'checked' : ''}">${wish.completed ? '🌟' : '○'}</div>
     <div class="wishlist-content">
       <div class="wishlist-text">${wish.text}</div>
       <div class="wishlist-meta">
