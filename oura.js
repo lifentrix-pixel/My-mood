@@ -158,9 +158,9 @@ async function syncOuraData() {
     showToast('🔄 Syncing Oura data...');
     
     try {
-        // Get data for last 30 days
-        const endDate = new Date().toISOString().split('T')[0];
-        const startDate = new Date(Date.now() - 30*24*60*60*1000).toISOString().split('T')[0];
+        // Get data for last 30 days (+ 1 extra day to catch timezone delays)
+        const endDate = new Date(Date.now() + 24*60*60*1000).toISOString().split('T')[0];
+        const startDate = new Date(Date.now() - 31*24*60*60*1000).toISOString().split('T')[0];
         
         const headers = {
             'Authorization': `Bearer ${ouraConfig.apiToken}`
@@ -237,7 +237,7 @@ function renderSleepTab() {
         `;
     }
     
-    const recent = ouraData.sleep.slice(0, 7);
+    const recent = [...ouraData.sleep].sort((a, b) => new Date(b.day) - new Date(a.day)).slice(0, 7);
     
     return `
         <div class="sleep-overview">
@@ -275,7 +275,7 @@ function renderReadinessTab() {
         `;
     }
     
-    const recent = ouraData.readiness.slice(0, 7);
+    const recent = [...ouraData.readiness].sort((a, b) => new Date(b.day) - new Date(a.day)).slice(0, 7);
     
     return `
         <div class="readiness-overview">
@@ -307,7 +307,7 @@ function renderActivityTab() {
         `;
     }
     
-    const recent = ouraData.activity.slice(0, 7);
+    const recent = [...ouraData.activity].sort((a, b) => new Date(b.day) - new Date(a.day)).slice(0, 7);
     
     return `
         <div class="activity-overview">
