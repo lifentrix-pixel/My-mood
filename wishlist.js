@@ -88,6 +88,11 @@ function renderWishlist() {
   const totalCompleted = completed.length + recentRecurring.length;
   completedCount.textContent = totalCompleted ? `(${totalCompleted})` : '';
 
+  // Auto-show if there are items
+  if (totalCompleted > 0) {
+    completedList.classList.remove('hidden');
+  }
+
   if (recentRecurring.length) {
     const recentHeader = document.createElement('div');
     recentHeader.className = 'wishlist-completed-subheader';
@@ -146,12 +151,10 @@ function buildWishItem(wish) {
   const checkbox = item.querySelector('.wishlist-checkbox');
   checkbox.addEventListener('click', (e) => {
     if (isRecurring && !wish.completed) {
-      burstSparkles(e);
-      burstFromElement(checkbox);
+      burstFromBox(item);
       logRecurringDone(wish.id);
     } else if (!wish.completed) {
-      burstSparkles(e);
-      burstFromElement(checkbox);
+      burstFromBox(item);
       setTimeout(() => toggleWish(wish.id), 800);
     } else {
       toggleWish(wish.id);
@@ -163,8 +166,7 @@ function buildWishItem(wish) {
   if (doneBtn) {
     doneBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      burstSparkles(e);
-      burstFromElement(doneBtn);
+      burstFromBox(item);
       logRecurringDone(wish.id);
     });
   }
@@ -326,42 +328,33 @@ function saveWishes(wishes) {
 }
 
 /* ── Fairy Dust ── */
-function spawnSparkles(x, y, count) {
-  const chars = ['✦', '✧', '⋆', '˚', '✩', '·', '♡', '∗', '✿', '⊹'];
+function burstFromBox(el) {
+  const chars = ['✦', '✧', '⋆', '˚', '✩', '♡', '∗', '✿', '⊹', '·'];
   const colors = ['#f9a8d4', '#f472b6', '#e879f9', '#c084fc', '#fbbf24', '#fff', '#fda4af'];
+  const rect = el.getBoundingClientRect();
+  const count = 28;
 
   for (let i = 0; i < count; i++) {
     const spark = document.createElement('div');
     spark.className = 'fairy-spark';
     spark.textContent = chars[Math.floor(Math.random() * chars.length)];
-    spark.style.left = x + 'px';
-    spark.style.top = y + 'px';
     spark.style.color = colors[Math.floor(Math.random() * colors.length)];
     spark.style.fontSize = (8 + Math.random() * 16) + 'px';
-    spark.style.animationDelay = (Math.random() * 0.3) + 's';
+    spark.style.animationDelay = (Math.random() * 0.5) + 's';
 
-    const angle = (Math.PI * 2 * i / count) + (Math.random() - 0.5) * 0.8;
-    const dist = 40 + Math.random() * 100;
-    const dx = Math.cos(angle) * dist;
-    const dy = Math.sin(angle) * dist - 20 - Math.random() * 50;
+    // Random position across the whole card
+    const x = rect.left + Math.random() * rect.width;
+    const y = rect.top + Math.random() * rect.height;
+    spark.style.left = x + 'px';
+    spark.style.top = y + 'px';
+
+    // Float upward and outward
+    const dx = (Math.random() - 0.5) * 120;
+    const dy = -30 - Math.random() * 100;
     spark.style.setProperty('--dx', dx + 'px');
     spark.style.setProperty('--dy', dy + 'px');
 
     document.body.appendChild(spark);
-    setTimeout(() => spark.remove(), 2400);
+    setTimeout(() => spark.remove(), 2800);
   }
-}
-
-function burstSparkles(e) {
-  const x = e.clientX || e.touches?.[0]?.clientX || window.innerWidth / 2;
-  const y = e.clientY || e.touches?.[0]?.clientY || window.innerHeight / 2;
-  spawnSparkles(x, y, 18);
-}
-
-function burstFromElement(el) {
-  const rect = el.getBoundingClientRect();
-  const x = rect.left + rect.width / 2;
-  const y = rect.top + rect.height / 2;
-  // Slightly delayed second burst from the element
-  setTimeout(() => spawnSparkles(x, y, 14), 150);
 }
