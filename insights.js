@@ -257,17 +257,7 @@ function renderTrends() {
 // ── Export Functions ──
 
 function initExport() {
-  $('#export-mood-csv').addEventListener('click', () => exportMoodCSV());
-  $('#export-mood-text').addEventListener('click', () => exportMoodText());
-  $('#export-dreams-text').addEventListener('click', () => exportDreamsText());
-  $('#export-dreams-json').addEventListener('click', () => exportDreamsJSON());
-  $('#export-timer-csv').addEventListener('click', () => exportTimerCSV());
-  $('#export-timer-summary').addEventListener('click', () => exportTimerSummary());
-  $('#export-meditation-csv').addEventListener('click', () => exportMeditationCSV());
-  $('#export-all-json').addEventListener('click', () => exportAllJSON());
-  $('#export-html-report').addEventListener('click', () => exportHTMLReport());
-  $('#share-with-daisy').addEventListener('click', () => shareWithDaisy());
-
+  // Legacy import functionality
   const importInput = $('#import-file-input');
   if (importInput) {
     importInput.addEventListener('change', (e) => {
@@ -285,6 +275,245 @@ function initExport() {
       reader.readAsText(file);
     });
   }
+}
+
+// ── Enhanced Export System ──
+
+// Toggle all data types selection
+function toggleAllDataTypes() {
+  const checkboxes = document.querySelectorAll('input[name="datatype"]');
+  const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+  
+  checkboxes.forEach(cb => cb.checked = !allChecked);
+  
+  const btn = document.querySelector('.export-select-all');
+  btn.textContent = allChecked ? 'Select All' : 'Deselect All';
+}
+
+// Get selected export settings
+function getExportSettings() {
+  const timeframe = document.querySelector('input[name="timeframe"]:checked')?.value || 'all';
+  const selectedTypes = Array.from(document.querySelectorAll('input[name="datatype"]:checked'))
+    .map(cb => cb.value);
+  
+  return { timeframe, selectedTypes };
+}
+
+// Filter data by timeframe
+function filterDataByTimeframe(data, timeframe, timestampField = 'ts') {
+  if (timeframe === 'all') return data;
+  
+  const now = Date.now();
+  const days = parseInt(timeframe);
+  const cutoff = now - (days * 24 * 60 * 60 * 1000);
+  
+  return data.filter(item => {
+    const timestamp = item[timestampField] || item.timestamp || item.createdAt || item.startTime;
+    return timestamp && timestamp >= cutoff;
+  });
+}
+
+// Main export function
+function performExport(format) {
+  const { timeframe, selectedTypes } = getExportSettings();
+  
+  if (selectedTypes.length === 0) {
+    showToast('Please select at least one data type');
+    return;
+  }
+  
+  // Collect filtered data
+  const exportData = {};
+  let totalEntries = 0;
+  
+  if (selectedTypes.includes('mood')) {
+    const entries = filterDataByTimeframe(loadEntries(), timeframe, 'ts');
+    exportData.mood_entries = entries;
+    totalEntries += entries.length;
+  }
+  
+  if (selectedTypes.includes('dreams')) {
+    const dreams = filterDataByTimeframe(loadDreams(), timeframe, 'ts');
+    exportData.dreams = dreams;
+    totalEntries += dreams.length;
+  }
+  
+  if (selectedTypes.includes('activities')) {
+    const timeEntries = filterDataByTimeframe(loadTimeEntries(), timeframe, 'startTime');
+    const activities = loadActivities();
+    exportData.time_entries = timeEntries;
+    exportData.activities = activities;
+    totalEntries += timeEntries.length;
+  }
+  
+  if (selectedTypes.includes('meditation')) {
+    const meditations = filterDataByTimeframe(loadMeditations(), timeframe, 'timestamp');
+    exportData.meditations = meditations;
+    totalEntries += meditations.length;
+  }
+  
+  if (selectedTypes.includes('food')) {
+    const foodEntries = filterDataByTimeframe(loadFoodEntries(), timeframe, 'timestamp');
+    exportData.food_entries = foodEntries;
+    totalEntries += foodEntries.length;
+  }
+  
+  if (selectedTypes.includes('medication')) {
+    const medications = loadMedications();
+    const medicationLogs = filterDataByTimeframe(loadMedicationLogs(), timeframe, 'timestamp');
+    exportData.medications = medications;
+    exportData.medication_logs = medicationLogs;
+    totalEntries += medicationLogs.length;
+  }
+  
+  if (selectedTypes.includes('todos')) {
+    const todos = filterDataByTimeframe(loadTodos(), timeframe, 'createdAt');
+    exportData.todos = todos;
+    totalEntries += todos.length;
+  }
+  
+  if (selectedTypes.includes('wishlist')) {
+    const wishes = filterDataByTimeframe(loadWishes(), timeframe, 'createdAt');
+    exportData.wishes = wishes;
+    totalEntries += wishes.length;
+  }
+  
+  if (selectedTypes.includes('stool')) {
+    const stoolEntries = filterDataByTimeframe(loadStoolEntries(), timeframe, 'timestamp');
+    exportData.stool_entries = stoolEntries;
+    totalEntries += stoolEntries.length;
+  }
+  
+  if (selectedTypes.includes('oura')) {
+    const ouraData = JSON.parse(localStorage.getItem('innerscape_oura_data') || '{"sleep":[],"readiness":[],"activity":[]}');
+    exportData.oura_data = ouraData;
+    totalEntries += (ouraData.sleep?.length || 0) + (ouraData.readiness?.length || 0) + (ouraData.activity?.length || 0);
+  }
+  
+  if (totalEntries === 0) {
+    showToast('No data found for selected time period');
+    return;
+  }
+  
+  // Export in the requested format
+  const timeframeName = timeframe === 'all' ? 'all-time' : `${timeframe}days`;
+  const filename = `innerscape-${format}-${timeframeName}-${Date.now()}`;
+  
+  switch(format) {
+    case 'json':
+      exportAsJSON(exportData, filename, totalEntries);
+      break;
+    case 'csv':
+      exportAsCSV(exportData, filename, totalEntries);
+      break;
+    case 'html':
+      exportAsHTML(exportData, filename, totalEntries, timeframe);
+      break;
+    case 'text':
+      exportAsText(exportData, filename, totalEntries);
+      break;
+  }
+}
+
+// Export formats
+function exportAsJSON(data, filename, totalEntries) {
+  const jsonData = {
+    exported_at: new Date().toISOString(),
+    export_version: 'v2.0',
+    total_entries: totalEntries,
+    data: data
+  };
+  
+  const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+  downloadBlob(blob, `${filename}.json`);
+  showToast(`📁 JSON export downloaded (${totalEntries} entries)`);
+}
+
+function exportAsCSV(data, filename, totalEntries) {
+  let csvContent = 'Innerscape CSV Export\n';
+  csvContent += `Generated: ${new Date().toLocaleString()}\n\n`;
+  
+  // Mood entries
+  if (data.mood_entries?.length) {
+    csvContent += 'MOOD_ENTRIES\n';
+    csvContent += 'Date,Time,Body,Energy,Mood,Mind,Average\n';
+    
+    data.mood_entries.forEach(entry => {
+      const date = new Date(entry.ts);
+      const scores = entry.scores || {};
+      const avg = ((scores.body || 0) + (scores.energy || 0) + (scores.mood || 0) + (scores.mind || 0)) / 4;
+      
+      csvContent += [
+        date.toLocaleDateString(),
+        date.toLocaleTimeString(),
+        scores.body || '',
+        scores.energy || '',
+        scores.mood || '',
+        scores.mind || '',
+        avg.toFixed(1)
+      ].join(',') + '\n';
+    });
+    csvContent += '\n';
+  }
+  
+  const blob = new Blob([csvContent], { type: 'text/csv' });
+  downloadBlob(blob, `${filename}.csv`);
+  showToast(`📊 CSV exported (${totalEntries} entries)`);
+}
+
+function exportAsHTML(data, filename, totalEntries, timeframe) {
+  const timeframeName = timeframe === 'all' ? 'All Time' : `Last ${timeframe} Days`;
+  
+  let html = `<!DOCTYPE html>
+<html><head><title>Innerscape Report</title>
+<style>body{font-family:system-ui;margin:40px;background:#f8fafc}.header{text-align:center;margin-bottom:40px}.section{background:white;border-radius:12px;padding:24px;margin:20px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)}.section h2{color:#1e293b;border-bottom:2px solid #8b5cf6;padding-bottom:8px}</style>
+</head><body>
+<div class="header"><h1>🔮 Innerscape Report</h1><p>Period: ${timeframeName} • ${new Date().toLocaleDateString()}</p><p>Total: ${totalEntries} entries</p></div>`;
+  
+  if (data.mood_entries?.length) {
+    html += `<div class="section"><h2>📊 Mood Check-ins (${data.mood_entries.length})</h2>`;
+    data.mood_entries.slice(0, 20).forEach(entry => {
+      const date = new Date(entry.ts);
+      const scores = entry.scores || {};
+      html += `<p><strong>${date.toLocaleDateString()}</strong> - Body:${scores.body} Energy:${scores.energy} Mood:${scores.mood} Mind:${scores.mind}</p>`;
+    });
+    html += '</div>';
+  }
+  
+  html += '</body></html>';
+  
+  const blob = new Blob([html], { type: 'text/html' });
+  downloadBlob(blob, `${filename}.html`);
+  showToast(`📖 HTML report downloaded`);
+}
+
+function exportAsText(data, filename, totalEntries) {
+  let content = `INNERSCAPE EXPORT\nGenerated: ${new Date().toLocaleString()}\nTotal: ${totalEntries} entries\n${'='.repeat(50)}\n\n`;
+  
+  if (data.mood_entries?.length) {
+    content += `MOOD CHECK-INS (${data.mood_entries.length})\n${'-'.repeat(30)}\n`;
+    data.mood_entries.forEach(entry => {
+      const date = new Date(entry.ts);
+      const scores = entry.scores || {};
+      content += `${date.toLocaleDateString()} ${date.toLocaleTimeString()}\n`;
+      content += `Body:${scores.body} Energy:${scores.energy} Mood:${scores.mood} Mind:${scores.mind}\n\n`;
+    });
+  }
+  
+  const blob = new Blob([content], { type: 'text/plain' });
+  downloadBlob(blob, `${filename}.txt`);
+  showToast(`📝 Text export downloaded`);
+}
+
+// Helper functions
+function loadStoolEntries() {
+  try { return JSON.parse(localStorage.getItem('innerscape_stool_entries') || '[]'); } catch (e) { return []; }
+}
+function loadWishes() {
+  try { return JSON.parse(localStorage.getItem('innerscape_wishes') || '[]'); } catch (e) { return []; }
+}
+function loadMedicationLogs() {
+  try { return JSON.parse(localStorage.getItem('innerscape_medication_logs') || '[]'); } catch (e) { return []; }
 }
 
 function importBackup(data) {

@@ -1054,71 +1054,168 @@
 
     <!-- Export view -->
     <section id="view-export" class="view">
-      <h2>📤 Export Your Data</h2>
-      
-      <div class="export-section">
-        <h3>📊 Mood Data</h3>
-        <div class="export-buttons">
-          <button id="export-mood-csv" class="export-btn">CSV Spreadsheet</button>
-          <button id="export-mood-text" class="export-btn">Readable Text</button>
+      <div class="export-page">
+        <div class="export-header">
+          <h2>📤 Export Your Data</h2>
+          <p class="export-subtitle">Create custom exports with time filtering and format options</p>
         </div>
-      </div>
 
-      <div class="export-section">
-        <h3>🌙 Dream Journal</h3>
-        <div class="export-buttons">
-          <button id="export-dreams-text" class="export-btn">Text Journal</button>
-          <button id="export-dreams-json" class="export-btn">Full Data + Audio</button>
+        <!-- Time Frame Selection -->
+        <div class="export-card">
+          <div class="export-card-header">
+            <span class="export-card-icon">📅</span>
+            <h3>Time Frame</h3>
+          </div>
+          <div class="export-timeframe">
+            <label class="export-timeframe-option">
+              <input type="radio" name="timeframe" value="7" checked>
+              <span>Last 7 days</span>
+            </label>
+            <label class="export-timeframe-option">
+              <input type="radio" name="timeframe" value="30">
+              <span>Last 30 days</span>
+            </label>
+            <label class="export-timeframe-option">
+              <input type="radio" name="timeframe" value="90">
+              <span>Last 3 months</span>
+            </label>
+            <label class="export-timeframe-option">
+              <input type="radio" name="timeframe" value="180">
+              <span>Last 6 months</span>
+            </label>
+            <label class="export-timeframe-option">
+              <input type="radio" name="timeframe" value="365">
+              <span>Last year</span>
+            </label>
+            <label class="export-timeframe-option">
+              <input type="radio" name="timeframe" value="all">
+              <span>All time</span>
+            </label>
+          </div>
         </div>
-      </div>
 
-      <div class="export-section">
-        <h3>⏱ Activity Timer</h3>
-        <div class="export-buttons">
-          <button id="export-timer-csv" class="export-btn">CSV Time Log</button>
-          <button id="export-timer-summary" class="export-btn">Weekly Summary</button>
+        <!-- Data Types Selection -->
+        <div class="export-card">
+          <div class="export-card-header">
+            <span class="export-card-icon">📋</span>
+            <h3>Data Types</h3>
+            <button class="export-select-all" onclick="toggleAllDataTypes()">Select All</button>
+          </div>
+          <div class="export-datatypes">
+            <label class="export-datatype-option">
+              <input type="checkbox" name="datatype" value="mood" checked>
+              <span class="export-datatype-icon">📊</span>
+              <span>Mood Check-ins</span>
+            </label>
+            <label class="export-datatype-option">
+              <input type="checkbox" name="datatype" value="dreams" checked>
+              <span class="export-datatype-icon">🌙</span>
+              <span>Dreams</span>
+            </label>
+            <label class="export-datatype-option">
+              <input type="checkbox" name="datatype" value="activities" checked>
+              <span class="export-datatype-icon">⏱</span>
+              <span>Activities & Time</span>
+            </label>
+            <label class="export-datatype-option">
+              <input type="checkbox" name="datatype" value="meditation" checked>
+              <span class="export-datatype-icon">🧘♀️</span>
+              <span>Meditation</span>
+            </label>
+            <label class="export-datatype-option">
+              <input type="checkbox" name="datatype" value="food" checked>
+              <span class="export-datatype-icon">🍽</span>
+              <span>Food Diary</span>
+            </label>
+            <label class="export-datatype-option">
+              <input type="checkbox" name="datatype" value="medication" checked>
+              <span class="export-datatype-icon">💊</span>
+              <span>Medications</span>
+            </label>
+            <label class="export-datatype-option">
+              <input type="checkbox" name="datatype" value="todos" checked>
+              <span class="export-datatype-icon">✅</span>
+              <span>To-Do's</span>
+            </label>
+            <label class="export-datatype-option">
+              <input type="checkbox" name="datatype" value="wishlist" checked>
+              <span class="export-datatype-icon">✨</span>
+              <span>Wishlist</span>
+            </label>
+            <label class="export-datatype-option">
+              <input type="checkbox" name="datatype" value="stool" checked>
+              <span class="export-datatype-icon">💩</span>
+              <span>Stool Tracker</span>
+            </label>
+            <label class="export-datatype-option">
+              <input type="checkbox" name="datatype" value="oura" checked>
+              <span class="export-datatype-icon">💍</span>
+              <span>Oura Ring Data</span>
+            </label>
+          </div>
         </div>
-      </div>
 
-      <div class="export-section">
-        <h3>🧹 Meditation Log</h3>
-        <div class="export-buttons">
-          <button id="export-meditation-csv" class="export-btn">CSV Sessions</button>
+        <!-- Format & Export -->
+        <div class="export-card">
+          <div class="export-card-header">
+            <span class="export-card-icon">📁</span>
+            <h3>Export Format</h3>
+          </div>
+          <div class="export-formats">
+            <button class="export-format-btn" onclick="performExport('json')">
+              <span class="export-format-icon">🔧</span>
+              <div>
+                <div class="export-format-title">JSON Data</div>
+                <div class="export-format-desc">Raw data for backup/import</div>
+              </div>
+            </button>
+            <button class="export-format-btn" onclick="performExport('csv')">
+              <span class="export-format-icon">📊</span>
+              <div>
+                <div class="export-format-title">CSV Spreadsheet</div>
+                <div class="export-format-desc">For Excel/Google Sheets</div>
+              </div>
+            </button>
+            <button class="export-format-btn" onclick="performExport('html')">
+              <span class="export-format-icon">📖</span>
+              <div>
+                <div class="export-format-title">HTML Report</div>
+                <div class="export-format-desc">Beautiful formatted view</div>
+              </div>
+            </button>
+            <button class="export-format-btn" onclick="performExport('text')">
+              <span class="export-format-icon">📝</span>
+              <div>
+                <div class="export-format-title">Text Journal</div>
+                <div class="export-format-desc">Human-readable format</div>
+              </div>
+            </button>
+          </div>
         </div>
-      </div>
 
-      <div class="export-section">
-        <h3>💾 Complete Backup</h3>
-        <div class="export-buttons">
-          <button id="export-all-json" class="export-btn primary">Full JSON Backup</button>
+        <div class="export-preview" id="export-preview" style="display: none;">
+          <h4>Preview</h4>
+          <div class="export-preview-content" id="export-preview-content"></div>
         </div>
-        <p class="export-note">Complete data backup — import this to restore everything</p>
-      </div>
 
-      <div class="export-section">
-        <h3>📥 Import Backup</h3>
-        <div class="export-buttons">
-          <label class="export-btn primary" for="import-file-input" style="cursor:pointer;text-align:center">Choose Backup File</label>
-          <input type="file" id="import-file-input" accept=".json,application/json" style="display:none">
+        <!-- Legacy Import -->
+        <div class="export-card">
+          <div class="export-card-header">
+            <span class="export-card-icon">📥</span>
+            <h3>Import Backup</h3>
+          </div>
+          <div class="export-legacy-import">
+            <label class="export-format-btn" for="import-file-input" style="cursor:pointer">
+              <span class="export-format-icon">📂</span>
+              <div>
+                <div class="export-format-title">Choose Backup File</div>
+                <div class="export-format-desc">Restore from JSON backup</div>
+              </div>
+            </label>
+            <input type="file" id="import-file-input" accept=".json,application/json" style="display:none">
+            <div id="import-result"></div>
+          </div>
         </div>
-        <p class="export-note">Restore from a backup file — merges with existing data</p>
-        <div id="import-result"></div>
-      </div>
-
-      <div class="export-section">
-        <h3>📋 Pretty Report</h3>
-        <div class="export-buttons">
-          <button id="export-html-report" class="export-btn primary">HTML Report</button>
-        </div>
-        <p class="export-note">Beautiful formatted view of all your data</p>
-      </div>
-
-      <div class="export-section">
-        <h3>🌼 Share with Daisy</h3>
-        <div class="export-buttons">
-          <button id="share-with-daisy" class="export-btn primary">📄 Download for Daisy</button>
-        </div>
-        <p class="export-note">Downloads a file with ALL your data — send it to Daisy via WhatsApp!</p>
       </div>
     </section>
 
