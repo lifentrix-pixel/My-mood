@@ -142,7 +142,8 @@ function buildWishItem(wish) {
     <div class="wishlist-actions">
       ${!wish.completed && isRecurring ? '<button class="wishlist-done-btn" title="Did it!">✨</button>' : ''}
       ${!wish.completed ? '<button class="wishlist-edit-btn" title="Edit">✏️</button>' : ''}
-      <button class="wishlist-delete-btn" title="Delete">×</button>
+      ${wish.completed ? '<button class="wishlist-uncomplete-btn" title="Move back">↩️</button>' : ''}
+      ${!wish.completed ? '<button class="wishlist-delete-btn" title="Delete">×</button>' : ''}
     </div>
   `;
 
@@ -175,9 +176,19 @@ function buildWishItem(wish) {
     editBtn.addEventListener('click', (e) => { e.stopPropagation(); openWishlistModal(wish); });
   }
 
-  item.querySelector('.wishlist-delete-btn').addEventListener('click', (e) => {
-    e.stopPropagation(); deleteWish(wish.id);
-  });
+  const deleteBtn = item.querySelector('.wishlist-delete-btn');
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation(); deleteWish(wish.id);
+    });
+  }
+
+  const uncompleteBtn = item.querySelector('.wishlist-uncomplete-btn');
+  if (uncompleteBtn) {
+    uncompleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation(); toggleWish(wish.id);
+    });
+  }
 
   return item;
 }
