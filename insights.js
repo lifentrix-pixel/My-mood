@@ -516,6 +516,12 @@ function loadMedicationLogs() {
   try { return JSON.parse(localStorage.getItem('innerscape_medication_logs') || '[]'); } catch (e) { return []; }
 }
 
+// Make functions globally accessible for HTML onclick handlers
+if (typeof window !== 'undefined') {
+  window.toggleAllDataTypes = toggleAllDataTypes;
+  window.performExport = performExport;
+}
+
 function importBackup(data) {
   const logs = [];
 

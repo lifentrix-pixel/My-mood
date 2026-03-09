@@ -3523,7 +3523,9 @@ body.in-dreamland #sub-nav { display: none !important; }
 .export-format-btn {
   display: flex; align-items: center; gap: 16px; padding: 20px;
   background: var(--surface1); border: 2px solid var(--border); border-radius: 16px;
-  cursor: pointer; transition: all 0.2s; text-align: left;
+  cursor: pointer; transition: all 0.2s; text-align: left; 
+  font-family: inherit; font-size: inherit; color: inherit;
+  width: 100%; box-sizing: border-box;
 }
 .export-format-btn:hover {
   background: var(--surface3); border-color: var(--accent); transform: translateY(-2px);
