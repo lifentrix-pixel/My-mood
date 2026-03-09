@@ -3232,6 +3232,9 @@ body.in-dreamland #sub-nav { display: none !important; }
   margin-bottom: 12px;
 }
 .stool-card-icon { font-size: 1.1rem; }
+.stool-card-note {
+  font-size: 11px; color: var(--text3); font-style: italic; margin-left: auto;
+}
 
 /* Bristol grid */
 .bristol-grid {

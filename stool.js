@@ -32,6 +32,12 @@ const MANNER_OPTIONS = [
   { value: 'incomplete', emoji: '🔄', label: 'Incomplete' },
 ];
 
+const THICKNESS_OPTIONS = [
+  { value: 'thin', emoji: '🧵', label: 'Thin/Narrow' },
+  { value: 'normal', emoji: '📏', label: 'Normal Width' },
+  { value: 'thick', emoji: '🌭', label: 'Thick/Wide' },
+];
+
 const AMOUNT_OPTIONS = [
   { value: 'minimal', emoji: '·', label: 'Traces' },
   { value: 'small', emoji: '•', label: 'Small' },
@@ -50,7 +56,8 @@ const SYMPTOMS = [
 ];
 
 let selectedBristol = null;
-let selectedManner = '';
+let selectedManner = new Set();
+let selectedThickness = '';
 let selectedAmount = '';
 let selectedSymptoms = new Set();
 
@@ -89,11 +96,26 @@ function showStoolPage() {
         <div class="stool-card-header">
           <span class="stool-card-icon">💨</span>
           <span>How it came out</span>
+          <span class="stool-card-note">(can select multiple)</span>
         </div>
-        <div class="pill-row" id="manner-row">
+        <div class="pill-row pill-row-wrap" id="manner-row">
           ${MANNER_OPTIONS.map(m => `
-            <button class="option-pill" data-value="${m.value}" onclick="selectManner('${m.value}')">
+            <button class="option-pill" data-value="${m.value}" onclick="toggleManner('${m.value}')">
               <span>${m.emoji}</span> ${m.label}
+            </button>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="stool-card">
+        <div class="stool-card-header">
+          <span class="stool-card-icon">📐</span>
+          <span>Thickness</span>
+        </div>
+        <div class="pill-row" id="thickness-row">
+          ${THICKNESS_OPTIONS.map(t => `
+            <button class="option-pill" data-value="${t.value}" onclick="selectThickness('${t.value}')">
+              <span>${t.emoji}</span> ${t.label}
             </button>
           `).join('')}
         </div>
@@ -161,10 +183,18 @@ function selectBristol(type) {
   detail.classList.remove('hidden');
 }
 
-function selectManner(value) {
-  selectedManner = selectedManner === value ? '' : value;
+function toggleManner(value) {
+  if (selectedManner.has(value)) selectedManner.delete(value);
+  else selectedManner.add(value);
   document.querySelectorAll('#manner-row .option-pill').forEach(el => {
-    el.classList.toggle('active', el.dataset.value === selectedManner);
+    el.classList.toggle('active', selectedManner.has(el.dataset.value));
+  });
+}
+
+function selectThickness(value) {
+  selectedThickness = selectedThickness === value ? '' : value;
+  document.querySelectorAll('#thickness-row .option-pill').forEach(el => {
+    el.classList.toggle('active', el.dataset.value === selectedThickness);
   });
 }
 
@@ -195,7 +225,11 @@ function saveStoolEntry() {
     timestamp: Date.now(),
     bristol: selectedBristol,
     bristolDesc: b.label,
-    manner: selectedManner,
+    manner: [...selectedManner].map(value => {
+      const m = MANNER_OPTIONS.find(m => m.value === value);
+      return m ? m.label : value;
+    }),
+    thickness: selectedThickness,
     amount: selectedAmount,
     symptoms: [...selectedSymptoms].map(id => {
       const s = SYMPTOMS.find(s => s.id === id);
@@ -210,7 +244,8 @@ function saveStoolEntry() {
 
   // Reset form
   selectedBristol = null;
-  selectedManner = '';
+  selectedManner = new Set();
+  selectedThickness = '';
   selectedAmount = '';
   selectedSymptoms = new Set();
   document.querySelectorAll('.bristol-pill, .option-pill').forEach(el => el.classList.remove('active'));
@@ -231,8 +266,19 @@ function renderStoolList() {
   list.innerHTML = stoolEntries.slice(0, 15).map(entry => {
     const b = BRISTOL[entry.bristol - 1] || BRISTOL[3];
     const pills = [];
-    if (entry.manner) pills.push(MANNER_OPTIONS.find(m => m.value === entry.manner)?.label || entry.manner);
-    if (entry.amount) pills.push(AMOUNT_OPTIONS.find(a => a.value === entry.amount)?.label || entry.amount);
+    if (entry.manner && entry.manner.length) {
+      // Handle both old single string and new array format
+      const mannerArray = Array.isArray(entry.manner) ? entry.manner : [entry.manner];
+      pills.push(...mannerArray);
+    }
+    if (entry.thickness) {
+      const t = THICKNESS_OPTIONS.find(t => t.value === entry.thickness);
+      pills.push(t ? t.label : entry.thickness);
+    }
+    if (entry.amount) {
+      const a = AMOUNT_OPTIONS.find(a => a.value === entry.amount);
+      pills.push(a ? a.label : entry.amount);
+    }
 
     return `
       <div class="stool-history-card">
