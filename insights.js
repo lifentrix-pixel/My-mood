@@ -394,6 +394,8 @@ function performExport(format) {
     totalEntries += (ouraData.sleep?.length || 0) + (ouraData.readiness?.length || 0) + (ouraData.activity?.length || 0);
   }
   
+  console.log('Total entries found:', totalEntries);
+  
   if (totalEntries === 0) {
     showToast('No data found for selected time period');
     return;
@@ -403,19 +405,26 @@ function performExport(format) {
   const timeframeName = timeframe === 'all' ? 'all-time' : `${timeframe}days`;
   const filename = `innerscape-${format}-${timeframeName}-${Date.now()}`;
   
-  switch(format) {
-    case 'json':
-      exportAsJSON(exportData, filename, totalEntries);
-      break;
-    case 'csv':
-      exportAsCSV(exportData, filename, totalEntries);
-      break;
-    case 'html':
-      exportAsHTML(exportData, filename, totalEntries, timeframe);
-      break;
-    case 'text':
-      exportAsText(exportData, filename, totalEntries);
-      break;
+  console.log('About to export with filename:', filename);
+  
+  try {
+    switch(format) {
+      case 'json':
+        exportAsJSON(exportData, filename, totalEntries);
+        break;
+      case 'csv':
+        exportAsCSV(exportData, filename, totalEntries);
+        break;
+      case 'html':
+        exportAsHTML(exportData, filename, totalEntries, timeframe);
+        break;
+      case 'text':
+        exportAsText(exportData, filename, totalEntries);
+        break;
+    }
+  } catch(error) {
+    console.error('Export error:', error);
+    showToast('Export failed: ' + error.message);
   }
 }
 
@@ -428,8 +437,8 @@ function exportAsJSON(data, filename, totalEntries) {
     data: data
   };
   
-  const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
-  downloadBlob(blob, `${filename}.json`);
+  const jsonString = JSON.stringify(jsonData, null, 2);
+  downloadFile(jsonString, `${filename}.json`, 'application/json');
   showToast(`📁 JSON export downloaded (${totalEntries} entries)`);
 }
 
@@ -460,8 +469,7 @@ function exportAsCSV(data, filename, totalEntries) {
     csvContent += '\n';
   }
   
-  const blob = new Blob([csvContent], { type: 'text/csv' });
-  downloadBlob(blob, `${filename}.csv`);
+  downloadFile(csvContent, `${filename}.csv`, 'text/csv');
   showToast(`📊 CSV exported (${totalEntries} entries)`);
 }
 
@@ -486,8 +494,7 @@ function exportAsHTML(data, filename, totalEntries, timeframe) {
   
   html += '</body></html>';
   
-  const blob = new Blob([html], { type: 'text/html' });
-  downloadBlob(blob, `${filename}.html`);
+  downloadFile(html, `${filename}.html`, 'text/html');
   showToast(`📖 HTML report downloaded`);
 }
 
@@ -504,8 +511,7 @@ function exportAsText(data, filename, totalEntries) {
     });
   }
   
-  const blob = new Blob([content], { type: 'text/plain' });
-  downloadBlob(blob, `${filename}.txt`);
+  downloadFile(content, `${filename}.txt`, 'text/plain');
   showToast(`📝 Text export downloaded`);
 }
 
