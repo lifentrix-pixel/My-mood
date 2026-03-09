@@ -2855,7 +2855,8 @@ input[type="range"]::-moz-range-thumb {
   position: relative;
   overflow-x: hidden;
   overflow-y: auto;
-  padding-bottom: 4rem;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 8rem;
 }
 /* Hide nav when in dreamland */
 body.in-dreamland #nav,
