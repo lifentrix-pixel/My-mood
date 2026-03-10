@@ -174,10 +174,46 @@ function renderDayTimeline(entries, activities, todayStart) {
 
   let html = '<div class="ao-timeline">';
 
-  // Now indicator
+  // Show currently running activity
   if (isToday) {
-    const nowTime = new Date(now);
-    html += `<div class="ao-now-marker"><span class="ao-now-dot"></span><span class="ao-now-label">Now · ${fmtTime(nowTime)}</span><span class="ao-now-line"></span></div>`;
+    try {
+      const activeTimer = JSON.parse(localStorage.getItem('innerscape_active_timer') || 'null');
+      if (activeTimer && activeTimer.activityId && activeTimer.startTime) {
+        const act = activities.find(a => a.id === activeTimer.activityId);
+        if (act) {
+          const elapsed = now - activeTimer.startTime;
+          const color = act.color || 'var(--accent)';
+          
+          // Check for active sub-activity
+          const activeSub = JSON.parse(localStorage.getItem('innerscape_active_sub') || 'null');
+          let subName = '';
+          if (activeSub && activeSub.subActivityId) {
+            const sub = (act.subActivities || []).find(s => s.id === activeSub.subActivityId);
+            if (sub) subName = sub.name;
+          }
+          
+          html += `
+            <div class="ao-block ao-block-live" style="--ac:${color}">
+              <div class="ao-block-bar" style="background:${color}"></div>
+              <div class="ao-block-content">
+                <div class="ao-block-body">
+                  <div class="ao-block-left">
+                    <span class="ao-block-emoji">${act.emoji || '⏱'}</span>
+                    <div>
+                      <div class="ao-block-name">${act.name} <span class="ao-live-badge">LIVE</span></div>
+                      ${subName ? `<div class="ao-block-note">↳ ${subName}</div>` : ''}
+                    </div>
+                  </div>
+                  <div class="ao-block-right">
+                    <div class="ao-block-dur">${aoFmtDur(elapsed)}</div>
+                    <div class="ao-block-time">Since ${fmtTime(new Date(activeTimer.startTime))}</div>
+                  </div>
+                </div>
+              </div>
+            </div>`;
+        }
+      }
+    } catch(e) {}
   }
 
   sorted.forEach((entry, i) => {

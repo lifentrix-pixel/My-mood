@@ -3269,6 +3269,16 @@ body.in-dreamland #sub-nav { display: none !important; }
 .ao-block-sub { font-size: 0.75rem; color: var(--text2); margin-top: 2px; }
 .ao-block-note { font-size: 0.75rem; color: var(--text3); font-style: italic; margin-top: 2px; }
 
+/* Live activity */
+.ao-block-live { border: 1.5px solid var(--accent); animation: ao-pulse 2s ease-in-out infinite; }
+@keyframes ao-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(167,139,250,0.3); } 50% { box-shadow: 0 0 12px 4px rgba(167,139,250,0.15); } }
+.ao-live-badge {
+  display: inline-block; font-size: 0.6rem; font-weight: 700; color: white;
+  background: #ef4444; padding: 1px 6px; border-radius: 4px; vertical-align: middle;
+  margin-left: 6px; letter-spacing: 0.5px; animation: ao-live-blink 1.5s ease-in-out infinite;
+}
+@keyframes ao-live-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
 /* Sub-activities nested in timeline blocks */
 .ao-subs {
   padding: 6px 14px 12px 40px; border-top: 1px solid var(--surface3);
