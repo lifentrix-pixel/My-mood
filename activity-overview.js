@@ -69,11 +69,20 @@ function renderPeriod(period, entries, activities) {
 
   let html = renderStatPills(stats);
 
-  if (period === 'today') html += renderDayTimeline(filtered, activities, todayStart);
-  else if (period === 'week') html += renderWeekGrid(entries, activities, todayStart);
-  else html += renderMonthView(entries, activities, now);
-
-  if (filtered.length > 0) html += renderTopActivities(stats.sorted);
+  if (period === 'today') {
+    html += `<div class="ao-subtabs">
+      <button class="ao-subtab active" onclick="switchTodayView('timeline')">🕐 Timeline</button>
+      <button class="ao-subtab" onclick="switchTodayView('summary')">📊 Summary</button>
+    </div>`;
+    html += `<div id="ao-today-timeline">${renderDayTimeline(filtered, activities, todayStart)}</div>`;
+    html += `<div id="ao-today-summary" style="display:none">${filtered.length > 0 ? renderTopActivities(stats.sorted) : ''}</div>`;
+  } else if (period === 'week') {
+    html += renderWeekGrid(entries, activities, todayStart);
+    if (filtered.length > 0) html += renderTopActivities(stats.sorted);
+  } else {
+    html += renderMonthView(entries, activities, now);
+    if (filtered.length > 0) html += renderTopActivities(stats.sorted);
+  }
 
   el.innerHTML = html;
 }
@@ -373,5 +382,19 @@ function formatDate(ts) {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
+function switchTodayView(view) {
+  const timeline = document.getElementById('ao-today-timeline');
+  const summary = document.getElementById('ao-today-summary');
+  if (!timeline || !summary) return;
+  
+  timeline.style.display = view === 'timeline' ? '' : 'none';
+  summary.style.display = view === 'summary' ? '' : 'none';
+  
+  document.querySelectorAll('.ao-subtab').forEach((btn, i) => {
+    btn.classList.toggle('active', (i === 0 && view === 'timeline') || (i === 1 && view === 'summary'));
+  });
+}
+
 window.showActivityOverview = showActivityOverview;
 window.switchOverviewPeriod = switchOverviewPeriod;
+window.switchTodayView = switchTodayView;

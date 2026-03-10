@@ -3211,6 +3211,19 @@ body.in-dreamland #sub-nav { display: none !important; }
 }
 .ao-tab.active { background: var(--accent); color: white; box-shadow: 0 2px 12px rgba(167,139,250,0.3); }
 
+/* Sub-tabs for today view */
+.ao-subtabs {
+  display: flex; gap: 8px; justify-content: center; margin-bottom: 20px;
+}
+.ao-subtab {
+  padding: 8px 20px; border: 1.5px solid var(--border); border-radius: 16px;
+  background: var(--surface2); color: var(--text2); font-size: 14px; font-weight: 500;
+  cursor: pointer; transition: all 0.2s; font-family: inherit;
+}
+.ao-subtab.active {
+  background: var(--surface3); border-color: var(--accent); color: var(--accent);
+}
+
 /* Empty states */
 .ao-empty { text-align: center; padding: 80px 24px; }
 .ao-empty-icon { font-size: 3rem; margin-bottom: 16px; opacity: 0.7; }
