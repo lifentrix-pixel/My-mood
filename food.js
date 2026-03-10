@@ -339,7 +339,7 @@ function renderFoodHistory() {
         <span class="food-entry-time">${new Date(entry.timestamp).toLocaleDateString()} ${timeStr(entry.timestamp)}</span>
       </div>
       ${entry.description ? `<div class="food-entry-description">${entry.description}</div>` : ''}
-      ${entry.photo ? `<img src="${entry.photo}" class="food-entry-photo" alt="Food photo">` : ''}
+      ${entry.photo ? `<button class="food-photo-toggle" onclick="this.nextElementSibling.classList.toggle('hidden');this.textContent=this.nextElementSibling.classList.contains('hidden')?'📷 Show photo':'📷 Hide photo'">📷 Show photo</button><img src="${entry.photo}" class="food-entry-photo hidden" alt="Food photo">` : ''}
       <div class="food-entry-footer">
         <div class="food-entry-tags">
           ${entry.tags.map(tag => `<span class="food-entry-tag">${tag}</span>`).join('')}

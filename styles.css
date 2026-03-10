@@ -2217,12 +2217,18 @@ input[type="range"]::-moz-range-thumb {
   margin-bottom: 8px;
   font-size: 14px;
 }
+.food-photo-toggle {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px 12px; font-size: 13px; color: var(--text2); cursor: pointer;
+  margin-bottom: 8px; font-family: inherit;
+}
 .food-entry-photo {
   width: 100%;
   max-width: 200px;
   border-radius: 8px;
   margin-bottom: 8px;
 }
+.food-entry-photo.hidden { display: none; }
 .food-entry-footer {
   display: flex;
   justify-content: space-between;
