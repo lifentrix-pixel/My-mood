@@ -202,30 +202,32 @@ function renderDayTimeline(entries, activities, todayStart) {
     const subs = !entry.subActivityId ? getSubEntries(entry, allEntries) : [];
 
     html += `
-      <div class="ao-block" style="min-height:${height}px;--ac:${color}">
+      <div class="ao-block" style="--ac:${color}">
         <div class="ao-block-bar" style="background:${color}"></div>
-        <div class="ao-block-body">
-          <div class="ao-block-left">
-            <span class="ao-block-emoji">${act.emoji || '⏱'}</span>
-            <div>
-              <div class="ao-block-name">${act.name}</div>
-              ${entry.note ? `<div class="ao-block-note">"${entry.note}"</div>` : ''}
+        <div class="ao-block-content">
+          <div class="ao-block-body">
+            <div class="ao-block-left">
+              <span class="ao-block-emoji">${act.emoji || '⏱'}</span>
+              <div>
+                <div class="ao-block-name">${act.name}</div>
+                ${entry.note ? `<div class="ao-block-note">"${entry.note}"</div>` : ''}
+              </div>
+            </div>
+            <div class="ao-block-right">
+              <div class="ao-block-dur">${aoFmtDur(dur)}</div>
+              <div class="ao-block-time">${fmtTime(new Date(entry.startTime))} – ${fmtTime(new Date(entry.endTime))}</div>
             </div>
           </div>
-          <div class="ao-block-right">
-            <div class="ao-block-dur">${aoFmtDur(dur)}</div>
-            <div class="ao-block-time">${fmtTime(new Date(entry.startTime))} – ${fmtTime(new Date(entry.endTime))}</div>
-          </div>
+          ${subs.length ? `<div class="ao-subs">${subs.map(s => {
+            const subDur = s.endTime - s.startTime;
+            return `<div class="ao-sub-item">
+              <span class="ao-sub-dot" style="background:${color}"></span>
+              <span class="ao-sub-name">${s.subActivityName || 'Sub-activity'}</span>
+              <span class="ao-sub-dur">${aoFmtDur(subDur)}</span>
+              <span class="ao-sub-time">${fmtTime(new Date(s.startTime))} – ${fmtTime(new Date(s.endTime))}</span>
+            </div>`;
+          }).join('')}</div>` : ''}
         </div>
-        ${subs.length ? `<div class="ao-subs">${subs.map(s => {
-          const subDur = s.endTime - s.startTime;
-          return `<div class="ao-sub-item">
-            <span class="ao-sub-dot" style="background:${color}"></span>
-            <span class="ao-sub-name">${s.subActivityName || 'Sub-activity'}</span>
-            <span class="ao-sub-dur">${aoFmtDur(subDur)}</span>
-            <span class="ao-sub-time">${fmtTime(new Date(s.startTime))} – ${fmtTime(new Date(s.endTime))}</span>
-          </div>`;
-        }).join('')}</div>` : ''}
       </div>`;
   });
 
