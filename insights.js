@@ -299,17 +299,43 @@ function getExportSettings() {
   return { timeframe, selectedTypes };
 }
 
+// Show/hide custom date range
+document.addEventListener('change', (e) => {
+  if (e.target.name === 'timeframe') {
+    const customRange = document.getElementById('export-custom-range');
+    if (customRange) customRange.style.display = e.target.value === 'custom' ? 'flex' : 'none';
+  }
+});
+
 // Filter data by timeframe
 function filterDataByTimeframe(data, timeframe, timestampField = 'ts') {
   if (timeframe === 'all') return data;
   
   const now = Date.now();
-  const days = parseInt(timeframe);
-  const cutoff = now - (days * 24 * 60 * 60 * 1000);
+  let cutoffStart, cutoffEnd;
+  
+  if (timeframe === 'yesterday') {
+    const today = new Date(); today.setHours(0,0,0,0);
+    cutoffStart = today.getTime() - 86400000;
+    cutoffEnd = today.getTime();
+  } else if (timeframe === 'custom') {
+    const fromEl = document.getElementById('export-date-from');
+    const toEl = document.getElementById('export-date-to');
+    if (fromEl?.value) cutoffStart = new Date(fromEl.value).getTime();
+    if (toEl?.value) cutoffEnd = new Date(toEl.value).getTime() + 86400000; // include end day
+    if (!cutoffStart && !cutoffEnd) return data;
+  } else {
+    const days = parseInt(timeframe);
+    cutoffStart = now - (days * 24 * 60 * 60 * 1000);
+    cutoffEnd = null;
+  }
   
   return data.filter(item => {
     const timestamp = item[timestampField] || item.timestamp || item.createdAt || item.startTime;
-    return timestamp && timestamp >= cutoff;
+    if (!timestamp) return false;
+    if (cutoffStart && timestamp < cutoffStart) return false;
+    if (cutoffEnd && timestamp >= cutoffEnd) return false;
+    return true;
   });
 }
 

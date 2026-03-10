@@ -3496,6 +3496,18 @@ body.in-dreamland #sub-nav { display: none !important; }
 .export-datatype-option:has(input:checked) {
   background: var(--accent); border-color: var(--accent); color: white;
 }
+/* Custom date range */
+.export-custom-range {
+  display: flex; gap: 16px; margin-top: 16px; flex-wrap: wrap;
+}
+.export-custom-range label {
+  font-size: 14px; color: var(--text2); display: flex; align-items: center; gap: 8px;
+}
+.export-custom-range input[type="date"] {
+  background: var(--surface1); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 12px; color: var(--text1); font-size: 14px; font-family: inherit;
+}
+
 .export-datatype-option input { display: none; }
 .export-datatype-icon { font-size: 1.1rem; }
 .export-datatype-option span:last-child { font-size: 14px; font-weight: 500; }

@@ -1068,6 +1068,18 @@
           </div>
           <div class="export-timeframe">
             <label class="export-timeframe-option">
+              <input type="radio" name="timeframe" value="1">
+              <span>Today</span>
+            </label>
+            <label class="export-timeframe-option">
+              <input type="radio" name="timeframe" value="yesterday">
+              <span>Yesterday</span>
+            </label>
+            <label class="export-timeframe-option">
+              <input type="radio" name="timeframe" value="3">
+              <span>Last 3 days</span>
+            </label>
+            <label class="export-timeframe-option">
               <input type="radio" name="timeframe" value="7" checked>
               <span>Last 7 days</span>
             </label>
@@ -1080,17 +1092,17 @@
               <span>Last 3 months</span>
             </label>
             <label class="export-timeframe-option">
-              <input type="radio" name="timeframe" value="180">
-              <span>Last 6 months</span>
-            </label>
-            <label class="export-timeframe-option">
-              <input type="radio" name="timeframe" value="365">
-              <span>Last year</span>
-            </label>
-            <label class="export-timeframe-option">
               <input type="radio" name="timeframe" value="all">
               <span>All time</span>
             </label>
+            <label class="export-timeframe-option">
+              <input type="radio" name="timeframe" value="custom">
+              <span>Custom range</span>
+            </label>
+          </div>
+          <div class="export-custom-range" id="export-custom-range" style="display:none">
+            <label>From: <input type="date" id="export-date-from"></label>
+            <label>To: <input type="date" id="export-date-to"></label>
           </div>
         </div>
 
