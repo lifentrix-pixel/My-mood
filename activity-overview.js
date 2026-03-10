@@ -167,7 +167,7 @@ function renderDayTimeline(entries, activities, todayStart) {
     </div>`;
   }
 
-  const sorted = [...entries].sort((a,b) => a.startTime - b.startTime);
+  const sorted = [...entries].sort((a,b) => b.startTime - a.startTime);
   const now = Date.now();
   const isToday = (new Date()).setHours(0,0,0,0) === todayStart;
   const maxDur = Math.max(...sorted.map(e => e.endTime - e.startTime), 1);
@@ -191,7 +191,7 @@ function renderDayTimeline(entries, activities, todayStart) {
 
     // Gap before this entry
     if (i > 0) {
-      const gap = entry.startTime - sorted[i-1].endTime;
+      const gap = sorted[i-1].startTime - entry.endTime;
       if (gap > 60000) {
         html += `<div class="ao-gap"><span class="ao-gap-line"></span><span class="ao-gap-text">${aoFmtDur(gap)} gap</span><span class="ao-gap-line"></span></div>`;
       }
