@@ -1,15 +1,49 @@
 /* ── Activity Overview Module — Visual Rework ── */
 
+// Deduplicate entries: when a parent session has sub-activity entries,
+// only count the parent (which spans the full time), skip subs for totals
+function dedupeEntries(entries) {
+  // Find parent entries (no subActivityId)
+  const parents = entries.filter(e => !e.subActivityId);
+  // Find sub entries
+  const subs = entries.filter(e => e.subActivityId);
+  
+  // For each sub, check if a parent exists that covers its time range
+  // If so, skip the sub for calculations (parent already covers it)
+  const standaloneSubsOnly = subs.filter(sub => {
+    return !parents.some(p => 
+      p.activityId === sub.activityId && 
+      p.startTime <= sub.startTime && 
+      p.endTime >= sub.endTime - 60000 // 1min tolerance
+    );
+  });
+  
+  return [...parents, ...standaloneSubsOnly];
+}
+
+// Get sub-entries for a parent entry (for timeline display)
+function getSubEntries(parentEntry, allEntries) {
+  return allEntries.filter(e => 
+    e.subActivityId && 
+    e.activityId === parentEntry.activityId &&
+    e.startTime >= parentEntry.startTime - 1000 &&
+    e.endTime <= parentEntry.endTime + 60000
+  ).sort((a, b) => a.startTime - b.startTime);
+}
+
 function showActivityOverview() {
   const container = document.getElementById('activity-overview-content');
   const timeEntries = loadTimeEntries();
   const activities = loadActivities();
 
-  const validEntries = timeEntries.filter(e =>
+  const allValid = timeEntries.filter(e =>
     e.startTime && e.endTime &&
     e.endTime > e.startTime &&
     (e.endTime - e.startTime) >= 30000
   ).sort((a, b) => a.startTime - b.startTime);
+  
+  // Deduplicated entries for calculations
+  const validEntries = dedupeEntries(allValid);
 
   if (!validEntries.length) {
     container.innerHTML = `
@@ -44,9 +78,10 @@ function switchOverviewPeriod(period) {
   );
   const timeEntries = loadTimeEntries();
   const activities = loadActivities();
-  const validEntries = timeEntries.filter(e =>
+  const allValid = timeEntries.filter(e =>
     e.startTime && e.endTime && e.endTime > e.startTime && (e.endTime - e.startTime) >= 30000
   ).sort((a, b) => a.startTime - b.startTime);
+  const validEntries = dedupeEntries(allValid);
 
   renderPeriod(period, validEntries, activities);
 }
@@ -162,6 +197,10 @@ function renderDayTimeline(entries, activities, todayStart) {
       }
     }
 
+    // Find sub-entries for this parent
+    const allEntries = loadTimeEntries().filter(e => e.startTime && e.endTime && e.endTime > e.startTime);
+    const subs = !entry.subActivityId ? getSubEntries(entry, allEntries) : [];
+
     html += `
       <div class="ao-block" style="min-height:${height}px;--ac:${color}">
         <div class="ao-block-bar" style="background:${color}"></div>
@@ -170,7 +209,6 @@ function renderDayTimeline(entries, activities, todayStart) {
             <span class="ao-block-emoji">${act.emoji || '⏱'}</span>
             <div>
               <div class="ao-block-name">${act.name}</div>
-              ${entry.subActivityName ? `<div class="ao-block-sub">${entry.subActivityName}</div>` : ''}
               ${entry.note ? `<div class="ao-block-note">"${entry.note}"</div>` : ''}
             </div>
           </div>
@@ -179,6 +217,15 @@ function renderDayTimeline(entries, activities, todayStart) {
             <div class="ao-block-time">${fmtTime(new Date(entry.startTime))} – ${fmtTime(new Date(entry.endTime))}</div>
           </div>
         </div>
+        ${subs.length ? `<div class="ao-subs">${subs.map(s => {
+          const subDur = s.endTime - s.startTime;
+          return `<div class="ao-sub-item">
+            <span class="ao-sub-dot" style="background:${color}"></span>
+            <span class="ao-sub-name">${s.subActivityName || 'Sub-activity'}</span>
+            <span class="ao-sub-dur">${aoFmtDur(subDur)}</span>
+            <span class="ao-sub-time">${fmtTime(new Date(s.startTime))} – ${fmtTime(new Date(s.endTime))}</span>
+          </div>`;
+        }).join('')}</div>` : ''}
       </div>`;
   });
 
