@@ -180,13 +180,33 @@ function handleFoodPhoto(e) {
   const file = e.target.files[0];
   if (!file) return;
   
+  // Compress and resize photo to avoid localStorage limits
   const reader = new FileReader();
   reader.onload = (event) => {
-    foodState.currentPhoto = event.target.result;
-    $('#food-preview').src = foodState.currentPhoto;
-    $('#food-preview').classList.remove('hidden');
-    $('.food-camera-placeholder').style.display = 'none';
-    updateQuickSaveButton();
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const maxSize = 600; // max width/height in pixels
+      let w = img.width, h = img.height;
+      
+      if (w > maxSize || h > maxSize) {
+        if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+        else { w = Math.round(w * maxSize / h); h = maxSize; }
+      }
+      
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      
+      // Compress to JPEG at 60% quality
+      foodState.currentPhoto = canvas.toDataURL('image/jpeg', 0.6);
+      $('#food-preview').src = foodState.currentPhoto;
+      $('#food-preview').classList.remove('hidden');
+      $('.food-camera-placeholder').style.display = 'none';
+      updateQuickSaveButton();
+    };
+    img.src = event.target.result;
   };
   reader.readAsDataURL(file);
 }
@@ -251,10 +271,24 @@ function saveDetailedFood() {
     photo: foodState.currentPhoto
   };
   
-  saveFoodEntry(entry);
-  resetFoodForm();
-  renderFoodHistory();
-  showToast('🍽️ Entry saved ✓');
+  try {
+    saveFoodEntry(entry);
+    resetFoodForm();
+    renderFoodHistory();
+    showToast('🍽️ Entry saved ✓');
+  } catch(err) {
+    console.error('Food save error:', err);
+    // If storage is full, try without photo
+    if (err.name === 'QuotaExceededError' || err.message.includes('quota')) {
+      entry.photo = null;
+      saveFoodEntry(entry);
+      resetFoodForm();
+      renderFoodHistory();
+      showToast('⚠️ Saved without photo (storage full)');
+    } else {
+      showToast('❌ Save failed: ' + err.message);
+    }
+  }
 }
 
 function resetFoodForm() {
