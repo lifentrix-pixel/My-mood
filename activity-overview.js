@@ -1,336 +1,377 @@
-/* ── Activity Overview Module ── */
+/* ── Activity Overview Module — Visual Rework ── */
 
 function showActivityOverview() {
+  const container = document.getElementById('activity-overview-content');
   const timeEntries = loadTimeEntries();
   const activities = loadActivities();
-  const now = Date.now();
-  
-  // Filter out entries that are too short (< 30 seconds) or have invalid times
-  const validEntries = timeEntries.filter(e => 
-    e.startTime && e.endTime && 
-    e.endTime > e.startTime && 
+
+  const validEntries = timeEntries.filter(e =>
+    e.startTime && e.endTime &&
+    e.endTime > e.startTime &&
     (e.endTime - e.startTime) >= 30000
-  ).sort((a, b) => b.startTime - a.startTime);
-  
+  ).sort((a, b) => a.startTime - b.startTime);
+
   if (!validEntries.length) {
-    document.getElementById('activity-overview-content').innerHTML = `
-      <div class="overview-empty">
-        <span class="overview-empty-icon">📊</span>
-        <h3>No Activity Data Yet</h3>
-        <p>Start tracking time with the Timer to see patterns and insights here</p>
-      </div>
-    `;
+    container.innerHTML = `
+      <div class="ao-page">
+        <div class="ao-empty">
+          <div class="ao-empty-icon">✦</div>
+          <h3>Your story starts here</h3>
+          <p>Start tracking activities with the Timer to see your beautiful day unfold</p>
+        </div>
+      </div>`;
     return;
   }
 
-  // Time period selectors
-  const today = new Date();
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-  const weekStart = todayStart - (6 * 24 * 60 * 60 * 1000);
-  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).getTime();
+  const period = document.querySelector('.ao-tab.active')?.dataset.period || 'today';
 
-  // Filter entries by time periods
-  const todayEntries = validEntries.filter(e => e.startTime >= todayStart);
-  const weekEntries = validEntries.filter(e => e.startTime >= weekStart);
-  const monthEntries = validEntries.filter(e => e.startTime >= monthStart);
-
-  document.getElementById('activity-overview-content').innerHTML = `
-    <div class="overview-page">
-      <div class="overview-header">
-        <h2>📊 Activity Overview</h2>
-        <p class="overview-subtitle">Insights from ${validEntries.length} sessions</p>
+  container.innerHTML = `
+    <div class="ao-page">
+      <div class="ao-tabs">
+        <button class="ao-tab ${period==='today'?'active':''}" data-period="today" onclick="switchOverviewPeriod('today')">Today</button>
+        <button class="ao-tab ${period==='week'?'active':''}" data-period="week" onclick="switchOverviewPeriod('week')">Week</button>
+        <button class="ao-tab ${period==='month'?'active':''}" data-period="month" onclick="switchOverviewPeriod('month')">Month</button>
       </div>
+      <div id="ao-content"></div>
+    </div>`;
 
-      <div class="overview-tabs">
-        <button class="overview-tab active" data-period="today" onclick="switchOverviewPeriod('today')">Today</button>
-        <button class="overview-tab" data-period="week" onclick="switchOverviewPeriod('week')">Week</button>
-        <button class="overview-tab" data-period="month" onclick="switchOverviewPeriod('month')">Month</button>
-      </div>
-
-      <div id="overview-content">
-        ${renderOverviewPeriod('today', todayEntries, activities)}
-      </div>
-    </div>
-  `;
+  renderPeriod(period, validEntries, activities);
 }
 
 function switchOverviewPeriod(period) {
-  document.querySelectorAll('.overview-tab').forEach(tab => 
-    tab.classList.toggle('active', tab.dataset.period === period)
+  document.querySelectorAll('.ao-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.period === period)
   );
-
   const timeEntries = loadTimeEntries();
   const activities = loadActivities();
-  const validEntries = timeEntries.filter(e => 
-    e.startTime && e.endTime && 
-    e.endTime > e.startTime && 
-    (e.endTime - e.startTime) >= 30000
-  ).sort((a, b) => b.startTime - a.startTime);
+  const validEntries = timeEntries.filter(e =>
+    e.startTime && e.endTime && e.endTime > e.startTime && (e.endTime - e.startTime) >= 30000
+  ).sort((a, b) => a.startTime - b.startTime);
 
-  const today = new Date();
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-  const weekStart = todayStart - (6 * 24 * 60 * 60 * 1000);
-  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).getTime();
-
-  let entries;
-  switch(period) {
-    case 'today':
-      entries = validEntries.filter(e => e.startTime >= todayStart);
-      break;
-    case 'week':
-      entries = validEntries.filter(e => e.startTime >= weekStart);
-      break;
-    case 'month':
-      entries = validEntries.filter(e => e.startTime >= monthStart);
-      break;
-  }
-
-  document.getElementById('overview-content').innerHTML = renderOverviewPeriod(period, entries, activities);
+  renderPeriod(period, validEntries, activities);
 }
 
-function renderOverviewPeriod(period, entries, activities) {
-  if (!entries.length) {
-    return `
-      <div class="overview-empty-period">
-        <p>No activities tracked ${period === 'today' ? 'today' : `this ${period}`}</p>
-      </div>
-    `;
-  }
+function renderPeriod(period, entries, activities) {
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const weekStart = todayStart - 6 * 86400000;
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
-  // Calculate totals by activity
-  const activityTotals = {};
-  const activityCounts = {};
+  let filtered;
+  if (period === 'today') filtered = entries.filter(e => e.startTime >= todayStart);
+  else if (period === 'week') filtered = entries.filter(e => e.startTime >= weekStart);
+  else filtered = entries.filter(e => e.startTime >= monthStart);
+
+  const el = document.getElementById('ao-content');
+  if (!el) return;
+
+  const stats = calcStats(filtered, activities);
+
+  let html = renderStatPills(stats);
+
+  if (period === 'today') html += renderDayTimeline(filtered, activities, todayStart);
+  else if (period === 'week') html += renderWeekGrid(entries, activities, todayStart);
+  else html += renderMonthView(entries, activities, now);
+
+  if (filtered.length > 0) html += renderTopActivities(stats.sorted);
+
+  el.innerHTML = html;
+}
+
+/* ── Stats ── */
+function calcStats(entries, activities) {
+  const totals = {}, counts = {};
   let totalTime = 0;
+  const hourBuckets = new Array(24).fill(0);
 
-  entries.forEach(entry => {
-    const duration = entry.endTime - entry.startTime;
-    totalTime += duration;
-    
-    const actId = entry.activityId;
-    activityTotals[actId] = (activityTotals[actId] || 0) + duration;
-    activityCounts[actId] = (activityCounts[actId] || 0) + 1;
+  entries.forEach(e => {
+    const dur = e.endTime - e.startTime;
+    totalTime += dur;
+    totals[e.activityId] = (totals[e.activityId] || 0) + dur;
+    counts[e.activityId] = (counts[e.activityId] || 0) + 1;
+    hourBuckets[new Date(e.startTime).getHours()] += dur;
   });
 
-  // Sort activities by time spent
-  const sortedActivities = Object.entries(activityTotals)
-    .map(([actId, total]) => {
-      const activity = activities.find(a => a.id === actId);
-      return {
-        id: actId,
-        activity,
-        total,
-        count: activityCounts[actId],
-        percentage: (total / totalTime) * 100
-      };
+  const peakHour = hourBuckets.indexOf(Math.max(...hourBuckets));
+  const peakLabel = peakHour === -1 ? '—' : formatHour(peakHour);
+
+  const sorted = Object.entries(totals)
+    .map(([id, total]) => {
+      const act = activities.find(a => a.id === id);
+      return act ? { act, total, count: counts[id], pct: totalTime ? (total/totalTime)*100 : 0 } : null;
     })
-    .filter(item => item.activity)
-    .sort((a, b) => b.total - a.total);
+    .filter(Boolean)
+    .sort((a,b) => b.total - a.total);
 
-  // Timeline view for today
-  const timelineHtml = period === 'today' ? renderDayTimeline(entries, activities) : '';
+  return { totalTime, sessions: entries.length, peakLabel, sorted };
+}
 
-  // Weekly pattern for week/month views
-  const patternHtml = (period === 'week' || period === 'month') ? renderWeeklyPattern(entries, activities, period) : '';
+function renderStatPills(s) {
+  return `<div class="ao-stats">
+    <div class="ao-pill"><span class="ao-pill-val">${aoFmtDur(s.totalTime)}</span><span class="ao-pill-label">tracked</span></div>
+    <div class="ao-pill"><span class="ao-pill-val">${s.sessions}</span><span class="ao-pill-label">sessions</span></div>
+    <div class="ao-pill"><span class="ao-pill-val">${s.peakLabel}</span><span class="ao-pill-label">peak hour</span></div>
+  </div>`;
+}
 
-  return `
-    <!-- Summary Stats -->
-    <div class="overview-stats">
-      <div class="overview-stat-card">
-        <div class="stat-icon">⏱</div>
-        <div class="stat-content">
-          <div class="stat-value">${formatDuration(totalTime)}</div>
-          <div class="stat-label">Total Time</div>
-        </div>
-      </div>
-      <div class="overview-stat-card">
-        <div class="stat-icon">🎯</div>
-        <div class="stat-content">
-          <div class="stat-value">${entries.length}</div>
-          <div class="stat-label">Sessions</div>
-        </div>
-      </div>
-      <div class="overview-stat-card">
-        <div class="stat-icon">📊</div>
-        <div class="stat-content">
-          <div class="stat-value">${sortedActivities.length}</div>
-          <div class="stat-label">Activities</div>
-        </div>
-      </div>
-    </div>
+/* ── TODAY: Vertical Timeline ── */
+function renderDayTimeline(entries, activities, todayStart) {
+  if (!entries.length) {
+    return `<div class="ao-empty-period">
+      <div class="ao-empty-icon">🌅</div>
+      <p>No activities yet today — you've got this!</p>
+    </div>`;
+  }
 
-    ${timelineHtml}
-    ${patternHtml}
+  const sorted = [...entries].sort((a,b) => a.startTime - b.startTime);
+  const now = Date.now();
+  const isToday = (new Date()).setHours(0,0,0,0) === todayStart;
+  const maxDur = Math.max(...sorted.map(e => e.endTime - e.startTime), 1);
 
-    <!-- Top Activities -->
-    <div class="overview-section">
-      <h3>🏆 Top Activities</h3>
-      <div class="activity-breakdown">
-        ${sortedActivities.slice(0, 8).map(item => `
-          <div class="activity-break-item">
-            <div class="activity-break-left">
-              <span class="activity-break-emoji">${item.activity.emoji}</span>
-              <div>
-                <div class="activity-break-name">${item.activity.name}</div>
-                <div class="activity-break-meta">${item.count} session${item.count !== 1 ? 's' : ''}</div>
-              </div>
-            </div>
-            <div class="activity-break-right">
-              <div class="activity-break-time">${formatDuration(item.total)}</div>
-              <div class="activity-break-percent">${item.percentage.toFixed(1)}%</div>
-            </div>
-            <div class="activity-break-bar">
-              <div class="activity-break-fill" style="width:${item.percentage}%;background:${item.activity.color}"></div>
+  let html = '<div class="ao-timeline">';
+
+  // Now indicator
+  if (isToday) {
+    const nowTime = new Date(now);
+    html += `<div class="ao-now-marker"><span class="ao-now-dot"></span><span class="ao-now-label">Now · ${fmtTime(nowTime)}</span><span class="ao-now-line"></span></div>`;
+  }
+
+  sorted.forEach((entry, i) => {
+    const act = activities.find(a => a.id === entry.activityId);
+    if (!act) return;
+    const dur = entry.endTime - entry.startTime;
+    const minH = 52;
+    const maxH = 140;
+    const height = Math.max(minH, Math.min(maxH, (dur / maxDur) * maxH));
+    const color = act.color || 'var(--accent)';
+
+    // Gap before this entry
+    if (i > 0) {
+      const gap = entry.startTime - sorted[i-1].endTime;
+      if (gap > 60000) {
+        html += `<div class="ao-gap"><span class="ao-gap-line"></span><span class="ao-gap-text">${aoFmtDur(gap)} gap</span><span class="ao-gap-line"></span></div>`;
+      }
+    }
+
+    html += `
+      <div class="ao-block" style="min-height:${height}px;--ac:${color}">
+        <div class="ao-block-bar" style="background:${color}"></div>
+        <div class="ao-block-body">
+          <div class="ao-block-left">
+            <span class="ao-block-emoji">${act.emoji || '⏱'}</span>
+            <div>
+              <div class="ao-block-name">${act.name}</div>
+              ${entry.subActivityName ? `<div class="ao-block-sub">${entry.subActivityName}</div>` : ''}
+              ${entry.note ? `<div class="ao-block-note">"${entry.note}"</div>` : ''}
             </div>
           </div>
-        `).join('')}
-      </div>
-    </div>
-
-    <!-- Recent Sessions -->
-    <div class="overview-section">
-      <h3>🕐 Recent Sessions</h3>
-      <div class="session-list">
-        ${entries.slice(0, 10).map(entry => {
-          const activity = activities.find(a => a.id === entry.activityId);
-          if (!activity) return '';
-          
-          const duration = entry.endTime - entry.startTime;
-          const startTime = new Date(entry.startTime);
-          const endTime = new Date(entry.endTime);
-          
-          return `
-            <div class="session-item">
-              <div class="session-left">
-                <span class="session-emoji">${activity.emoji}</span>
-                <div>
-                  <div class="session-activity">${activity.name}</div>
-                  ${entry.subActivityName ? `<div class="session-sub">↳ ${entry.subActivityName}</div>` : ''}
-                  ${entry.note ? `<div class="session-note">"${entry.note}"</div>` : ''}
-                </div>
-              </div>
-              <div class="session-right">
-                <div class="session-duration">${formatDuration(duration)}</div>
-                <div class="session-time">
-                  ${startTime.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})} - 
-                  ${endTime.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
-                </div>
-                <div class="session-date">${formatDate(entry.startTime)}</div>
-              </div>
-            </div>
-          `;
-        }).join('')}
-      </div>
-    </div>
-  `;
-}
-
-function renderDayTimeline(entries, activities) {
-  if (!entries.length) return '';
-
-  // Group by hour and create timeline
-  const hours = new Array(24).fill(null).map((_, i) => ({
-    hour: i,
-    entries: [],
-    total: 0
-  }));
-
-  entries.forEach(entry => {
-    const startHour = new Date(entry.startTime).getHours();
-    const endHour = new Date(entry.endTime).getHours();
-    const duration = entry.endTime - entry.startTime;
-    
-    // Add to the start hour (simplified - could be more precise)
-    hours[startHour].entries.push(entry);
-    hours[startHour].total += duration;
-  });
-
-  const maxHourTotal = Math.max(...hours.map(h => h.total));
-
-  return `
-    <div class="overview-section">
-      <h3>🌅 Today's Timeline</h3>
-      <div class="timeline-chart">
-        ${hours.map((hour, index) => {
-          const heightPercent = maxHourTotal > 0 ? Math.max(4, (hour.total / maxHourTotal * 100)) : 0;
-          const hasActivity = hour.total > 0;
-          
-          // Only show labels for key hours: 6am, 12pm, 6pm, 12am
-          const showLabel = [0, 6, 12, 18].includes(hour.hour);
-          const hourLabel = showLabel ? (
-            hour.hour === 0 ? '12am' : 
-            hour.hour === 6 ? '6am' : 
-            hour.hour === 12 ? '12pm' : 
-            hour.hour === 18 ? '6pm' : ''
-          ) : '';
-          
-          return `
-            <div class="timeline-hour" title="${hour.entries.length} session${hour.entries.length !== 1 ? 's' : ''} • ${formatDuration(hour.total)}">
-              <div class="timeline-bar" style="height:${heightPercent}%;${hasActivity ? 'background:var(--accent);opacity:1;' : 'background:var(--surface3);opacity:0.3;'}"></div>
-              ${showLabel ? `<div class="timeline-label">${hourLabel}</div>` : '<div class="timeline-label"></div>'}
-            </div>
-          `;
-        }).join('')}
-      </div>
-      <div class="timeline-legend">
-        <span>Hover bars to see activity details</span>
-      </div>
-    </div>
-  `;
-}
-
-function renderWeeklyPattern(entries, activities, period) {
-  if (!entries.length) return '';
-
-  // Group by day of week
-  const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const dayTotals = new Array(7).fill(0);
-  
-  entries.forEach(entry => {
-    const day = new Date(entry.startTime).getDay();
-    dayTotals[day] += entry.endTime - entry.startTime;
-  });
-
-  const maxDayTotal = Math.max(...dayTotals);
-
-  return `
-    <div class="overview-section">
-      <h3>📅 ${period === 'week' ? 'This Week' : 'Daily'} Pattern</h3>
-      <div class="weekly-chart">
-        ${daysOfWeek.map((dayName, index) => `
-          <div class="weekly-day">
-            <div class="weekly-bar" style="height:${maxDayTotal > 0 ? (dayTotals[index] / maxDayTotal * 100) : 0}%;background:var(--accent)"></div>
-            <div class="weekly-time">${dayTotals[index] > 0 ? formatDuration(dayTotals[index]) : ''}</div>
-            <div class="weekly-label">${dayName}</div>
+          <div class="ao-block-right">
+            <div class="ao-block-dur">${aoFmtDur(dur)}</div>
+            <div class="ao-block-time">${fmtTime(new Date(entry.startTime))} – ${fmtTime(new Date(entry.endTime))}</div>
           </div>
-        `).join('')}
-      </div>
-    </div>
-  `;
+        </div>
+      </div>`;
+  });
+
+  html += '</div>';
+  return html;
 }
 
-// Helper functions
-function formatDuration(ms) {
+/* ── WEEK: Activity Grid ── */
+function renderWeekGrid(allEntries, activities, todayStart) {
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const dayStart = todayStart - i * 86400000;
+    const dayEnd = dayStart + 86400000;
+    const dayEntries = allEntries.filter(e => e.startTime >= dayStart && e.startTime < dayEnd);
+    const d = new Date(dayStart);
+    days.push({ dayStart, dayEnd, entries: dayEntries, date: d });
+  }
+
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const maxTotal = Math.max(...days.map(d => d.entries.reduce((s,e) => s + e.endTime - e.startTime, 0)), 1);
+
+  // Top activities for week
+  const weekEntries = allEntries.filter(e => e.startTime >= todayStart - 6*86400000);
+  const weekTotals = {};
+  weekEntries.forEach(e => { weekTotals[e.activityId] = (weekTotals[e.activityId]||0) + e.endTime - e.startTime; });
+  const topWeek = Object.entries(weekTotals).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([id,t]) => {
+    const a = activities.find(x=>x.id===id);
+    return a ? `<span class="ao-week-top-item"><span>${a.emoji||'⏱'}</span> ${a.name} <span class="ao-week-top-dur">${aoFmtDur(t)}</span></span>` : '';
+  }).join('');
+
+  let html = '';
+  if (topWeek) html += `<div class="ao-week-summary">${topWeek}</div>`;
+
+  html += '<div class="ao-week-grid">';
+  days.forEach(day => {
+    const isToday = day.dayStart === todayStart;
+    const total = day.entries.reduce((s,e) => s + e.endTime - e.startTime, 0);
+    const barH = maxTotal > 0 ? Math.max(4, (total / maxTotal) * 100) : 0;
+
+    // Collect unique activities for pills
+    const seen = new Set();
+    const pills = [];
+    day.entries.forEach(e => {
+      if (!seen.has(e.activityId)) {
+        seen.add(e.activityId);
+        const a = activities.find(x=>x.id===e.activityId);
+        if (a) pills.push(a);
+      }
+    });
+
+    html += `
+      <div class="ao-week-col ${isToday?'ao-week-today':''}">
+        <div class="ao-week-pills">
+          ${pills.slice(0,4).map(a => `<span class="ao-week-dot" style="background:${a.color||'var(--accent)'}" title="${a.emoji} ${a.name}"></span>`).join('')}
+          ${pills.length > 4 ? `<span class="ao-week-more">+${pills.length-4}</span>` : ''}
+        </div>
+        <div class="ao-week-bar-wrap">
+          <div class="ao-week-bar" style="height:${barH}%;background:${isToday?'var(--accent)':'var(--surface3)'}"></div>
+        </div>
+        <div class="ao-week-day">${dayNames[day.date.getDay()]}</div>
+        <div class="ao-week-date">${day.date.getDate()}</div>
+        <div class="ao-week-total">${total > 0 ? aoFmtDur(total) : '—'}</div>
+      </div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+/* ── MONTH: Calendar Heatmap ── */
+function renderMonthView(allEntries, activities, now) {
+  const year = now.getFullYear(), month = now.getMonth();
+  const monthStart = new Date(year, month, 1);
+  const monthEnd = new Date(year, month+1, 0);
+  const daysInMonth = monthEnd.getDate();
+  const firstDow = monthStart.getDay(); // 0=Sun
+
+  // Build day totals
+  const dayTotals = {};
+  let monthTotal = 0, monthSessions = 0;
+  allEntries.forEach(e => {
+    const d = new Date(e.startTime);
+    if (d.getFullYear() === year && d.getMonth() === month) {
+      const key = d.getDate();
+      const dur = e.endTime - e.startTime;
+      dayTotals[key] = (dayTotals[key] || 0) + dur;
+      monthTotal += dur;
+      monthSessions++;
+    }
+  });
+
+  const maxDay = Math.max(...Object.values(dayTotals), 1);
+  const todayDate = now.getDate();
+  const avgDaily = daysInMonth > 0 ? monthTotal / Math.min(todayDate, daysInMonth) : 0;
+
+  // Previous month comparison
+  const prevMonthEntries = allEntries.filter(e => {
+    const d = new Date(e.startTime);
+    return d.getFullYear() === (month === 0 ? year-1 : year) && d.getMonth() === (month === 0 ? 11 : month-1);
+  });
+  const prevTotal = prevMonthEntries.reduce((s,e) => s + e.endTime - e.startTime, 0);
+
+  // Month stats
+  let html = `<div class="ao-month-stats">
+    <div class="ao-month-stat"><span class="ao-month-stat-val">${aoFmtDur(monthTotal)}</span><span class="ao-month-stat-lbl">this month</span></div>
+    <div class="ao-month-stat"><span class="ao-month-stat-val">${aoFmtDur(avgDaily)}</span><span class="ao-month-stat-lbl">daily avg</span></div>
+    ${prevTotal > 0 ? `<div class="ao-month-stat"><span class="ao-month-stat-val">${monthTotal >= prevTotal ? '↑' : '↓'} ${Math.abs(Math.round((monthTotal - prevTotal)/prevTotal*100))}%</span><span class="ao-month-stat-lbl">vs last month</span></div>` : ''}
+  </div>`;
+
+  // Calendar heatmap
+  const dayLabels = ['S','M','T','W','T','F','S'];
+  html += '<div class="ao-cal">';
+  html += '<div class="ao-cal-header">' + dayLabels.map(d => `<span class="ao-cal-dow">${d}</span>`).join('') + '</div>';
+  html += '<div class="ao-cal-grid">';
+
+  // Empty cells before first day
+  for (let i = 0; i < firstDow; i++) html += '<div class="ao-cal-cell ao-cal-empty"></div>';
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const total = dayTotals[d] || 0;
+    const intensity = total > 0 ? Math.max(0.15, Math.min(1, total / maxDay)) : 0;
+    const isToday = d === todayDate;
+    html += `<div class="ao-cal-cell ${isToday?'ao-cal-today':''} ${total>0?'ao-cal-active':''}" style="--int:${intensity}" title="${new Date(year,month,d).toLocaleDateString([], {month:'short',day:'numeric'})}: ${total>0?aoFmtDur(total):'no activity'}">
+      <span class="ao-cal-num">${d}</span>
+    </div>`;
+  }
+
+  html += '</div></div>';
+
+  // Top activities for month
+  const monthEntries = allEntries.filter(e => {
+    const d = new Date(e.startTime);
+    return d.getFullYear() === year && d.getMonth() === month;
+  });
+  const mTotals = {};
+  monthEntries.forEach(e => { mTotals[e.activityId] = (mTotals[e.activityId]||0) + e.endTime - e.startTime; });
+  const topMonth = Object.entries(mTotals).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  if (topMonth.length) {
+    html += '<div class="ao-month-top">';
+    topMonth.forEach(([id, t]) => {
+      const a = activities.find(x=>x.id===id);
+      if (!a) return;
+      const pct = monthTotal > 0 ? (t/monthTotal*100) : 0;
+      html += `<div class="ao-month-act">
+        <span class="ao-month-act-emoji">${a.emoji||'⏱'}</span>
+        <span class="ao-month-act-name">${a.name}</span>
+        <span class="ao-month-act-bar"><span style="width:${pct}%;background:${a.color||'var(--accent)'}"></span></span>
+        <span class="ao-month-act-dur">${aoFmtDur(t)}</span>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  return html;
+}
+
+/* ── Top Activities Card ── */
+function renderTopActivities(sorted) {
+  if (!sorted.length) return '';
+  return `<div class="ao-card">
+    <div class="ao-card-title">🏆 Top Activities</div>
+    ${sorted.slice(0,6).map(item => `
+      <div class="ao-act-row">
+        <span class="ao-act-emoji">${item.act.emoji||'⏱'}</span>
+        <div class="ao-act-info">
+          <div class="ao-act-name">${item.act.name}</div>
+          <div class="ao-act-meta">${item.count} session${item.count!==1?'s':''} · ${item.pct.toFixed(0)}%</div>
+        </div>
+        <div class="ao-act-dur">${aoFmtDur(item.total)}</div>
+      </div>
+    `).join('')}
+  </div>`;
+}
+
+/* ── Helpers ── */
+function aoFmtDur(ms) {
   if (!ms || ms < 0) return '0m';
-  
-  const hours = Math.floor(ms / (1000 * 60 * 60));
-  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-  
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-  return `${minutes}m`;
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-function formatDate(timestamp) {
-  const date = new Date(timestamp);
-  const today = new Date();
-  const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-  
-  if (date.toDateString() === today.toDateString()) {
-    return 'Today';
-  } else if (date.toDateString() === yesterday.toDateString()) {
-    return 'Yesterday';
-  } else {
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-  }
+function fmtTime(d) {
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
+
+function formatHour(h) {
+  if (h === 0) return '12am';
+  if (h < 12) return h + 'am';
+  if (h === 12) return '12pm';
+  return (h - 12) + 'pm';
+}
+
+// Keep old names for compat
+function formatDuration(ms) { return aoFmtDur(ms); }
+function formatDate(ts) {
+  const d = new Date(ts), now = new Date();
+  if (d.toDateString() === now.toDateString()) return 'Today';
+  const y = new Date(now.getTime() - 86400000);
+  if (d.toDateString() === y.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+window.showActivityOverview = showActivityOverview;
+window.switchOverviewPeriod = switchOverviewPeriod;
