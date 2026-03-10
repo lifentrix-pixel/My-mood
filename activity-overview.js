@@ -315,7 +315,7 @@ function renderWeekGrid(allEntries, activities, todayStart) {
     });
 
     html += `
-      <div class="ao-week-col ${isToday?'ao-week-today':''}">
+      <div class="ao-week-col ${isToday?'ao-week-today':''}" onclick="openDayDetail(${day.dayStart})" style="cursor:pointer">
         <div class="ao-week-pills">
           ${pills.slice(0,4).map(a => `<span class="ao-week-dot" style="background:${a.color||'var(--accent)'}" title="${a.emoji} ${a.name}"></span>`).join('')}
           ${pills.length > 4 ? `<span class="ao-week-more">+${pills.length-4}</span>` : ''}
@@ -467,6 +467,51 @@ function formatDate(ts) {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
+function openDayDetail(dayStart) {
+  const timeEntries = loadTimeEntries();
+  const activities = loadActivities();
+  const allValid = timeEntries.filter(e =>
+    e.startTime && e.endTime && e.endTime > e.startTime && (e.endTime - e.startTime) >= 30000
+  );
+  const validEntries = dedupeEntries(allValid);
+  const dayEnd = dayStart + 86400000;
+  const dayEntries = validEntries.filter(e => e.startTime >= dayStart && e.startTime < dayEnd);
+  
+  const date = new Date(dayStart);
+  const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const dateLabel = `${dayNames[date.getDay()]}, ${months[date.getMonth()]} ${date.getDate()}`;
+  
+  const stats = calcStats(dayEntries, activities);
+  
+  const el = document.getElementById('ao-content');
+  if (!el) return;
+  
+  let html = `
+    <div class="ao-day-detail">
+      <button class="ao-back-btn" onclick="closeDayDetail()">← Back to Week</button>
+      <div class="ao-day-detail-header">
+        <h3>${dateLabel}</h3>
+      </div>
+      ${renderStatPills(stats)}
+      ${renderDayTimeline(dayEntries, activities, dayStart)}
+      ${dayEntries.length > 0 ? renderTopActivities(stats.sorted) : ''}
+    </div>
+  `;
+  
+  el.innerHTML = html;
+}
+
+function closeDayDetail() {
+  const timeEntries = loadTimeEntries();
+  const activities = loadActivities();
+  const allValid = timeEntries.filter(e =>
+    e.startTime && e.endTime && e.endTime > e.startTime && (e.endTime - e.startTime) >= 30000
+  ).sort((a, b) => a.startTime - b.startTime);
+  const validEntries = dedupeEntries(allValid);
+  renderPeriod('week', validEntries, activities);
+}
+
 function switchTodayView(view) {
   const timeline = document.getElementById('ao-today-timeline');
   const summary = document.getElementById('ao-today-summary');
@@ -483,3 +528,5 @@ function switchTodayView(view) {
 window.showActivityOverview = showActivityOverview;
 window.switchOverviewPeriod = switchOverviewPeriod;
 window.switchTodayView = switchTodayView;
+window.openDayDetail = openDayDetail;
+window.closeDayDetail = closeDayDetail;
