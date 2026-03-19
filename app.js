@@ -69,17 +69,81 @@ function renderQuickNotes() {
 
   if (!recent.length) { list.innerHTML = ''; return; }
 
-  list.innerHTML = recent.map(n => `
+  let html = recent.map(n => `
     <div class="quick-note-card">
       <div class="quick-note-card-time">${timeStr(n.ts)} · ${dateStr(n.ts)}</div>
       <div class="quick-note-card-text">${n.text}</div>
       <button class="quick-note-delete" onclick="deleteQuickNote('${n.id}')">✕</button>
     </div>
   `).join('');
+
+  // Add "View All" button if there are more than 5 notes
+  if (notes.length > 5) {
+    html += `
+      <button class="view-all-notes-btn" onclick="showAllNotes()">
+        📝 View All ${notes.length} Notes
+      </button>
+    `;
+  }
+
+  list.innerHTML = html;
 }
 
 function deleteQuickNote(id) {
   const notes = JSON.parse(localStorage.getItem('innerscape_quick_notes') || '[]');
   localStorage.setItem('innerscape_quick_notes', JSON.stringify(notes.filter(n => n.id !== id)));
   renderQuickNotes();
+  // Also refresh all notes modal if it's open
+  if ($('#all-notes-modal') && !$('#all-notes-modal').classList.contains('hidden')) {
+    showAllNotes();
+  }
 }
+
+function showAllNotes() {
+  const notes = JSON.parse(localStorage.getItem('innerscape_quick_notes') || '[]');
+  
+  if (!notes.length) {
+    showToast('No notes found');
+    return;
+  }
+
+  // Create modal if it doesn't exist
+  let modal = $('#all-notes-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'all-notes-modal';
+    modal.className = 'modal-overlay';
+    document.body.appendChild(modal);
+  }
+
+  const notesHtml = notes.map(n => `
+    <div class="quick-note-card">
+      <div class="quick-note-card-time">${timeStr(n.ts)} · ${dateStr(n.ts)}</div>
+      <div class="quick-note-card-text">${n.text}</div>
+      <button class="quick-note-delete" onclick="deleteQuickNote('${n.id}')">✕</button>
+    </div>
+  `).join('');
+
+  modal.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>📝 All Your Notes (${notes.length})</h2>
+        <button class="modal-close" onclick="closeAllNotesModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        ${notesHtml}
+      </div>
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+}
+
+function closeAllNotesModal() {
+  const modal = $('#all-notes-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+// Make functions globally available
+window.showAllNotes = showAllNotes;
+window.closeAllNotesModal = closeAllNotesModal;
