@@ -4100,6 +4100,79 @@ body.in-dreamland #sub-nav { display: none !important; }
   opacity: 0.5;
 }
 
+.intention-voice-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.intention-voice-btn, .intention-stop-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border: 2px solid var(--intention-secondary);
+  border-radius: 25px;
+  background: transparent;
+  color: var(--intention-primary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+
+.intention-voice-btn:hover {
+  background: linear-gradient(135deg, var(--intention-secondary), var(--intention-primary));
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(255, 193, 7, 0.3);
+}
+
+.intention-stop-btn {
+  background: linear-gradient(135deg, #ff6b6b, #ffa500);
+  color: #fff;
+  border-color: #ff6b6b;
+  animation: intention-pulse 1.5s infinite;
+}
+
+.intention-stop-btn:hover {
+  background: linear-gradient(135deg, #ff5252, #ff9000);
+  transform: translateY(-2px);
+}
+
+.intention-live-text {
+  padding: 16px 24px;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid var(--intention-secondary);
+  border-radius: 20px;
+  color: var(--intention-primary);
+  font-size: 14px;
+  font-style: italic;
+  text-align: center;
+  animation: intention-glow 2s infinite;
+  max-width: 300px;
+  line-height: 1.4;
+}
+
+@keyframes intention-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes intention-glow {
+  0%, 100% { 
+    box-shadow: 0 0 10px rgba(255, 193, 7, 0.3);
+    border-color: var(--intention-secondary);
+  }
+  50% { 
+    box-shadow: 0 0 20px rgba(255, 193, 7, 0.6);
+    border-color: var(--intention-primary);
+  }
+}
+
 .intention-prompt {
   text-align: center;
   color: var(--intention-primary);

@@ -236,6 +236,20 @@
         <!-- Intention Input -->
         <div class="intention-input-section">
           <div class="intention-prompt" id="intention-prompt">Set your intention for this day ✨</div>
+          
+          <!-- Voice Recording Controls -->
+          <div class="intention-voice-controls">
+            <button id="intention-voice-btn" class="intention-voice-btn">
+              🎙 Speak Intention
+            </button>
+            <button id="intention-stop-btn" class="intention-stop-btn" style="display: none;">
+              ⏹ Stop Recording
+            </button>
+            <div id="intention-live-text" class="intention-live-text" style="display: none;">
+              Listening... speak your intention ✨
+            </div>
+          </div>
+          
           <textarea id="intention-input" class="intention-input" placeholder="Today I intend to..." rows="4"></textarea>
           <button id="intention-save-btn" class="intention-save-btn">✨ Set Intention</button>
         </div>

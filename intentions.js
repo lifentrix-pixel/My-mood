@@ -2,6 +2,12 @@
 
 let currentIntentionType = 'daily';
 
+// Voice recording state
+let intentionMediaRecorder = null;
+let intentionAudioChunks = [];
+let intentionRecognition = null;
+let intentionTranscript = '';
+
 // Initialize intentions module
 function initIntentions() {
   updateIntentionTypeDisplay();
@@ -13,6 +19,8 @@ function initIntentions() {
   $('#intention-monthly-btn')?.addEventListener('click', () => switchIntentionType('monthly'));
   $('#intention-save-btn')?.addEventListener('click', saveIntention);
   $('#intention-history-btn')?.addEventListener('click', showIntentionHistory);
+  $('#intention-voice-btn')?.addEventListener('click', startIntentionRecording);
+  $('#intention-stop-btn')?.addEventListener('click', stopIntentionRecording);
 }
 
 function switchIntentionType(type) {
@@ -289,6 +297,110 @@ function deleteIntention(id) {
   loadCurrentIntention();
 }
 
+// Voice recording functions
+async function startIntentionRecording() {
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    showToast('🎙 Microphone access needed for voice intentions');
+    return;
+  }
+
+  // Update UI - show recording state
+  const voiceBtn = $('#intention-voice-btn');
+  const stopBtn = $('#intention-stop-btn');
+  const liveText = $('#intention-live-text');
+  
+  if (voiceBtn) voiceBtn.style.display = 'none';
+  if (stopBtn) stopBtn.style.display = 'inline-flex';
+  if (liveText) {
+    liveText.style.display = 'block';
+    liveText.textContent = 'Listening... speak your intention ✨';
+  }
+
+  intentionAudioChunks = [];
+  intentionTranscript = '';
+
+  // Set up media recorder
+  const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
+    : MediaRecorder.isTypeSupported('audio/ogg;codecs=opus') ? 'audio/ogg;codecs=opus' : '';
+  intentionMediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+  intentionMediaRecorder.ondataavailable = e => { if (e.data.size > 0) intentionAudioChunks.push(e.data); };
+  intentionMediaRecorder.onstop = () => {
+    stream.getTracks().forEach(t => t.stop());
+  };
+  intentionMediaRecorder.start(500);
+
+  // Set up speech recognition
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SpeechRec) {
+    intentionRecognition = new SpeechRec();
+    intentionRecognition.continuous = true;
+    intentionRecognition.interimResults = true;
+    intentionRecognition.lang = 'en-US';
+    let finalTranscript = '';
+    
+    intentionRecognition.onresult = (e) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript + ' ';
+        else interim += e.results[i][0].transcript;
+      }
+      intentionTranscript = finalTranscript;
+      
+      if (liveText) {
+        liveText.textContent = (finalTranscript + interim) || 'Listening... speak your intention ✨';
+      }
+    };
+    
+    intentionRecognition.onerror = () => {};
+    intentionRecognition.onend = () => {
+      if (intentionMediaRecorder && intentionMediaRecorder.state === 'recording') {
+        try { intentionRecognition.start(); } catch {}
+      }
+    };
+    
+    intentionRecognition.start();
+  } else {
+    if (liveText) liveText.textContent = 'Recording audio (speech-to-text not supported)';
+  }
+}
+
+function stopIntentionRecording() {
+  // Stop speech recognition
+  if (intentionRecognition) { 
+    try { intentionRecognition.abort(); } catch {} 
+    intentionRecognition = null; 
+  }
+  
+  // Stop media recorder
+  if (intentionMediaRecorder && intentionMediaRecorder.state !== 'inactive') {
+    intentionMediaRecorder.stop();
+  }
+
+  // Update UI - hide recording state
+  const voiceBtn = $('#intention-voice-btn');
+  const stopBtn = $('#intention-stop-btn');
+  const liveText = $('#intention-live-text');
+  const inputEl = $('#intention-input');
+  
+  if (voiceBtn) voiceBtn.style.display = 'inline-flex';
+  if (stopBtn) stopBtn.style.display = 'none';
+  if (liveText) liveText.style.display = 'none';
+  
+  // Put transcribed text into the input field
+  if (inputEl && intentionTranscript.trim()) {
+    inputEl.value = intentionTranscript.trim();
+    showToast('✨ Intention captured from your voice');
+    
+    // Create magical ripple effect for voice capture
+    createIntentionRipple();
+  } else if (inputEl) {
+    showToast('🎙 Try speaking again - no words were captured');
+  }
+}
+
 // Export functions globally
 window.initIntentions = initIntentions;
 window.switchIntentionType = switchIntentionType;
@@ -296,3 +408,5 @@ window.saveIntention = saveIntention;
 window.showIntentionHistory = showIntentionHistory;
 window.showIntentionSet = showIntentionSet;
 window.deleteIntention = deleteIntention;
+window.startIntentionRecording = startIntentionRecording;
+window.stopIntentionRecording = stopIntentionRecording;
