@@ -21,6 +21,7 @@ function initIntentions() {
   $('#intention-history-btn')?.addEventListener('click', showIntentionHistory);
   $('#intention-voice-btn')?.addEventListener('click', startIntentionRecording);
   $('#intention-stop-btn')?.addEventListener('click', stopIntentionRecording);
+  $('#intention-back-main')?.addEventListener('click', exitIntentionRealm);
 }
 
 function switchIntentionType(type) {
@@ -495,9 +496,20 @@ function stopIntentionRecording() {
 
 // Exit intention realm back to main app
 function exitIntentionRealm() {
-  document.body.classList.remove('in-dreamland');
-  switchGroup('track');
-  switchView('checkin');
+  console.log('Exiting intention realm'); // Debug log
+  try {
+    document.body.classList.remove('in-dreamland');
+    if (typeof switchGroup === 'function') {
+      switchGroup('track');
+    }
+    if (typeof switchView === 'function') {
+      switchView('checkin');
+    }
+  } catch (error) {
+    console.error('Error exiting intention realm:', error);
+    // Fallback: just remove the class to show navigation
+    document.body.classList.remove('in-dreamland');
+  }
 }
 
 // Export functions globally

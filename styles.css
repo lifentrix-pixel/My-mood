@@ -2934,10 +2934,10 @@ body.in-dreamland #nav,
 body.in-dreamland #sub-nav { display: none !important; }
 
 .intention-back-btn-main {
-  position: absolute; 
+  position: fixed !important; 
   top: max(20px, env(safe-area-inset-top, 0px) + 10px); 
   left: 20px;
-  background: rgba(255, 255, 255, 0.2); 
+  background: rgba(255, 255, 255, 0.9) !important; 
   border: 2px solid var(--intention-gold);
   color: var(--intention-dark-gold); 
   width: 44px; 
@@ -2948,12 +2948,14 @@ body.in-dreamland #sub-nav { display: none !important; }
   align-items: center; 
   justify-content: center;
   font-size: 20px; 
-  z-index: 100;
+  z-index: 1001 !important;
   backdrop-filter: blur(10px);
   transition: all 0.2s;
   font-weight: 600;
   text-shadow: 0 0 8px var(--intention-soft-glow);
   box-shadow: 0 0 15px var(--intention-soft-glow);
+  pointer-events: auto !important;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .intention-back-btn-main:hover {
