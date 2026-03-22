@@ -4000,13 +4000,14 @@ body.in-dreamland #sub-nav { display: none !important; }
 
 .intention-realm {
   background: 
-    radial-gradient(circle at 20% 30%, var(--intention-soft-glow) 0%, transparent 40%),
-    radial-gradient(circle at 80% 70%, var(--intention-soft-glow) 0%, transparent 40%),
-    radial-gradient(circle at 50% 90%, var(--intention-soft-glow) 0%, transparent 30%),
-    var(--bg);
+    radial-gradient(circle at 20% 30%, rgba(255, 248, 220, 0.9) 0%, rgba(255, 248, 220, 0.4) 40%, transparent 70%),
+    radial-gradient(circle at 80% 70%, rgba(255, 248, 220, 0.8) 0%, rgba(255, 248, 220, 0.3) 40%, transparent 70%),
+    radial-gradient(circle at 50% 90%, rgba(255, 248, 220, 0.7) 0%, rgba(255, 248, 220, 0.2) 30%, transparent 60%),
+    linear-gradient(135deg, #fffef7 0%, #fff8e1 30%, #fff3cd 70%, #ffeaa7 100%);
   min-height: 100vh;
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .intention-realm::before {
@@ -4036,7 +4037,10 @@ body.in-dreamland #sub-nav { display: none !important; }
 
 /* Fix scrolling for intentions view */
 #view-intentions {
-  padding-bottom: calc(100px + var(--safe-bottom, 0px)) !important;
+  padding-bottom: calc(120px + var(--safe-bottom, 0px)) !important;
+  min-height: 100vh !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
 }
 
 .intention-nav-btn:hover {
@@ -4114,14 +4118,14 @@ body.in-dreamland #sub-nav { display: none !important; }
 #intention-title {
   font-size: 28px;
   font-weight: 700;
-  color: var(--intention-white);
+  color: #2d3748;
   margin-bottom: 8px;
   letter-spacing: -0.5px;
-  text-shadow: 0 0 15px var(--intention-soft-glow);
+  text-shadow: 0 0 15px var(--intention-glow);
 }
 
 .intention-subtitle {
-  color: var(--intention-yellow);
+  color: #744210;
   font-size: 16px;
   font-style: italic;
   margin-bottom: 0;
@@ -4143,9 +4147,9 @@ body.in-dreamland #sub-nav { display: none !important; }
   gap: 8px;
   padding: 20px 24px;
   border-radius: 20px;
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--intention-yellow);
+  border: 2px solid rgba(212, 175, 55, 0.3);
+  background: rgba(255, 255, 255, 0.6);
+  color: #744210;
   cursor: pointer;
   transition: all .3s ease;
   flex: 1;
@@ -4156,14 +4160,14 @@ body.in-dreamland #sub-nav { display: none !important; }
 
 .intention-type-btn:hover {
   border-color: var(--intention-gold);
-  background: var(--intention-bg);
+  background: rgba(255, 255, 255, 0.8);
   box-shadow: 0 0 15px var(--intention-soft-glow);
 }
 
 .intention-type-btn.active {
   border-color: var(--intention-gold);
-  background: var(--intention-bg);
-  color: var(--intention-white);
+  background: rgba(255, 215, 0, 0.2);
+  color: #2d3748;
   box-shadow: 0 0 25px var(--intention-glow);
   text-shadow: 0 0 10px var(--intention-glow);
 }
@@ -4173,11 +4177,11 @@ body.in-dreamland #sub-nav { display: none !important; }
 }
 
 .intention-input-section {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.8);
   border-radius: 24px;
   padding: 32px 28px 40px;
   margin: 0 20px 32px;
-  border: 1px solid rgba(255, 215, 0, 0.2);
+  border: 1px solid rgba(255, 215, 0, 0.4);
   position: relative;
   overflow: hidden;
   backdrop-filter: blur(15px);
@@ -4221,8 +4225,8 @@ body.in-dreamland #sub-nav { display: none !important; }
   padding: 12px 24px;
   border: 2px solid var(--intention-gold);
   border-radius: 25px;
-  background: transparent;
-  color: var(--intention-gold);
+  background: rgba(255, 255, 255, 0.3);
+  color: var(--intention-dark-gold);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -4253,10 +4257,10 @@ body.in-dreamland #sub-nav { display: none !important; }
 
 .intention-live-text {
   padding: 16px 24px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.7);
   border: 1px solid var(--intention-gold);
   border-radius: 20px;
-  color: var(--intention-white);
+  color: #2d3748;
   font-size: 14px;
   font-style: italic;
   text-align: center;
@@ -4285,7 +4289,7 @@ body.in-dreamland #sub-nav { display: none !important; }
 
 .intention-prompt {
   text-align: center;
-  color: var(--intention-gold);
+  color: var(--intention-dark-gold);
   font-size: 18px;
   font-weight: 600;
   margin-bottom: 24px;
@@ -4297,7 +4301,7 @@ body.in-dreamland #sub-nav { display: none !important; }
   width: 100%;
   background: transparent;
   border: none;
-  color: var(--intention-white);
+  color: #2d3748;
   font-size: 16px;
   font-family: inherit;
   line-height: 1.6;
@@ -4312,12 +4316,12 @@ body.in-dreamland #sub-nav { display: none !important; }
 }
 
 .intention-input::placeholder {
-  color: var(--intention-yellow);
+  color: #9a6e3a;
   opacity: 0.7;
 }
 
 .intention-input:focus {
-  color: var(--intention-white);
+  color: #2d3748;
   text-shadow: 0 0 15px var(--intention-glow);
 }
 
@@ -4351,15 +4355,15 @@ body.in-dreamland #sub-nav { display: none !important; }
 .intention-navigation {
   display: flex;
   justify-content: center;
-  padding: 0 20px 60px;
+  padding: 0 20px 80px;
 }
 
 .intention-nav-btn {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.7);
   border: 1px solid var(--intention-gold);
   border-radius: 16px;
   padding: 16px 24px;
-  color: var(--intention-yellow);
+  color: #744210;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
