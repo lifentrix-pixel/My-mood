@@ -129,7 +129,8 @@ function saveIntention() {
   filteredIntentions.push(newIntention);
   localStorage.setItem('innerscape_intentions', JSON.stringify(filteredIntentions));
   
-  showToast(`✨ ${currentIntentionType.charAt(0).toUpperCase() + currentIntentionType.slice(1)} intention set`);
+  // Trigger full-screen celebration animation
+  createIntentionCelebration(text, currentIntentionType);
   
   // Update button text
   const saveBtn = $('#intention-save-btn');
@@ -149,6 +150,97 @@ function createIntentionRipple() {
   container.appendChild(ripple);
   
   setTimeout(() => ripple.remove(), 2000);
+}
+
+function createIntentionCelebration(intentionText, type) {
+  // Create full-screen celebration overlay
+  const celebration = document.createElement('div');
+  celebration.className = 'intention-celebration-overlay';
+  
+  const typeIcons = {
+    daily: '☀️',
+    weekly: '🌱', 
+    monthly: '🌙'
+  };
+  
+  celebration.innerHTML = `
+    <div class="celebration-content">
+      <div class="celebration-icon">${typeIcons[type] || '✨'}</div>
+      <div class="celebration-title">Intention Set</div>
+      <div class="celebration-text">"${intentionText}"</div>
+      <div class="celebration-subtitle">The universe hears you ✨</div>
+    </div>
+    <div class="celebration-particles"></div>
+    <div class="celebration-rays">
+      <div class="ray ray-1"></div>
+      <div class="ray ray-2"></div>
+      <div class="ray ray-3"></div>
+      <div class="ray ray-4"></div>
+      <div class="ray ray-5"></div>
+      <div class="ray ray-6"></div>
+    </div>
+  `;
+  
+  document.body.appendChild(celebration);
+  
+  // Create floating particles
+  for (let i = 0; i < 20; i++) {
+    setTimeout(() => createFloatingParticle(celebration), i * 100);
+  }
+  
+  // Remove overlay after animation completes
+  setTimeout(() => {
+    if (celebration.parentNode) {
+      celebration.style.opacity = '0';
+      setTimeout(() => celebration.remove(), 500);
+    }
+  }, 3500);
+  
+  // Gentle haptic feedback if available
+  if (navigator.vibrate) {
+    navigator.vibrate([50, 100, 50]);
+  }
+  
+  // Success sound (if user has interacted with page)
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
+    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.5);
+  } catch (e) {
+    // Ignore audio errors
+  }
+}
+
+function createFloatingParticle(container) {
+  const particle = document.createElement('div');
+  particle.className = 'celebration-particle';
+  
+  // Random starting position
+  const startX = Math.random() * window.innerWidth;
+  const startY = window.innerHeight + 20;
+  
+  particle.style.left = startX + 'px';
+  particle.style.top = startY + 'px';
+  
+  container.appendChild(particle);
+  
+  // Animate upward with random drift
+  const endY = -50;
+  const drift = (Math.random() - 0.5) * 200;
+  
+  particle.style.transform = `translate(${drift}px, ${endY - startY}px)`;
+  
+  setTimeout(() => particle.remove(), 4000);
 }
 
 function loadIntentionHistory() {
@@ -418,3 +510,4 @@ window.deleteIntention = deleteIntention;
 window.startIntentionRecording = startIntentionRecording;
 window.stopIntentionRecording = stopIntentionRecording;
 window.exitIntentionRealm = exitIntentionRealm;
+window.createIntentionCelebration = createIntentionCelebration;

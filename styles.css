@@ -4113,6 +4113,236 @@ body.in-dreamland #sub-nav { display: none !important; }
   }
 }
 
+/* Full-screen celebration animation */
+.intention-celebration-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(135deg, 
+    rgba(255, 248, 220, 0.95) 0%, 
+    rgba(255, 239, 170, 0.95) 50%, 
+    rgba(255, 228, 130, 0.95) 100%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(20px);
+  animation: celebration-fade-in 0.5s ease-out forwards;
+}
+
+@keyframes celebration-fade-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.celebration-content {
+  text-align: center;
+  z-index: 1001;
+  animation: celebration-content-appear 1s ease-out 0.3s both;
+  max-width: 80%;
+  padding: 0 20px;
+}
+
+@keyframes celebration-content-appear {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.celebration-icon {
+  font-size: 80px;
+  margin-bottom: 20px;
+  animation: celebration-bounce 0.8s ease-out 0.5s both;
+  text-shadow: 0 0 30px var(--intention-glow);
+}
+
+@keyframes celebration-bounce {
+  0% {
+    transform: scale(0);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.celebration-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--intention-dark-gold);
+  margin-bottom: 20px;
+  text-shadow: 0 0 15px var(--intention-glow);
+  animation: celebration-title-glow 2s ease-in-out infinite;
+}
+
+@keyframes celebration-title-glow {
+  0%, 100% {
+    text-shadow: 0 0 15px var(--intention-glow);
+  }
+  50% {
+    text-shadow: 0 0 25px var(--intention-glow), 0 0 35px var(--intention-glow);
+  }
+}
+
+.celebration-text {
+  font-size: 18px;
+  font-style: italic;
+  color: #2d3748;
+  margin: 20px 0;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 15px;
+  border: 1px solid var(--intention-gold);
+  line-height: 1.6;
+  box-shadow: 0 5px 20px var(--intention-soft-glow);
+  animation: celebration-text-shimmer 3s ease-in-out infinite;
+}
+
+@keyframes celebration-text-shimmer {
+  0%, 100% {
+    box-shadow: 0 5px 20px var(--intention-soft-glow);
+  }
+  50% {
+    box-shadow: 0 8px 30px var(--intention-glow);
+  }
+}
+
+.celebration-subtitle {
+  font-size: 16px;
+  color: var(--intention-dark-gold);
+  margin-top: 20px;
+  opacity: 0.9;
+  animation: celebration-fade-up 1s ease-out 1s both;
+}
+
+@keyframes celebration-fade-up {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 0.9;
+    transform: translateY(0);
+  }
+}
+
+/* Floating particles */
+.celebration-particle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: var(--intention-gold);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: celebration-particle-float 4s ease-out forwards;
+  box-shadow: 0 0 10px var(--intention-glow);
+}
+
+@keyframes celebration-particle-float {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0);
+  }
+  10% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  90% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--drift, 0), -800px) scale(0.5);
+  }
+}
+
+/* Golden rays */
+.celebration-rays {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2px;
+  height: 2px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.ray {
+  position: absolute;
+  top: -50vh;
+  left: -1px;
+  width: 2px;
+  height: 100vh;
+  background: linear-gradient(to bottom, 
+    transparent 0%, 
+    var(--intention-gold) 45%, 
+    var(--intention-light-gold) 50%, 
+    var(--intention-gold) 55%, 
+    transparent 100%);
+  transform-origin: center bottom;
+  opacity: 0;
+  animation: ray-appear 3s ease-in-out forwards;
+}
+
+.ray-1 { 
+  transform: rotate(0deg); 
+  animation-delay: 0.5s; 
+}
+.ray-2 { 
+  transform: rotate(60deg); 
+  animation-delay: 0.7s; 
+}
+.ray-3 { 
+  transform: rotate(120deg); 
+  animation-delay: 0.9s; 
+}
+.ray-4 { 
+  transform: rotate(180deg); 
+  animation-delay: 1.1s; 
+}
+.ray-5 { 
+  transform: rotate(240deg); 
+  animation-delay: 1.3s; 
+}
+.ray-6 { 
+  transform: rotate(300deg); 
+  animation-delay: 1.5s; 
+}
+
+@keyframes ray-appear {
+  0% {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+  30% {
+    opacity: 0.6;
+    transform: scaleY(1);
+  }
+  70% {
+    opacity: 0.6;
+    transform: scaleY(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleY(0.8);
+  }
+}
+
 .intention-header {
   text-align: center;
   padding: 2rem 0 1rem;
