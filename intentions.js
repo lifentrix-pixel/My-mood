@@ -401,6 +401,13 @@ function stopIntentionRecording() {
   }
 }
 
+// Exit intention realm back to main app
+function exitIntentionRealm() {
+  document.body.classList.remove('in-dreamland');
+  switchGroup('track');
+  switchView('checkin');
+}
+
 // Export functions globally
 window.initIntentions = initIntentions;
 window.switchIntentionType = switchIntentionType;
@@ -410,3 +417,4 @@ window.showIntentionSet = showIntentionSet;
 window.deleteIntention = deleteIntention;
 window.startIntentionRecording = startIntentionRecording;
 window.stopIntentionRecording = stopIntentionRecording;
+window.exitIntentionRealm = exitIntentionRealm;

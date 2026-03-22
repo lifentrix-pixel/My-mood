@@ -310,8 +310,8 @@ function switchView(view) {
   $$('.sub-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   currentView = view;
 
-  // Dreamland mode: hide nav when in wishlist
-  document.body.classList.toggle('in-dreamland', view === 'wishlist');
+  // Dreamland mode: hide nav when in wishlist or intentions
+  document.body.classList.toggle('in-dreamland', view === 'wishlist' || view === 'intentions');
   
   if (view === 'checkin') renderTodayStats();
   if (view === 'food') initFood();
@@ -323,6 +323,7 @@ function switchView(view) {
   if (view === 'todos') renderTodos();
   if (view === 'today') renderToday();
   if (view === 'dreams') renderDreams();
+  if (view === 'intentions') initIntentions();
   if (view === 'meditate') renderMedHistory();
   if (view === 'weekly') renderWeekly();
   if (view === 'monthly') renderMonthly();
