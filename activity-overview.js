@@ -102,7 +102,12 @@ function renderPeriod(period, entries, activities) {
 
   const stats = calcStats(filtered, activities);
 
-  let html = renderStatPills(stats);
+  let html = `
+    <div class="ao-actions">
+      <button class="ao-add-entry-btn" onclick="addManualEntry()">+ Add Entry</button>
+    </div>
+  `;
+  html += renderStatPills(stats);
 
   if (period === 'today') {
     html += `<div class="ao-subtabs">
@@ -252,6 +257,10 @@ function renderDayTimeline(entries, activities, todayStart) {
             <div class="ao-block-right">
               <div class="ao-block-dur">${aoFmtDur(dur)}</div>
               <div class="ao-block-time">${fmtTime(new Date(entry.startTime))} – ${fmtTime(new Date(entry.endTime))}</div>
+              <div class="ao-block-actions">
+                <button class="ao-edit-btn" onclick="editActivityEntry('${entry.id || entry.startTime}')" title="Edit entry">✏️</button>
+                <button class="ao-delete-btn" onclick="deleteActivityEntry('${entry.id || entry.startTime}')" title="Delete entry">🗑️</button>
+              </div>
             </div>
           </div>
           ${subs.length ? `<div class="ao-subs">${subs.map(s => {
@@ -261,6 +270,10 @@ function renderDayTimeline(entries, activities, todayStart) {
               <span class="ao-sub-name">${s.subActivityName || 'Sub-activity'}</span>
               <span class="ao-sub-dur">${aoFmtDur(subDur)}</span>
               <span class="ao-sub-time">${fmtTime(new Date(s.startTime))} – ${fmtTime(new Date(s.endTime))}</span>
+              <div class="ao-sub-actions">
+                <button class="ao-edit-btn ao-edit-btn-small" onclick="editActivityEntry('${s.id || s.startTime}')" title="Edit">✏️</button>
+                <button class="ao-delete-btn ao-delete-btn-small" onclick="deleteActivityEntry('${s.id || s.startTime}')" title="Delete">🗑️</button>
+              </div>
             </div>`;
           }).join('')}</div>` : ''}
         </div>
@@ -525,8 +538,148 @@ function switchTodayView(view) {
   });
 }
 
+/* ── Edit/Delete/Add Functions ── */
+function editActivityEntry(entryId) {
+  const timeEntries = loadTimeEntries();
+  let entry;
+  
+  // Find entry by ID or timestamp
+  if (entryId.includes('-')) {
+    entry = timeEntries.find(e => e.id === entryId);
+  } else {
+    // Legacy: find by timestamp
+    const timestamp = parseInt(entryId);
+    entry = timeEntries.find(e => e.startTime === timestamp || e.endTime === timestamp);
+  }
+  
+  if (!entry) {
+    showToast('Entry not found');
+    return;
+  }
+  
+  // Find the activity for the entry
+  const activities = loadActivities();
+  const activity = activities.find(a => a.id === entry.activityId);
+  
+  // Use the existing timer edit function if available
+  if (typeof window.openEditEntryModal === 'function' && activity) {
+    window.openEditEntryModal(entry, activity);
+  } else {
+    // Fallback: populate modal directly
+    const modal = $('#entry-edit-modal');
+    if (!modal) {
+      showToast('Edit modal not found');
+      return;
+    }
+    
+    $('#entry-edit-date').value = new Date(entry.startTime).toISOString().split('T')[0];
+    $('#entry-edit-start').value = new Date(entry.startTime).toTimeString().slice(0,5);
+    $('#entry-edit-end').value = new Date(entry.endTime).toTimeString().slice(0,5);
+    $('#entry-edit-note').value = entry.note || '';
+    $('#entry-edit-title').textContent = activity ? `Edit: ${activity.emoji} ${activity.name}` : 'Edit Entry';
+    
+    // Set the editing ID globally
+    if (typeof window.editingEntryId !== 'undefined') {
+      window.editingEntryId = entry.id || entry.startTime;
+    }
+    
+    modal.classList.remove('hidden');
+  }
+}
+
+function deleteActivityEntry(entryId) {
+  if (!confirm('Delete this activity entry?')) return;
+  
+  const timeEntries = loadTimeEntries();
+  let filtered;
+  
+  if (entryId.includes('-')) {
+    filtered = timeEntries.filter(e => e.id !== entryId);
+  } else {
+    const timestamp = parseInt(entryId);
+    filtered = timeEntries.filter(e => e.startTime !== timestamp && e.endTime !== timestamp);
+  }
+  
+  saveTimeEntries(filtered);
+  showToast('Entry deleted');
+  showActivityOverview(); // Refresh the view
+}
+
+function addManualEntry() {
+  const modal = $('#timer-manual-modal');
+  if (!modal) {
+    showToast('Add entry modal not found');
+    return;
+  }
+  
+  // Populate activity dropdown
+  const activities = loadActivities();
+  const activitySelect = $('#timer-manual-activity');
+  if (activitySelect) {
+    activitySelect.innerHTML = activities.map(a => 
+      `<option value="${a.id}">${a.emoji || '⏱'} ${a.name}</option>`
+    ).join('');
+  }
+  
+  // Set default date to today
+  const today = new Date().toISOString().split('T')[0];
+  $('#timer-manual-date').value = today;
+  
+  // Clear other fields
+  $('#timer-manual-start').value = '';
+  $('#timer-manual-end').value = '';
+  $('#timer-manual-note').value = '';
+  
+  modal.classList.remove('hidden');
+}
+
+// Refresh activity overview after edits
+function refreshActivityOverviewIfActive() {
+  setTimeout(() => {
+    if (document.getElementById('view-activity-overview')?.classList.contains('active')) {
+      showActivityOverview();
+    }
+  }, 100);
+}
+
+// Hook into existing save functions when they become available
+document.addEventListener('DOMContentLoaded', function() {
+  // Wait a bit for other modules to load
+  setTimeout(() => {
+    // Hook into edit entry save function
+    if (typeof window.saveEditEntry === 'function') {
+      const originalSaveEditEntry = window.saveEditEntry;
+      window.saveEditEntry = function() {
+        const result = originalSaveEditEntry.apply(this, arguments);
+        refreshActivityOverviewIfActive();
+        return result;
+      };
+    }
+
+    // Hook into manual entry save function
+    if (typeof window.saveManualEntry === 'function') {
+      const originalSaveManualEntry = window.saveManualEntry;
+      window.saveManualEntry = function() {
+        const result = originalSaveManualEntry.apply(this, arguments);
+        refreshActivityOverviewIfActive();
+        return result;
+      };
+    }
+  }, 500);
+});
+
+// Also listen for storage changes that might affect our view
+window.addEventListener('storage', function(e) {
+  if (e.key === 'innerscape_time_entries' || e.key === 'innerscape_activities') {
+    refreshActivityOverviewIfActive();
+  }
+});
+
 window.showActivityOverview = showActivityOverview;
 window.switchOverviewPeriod = switchOverviewPeriod;
 window.switchTodayView = switchTodayView;
 window.openDayDetail = openDayDetail;
 window.closeDayDetail = closeDayDetail;
+window.editActivityEntry = editActivityEntry;
+window.deleteActivityEntry = deleteActivityEntry;
+window.addManualEntry = addManualEntry;

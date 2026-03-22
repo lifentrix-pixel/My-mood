@@ -3442,6 +3442,102 @@ body.in-dreamland #sub-nav { display: none !important; }
 .ao-act-name { font-weight: 600; color: var(--text1); font-size: 0.9rem; }
 .ao-act-meta { font-size: 0.72rem; color: var(--text2); margin-top: 1px; }
 .ao-act-dur { font-weight: 700; color: var(--text1); font-size: 0.9rem; flex-shrink: 0; }
+
+/* ── Activity Overview Edit/Delete Actions ── */
+.ao-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+  padding: 0 4px;
+}
+
+.ao-add-entry-btn {
+  background: rgba(76, 175, 80, 0.15);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  color: #81C784;
+  padding: 8px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ao-add-entry-btn:hover {
+  background: rgba(76, 175, 80, 0.25);
+  transform: translateY(-1px);
+}
+
+.ao-block-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.ao-block:hover .ao-block-actions,
+.ao-sub-item:hover .ao-sub-actions {
+  opacity: 1;
+}
+
+.ao-edit-btn, .ao-delete-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ao-edit-btn {
+  color: #66bb6a;
+}
+
+.ao-delete-btn {
+  color: #ef5350;
+}
+
+.ao-edit-btn:hover {
+  background: rgba(102, 187, 106, 0.2);
+  transform: scale(1.1);
+}
+
+.ao-delete-btn:hover {
+  background: rgba(239, 83, 80, 0.2);
+  transform: scale(1.1);
+}
+
+.ao-edit-btn-small, .ao-delete-btn-small {
+  font-size: 10px;
+  padding: 2px 4px;
+}
+
+.ao-sub-actions {
+  display: flex;
+  gap: 2px;
+  margin-left: 8px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.ao-sub-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  transition: background 0.2s ease;
+}
+
+.ao-sub-item:hover {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  padding-left: 6px;
+  padding-right: 6px;
+}
 /* ── Activity Overview End ── */
 
 /* Fairy dust */
