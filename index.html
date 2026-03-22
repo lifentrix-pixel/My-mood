@@ -52,6 +52,7 @@
       </div>
       <div class="sub-nav-group" data-group="reflect">
         <button class="sub-nav-btn" data-view="dreams">Dreams</button>
+        <button class="sub-nav-btn" data-view="intentions">✨ Intentions</button>
         <button class="sub-nav-btn" data-view="meditate">Meditate</button>
         <button class="sub-nav-btn" data-view="studio">Studio</button>
       </div>
@@ -201,6 +202,59 @@
           <span class="empty-icon">🌙</span>
           <p>No dreams in history</p>
         </div>
+      </div>
+    </section>
+
+    <!-- Intentions View -->
+    <section id="view-intentions" class="view intention-realm">
+      <div class="intention-header">
+        <div id="intention-container">
+          <div class="intention-stars">✦ ☾ ✧ ☽ ✦</div>
+          <h1 id="intention-title">Daily Intention</h1>
+          <p id="intention-subtitle" class="intention-subtitle">What energy do you want to embody today?</p>
+        </div>
+      </div>
+
+      <!-- Set Intention View -->
+      <div id="intention-set-view">
+        <!-- Time Type Selection -->
+        <div class="intention-type-selector">
+          <button id="intention-daily-btn" class="intention-type-btn active">
+            <span class="intention-type-icon">☀️</span>
+            <span>Daily</span>
+          </button>
+          <button id="intention-weekly-btn" class="intention-type-btn">
+            <span class="intention-type-icon">🌱</span>
+            <span>Weekly</span>
+          </button>
+          <button id="intention-monthly-btn" class="intention-type-btn">
+            <span class="intention-type-icon">🌙</span>
+            <span>Monthly</span>
+          </button>
+        </div>
+
+        <!-- Intention Input -->
+        <div class="intention-input-section">
+          <div class="intention-prompt" id="intention-prompt">Set your intention for this day ✨</div>
+          <textarea id="intention-input" class="intention-input" placeholder="Today I intend to..." rows="4"></textarea>
+          <button id="intention-save-btn" class="intention-save-btn">✨ Set Intention</button>
+        </div>
+
+        <!-- Navigation -->
+        <div class="intention-navigation">
+          <button id="intention-history-btn" class="intention-nav-btn">
+            📜 View History
+          </button>
+        </div>
+      </div>
+
+      <!-- History View -->
+      <div id="intention-history-view" style="display: none;">
+        <div class="intention-history-header">
+          <button onclick="showIntentionSet()" class="intention-back-btn">← Back</button>
+          <h2>Intention History</h2>
+        </div>
+        <div id="intention-history-list" class="intention-history-list"></div>
       </div>
     </section>
 
@@ -1160,6 +1214,11 @@
               <span>Stool Tracker</span>
             </label>
             <label class="export-datatype-option">
+              <input type="checkbox" name="datatype" value="intentions" checked>
+              <span class="export-datatype-icon">✨</span>
+              <span>Intentions</span>
+            </label>
+            <label class="export-datatype-option">
               <input type="checkbox" name="datatype" value="oura" checked>
               <span class="export-datatype-icon">💍</span>
               <span>Oura Ring Data</span>
@@ -1305,6 +1364,7 @@
   <script src="forecast.js"></script>
   <script src="oura.js"></script>
   <script src="activity-overview.js"></script>
+  <script src="intentions.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

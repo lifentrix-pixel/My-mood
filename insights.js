@@ -420,6 +420,12 @@ function performExport(format) {
     totalEntries += (ouraData.sleep?.length || 0) + (ouraData.readiness?.length || 0) + (ouraData.activity?.length || 0);
   }
   
+  if (selectedTypes.includes('intentions')) {
+    const intentions = filterDataByTimeframe(loadIntentions(), timeframe, 'createdAt');
+    exportData.intentions = intentions;
+    totalEntries += intentions.length;
+  }
+  
   console.log('Total entries found:', totalEntries);
   
   if (totalEntries === 0) {
@@ -551,6 +557,9 @@ function loadWishes() {
 function loadMedicationLogs() {
   try { return JSON.parse(localStorage.getItem('innerscape_medication_logs') || '[]'); } catch (e) { return []; }
 }
+function loadIntentions() {
+  try { return JSON.parse(localStorage.getItem('innerscape_intentions') || '[]'); } catch (e) { return []; }
+}
 
 // Make functions globally accessible for HTML onclick handlers
 if (typeof window !== 'undefined') {
@@ -583,6 +592,7 @@ function importBackup(data) {
   mergeKey('innerscape_wishes', data.wishes, 'Wishes');
   mergeKey('innerscape_stool_entries', data.stool_entries, 'Stool');
   mergeKey('innerscape_quick_notes', data.quick_notes, 'Quick notes');
+  mergeKey('innerscape_intentions', data.intentions, 'Intentions');
   if (data.oura_config) { localStorage.setItem('innerscape_oura_config', JSON.stringify(data.oura_config)); logs.push('✅ Oura config'); }
   if (data.oura_data) { localStorage.setItem('innerscape_oura_data', JSON.stringify(data.oura_data)); logs.push('✅ Oura data'); }
 
@@ -750,6 +760,7 @@ function exportAllJSON() {
     wishes: JSON.parse(localStorage.getItem('innerscape_wishes') || '[]'),
     stool_entries: JSON.parse(localStorage.getItem('innerscape_stool_entries') || '[]'),
     quick_notes: JSON.parse(localStorage.getItem('innerscape_quick_notes') || '[]'),
+    intentions: JSON.parse(localStorage.getItem('innerscape_intentions') || '[]'),
     oura_config: JSON.parse(localStorage.getItem('innerscape_oura_config') || 'null'),
     oura_data: JSON.parse(localStorage.getItem('innerscape_oura_data') || 'null'),
   };

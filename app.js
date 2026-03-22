@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initStoolModule();
   initOuraModule();
   initQuickNotes();
+  initIntentions();
 });
 
 /* ── Quick Notes ── */
