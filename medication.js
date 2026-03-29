@@ -215,6 +215,7 @@ function logMedication(medication) {
   
   const now = new Date();
   $('#medication-log-time').value = now.toTimeString().slice(0, 5);
+  $('#medication-log-date').value = now.toISOString().split('T')[0];
   $('#medication-log-notes').value = '';
   
   setTimeout(() => $('#medication-log-time').focus(), 100);
@@ -243,9 +244,16 @@ function saveMedicationLog() {
       return;
     }
     
-    const today = startOfDay(new Date());
+    // Use selected date or default to today
+    const dateInput = $('#medication-log-date');
+    let logDate;
+    if (dateInput && dateInput.value) {
+      logDate = new Date(dateInput.value + 'T00:00:00');
+    } else {
+      logDate = startOfDay(new Date());
+    }
     const [hours, minutes] = time.split(':').map(Number);
-    today.setHours(hours, minutes, 0, 0);
+    logDate.setHours(hours, minutes, 0, 0);
     
     const logs = loadMedicationLogs();
     const newLog = {
@@ -253,7 +261,7 @@ function saveMedicationLog() {
       medicationId: currentLoggingMedication.id,
       medicationName: currentLoggingMedication.name,
       dosage: currentLoggingMedication.dosage,
-      timestamp: today.getTime(),
+      timestamp: logDate.getTime(),
       notes,
       createdAt: Date.now()
     };
