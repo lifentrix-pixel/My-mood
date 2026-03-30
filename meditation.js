@@ -14,7 +14,7 @@ let medState = {
   audioCtx: null,
   ambientNodes: null,
   muted: false,
-  volume: 0.3,
+  volume: 0.5,
 };
 
 function initMeditate() {
@@ -426,19 +426,30 @@ function createNoiseSource(ctx, buffer) {
   return src;
 }
 
-function startAmbientSound() {
+async function startAmbientSound() {
   try {
     const AC = window.AudioContext || window.webkitAudioContext;
     const ctx = new AC();
     medState.audioCtx = ctx;
 
+    // iOS requires resume() from a user gesture — await it
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+
+    // Play a silent buffer to fully unlock audio on iOS
     const unlock = ctx.createBuffer(1, 1, 22050);
     const unlockSrc = ctx.createBufferSource();
     unlockSrc.buffer = unlock;
     unlockSrc.connect(ctx.destination);
     unlockSrc.start(0);
 
-    if (ctx.state === 'suspended') ctx.resume();
+    // Double-check it's running
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+    
+    console.log('Audio context state:', ctx.state, 'sampleRate:', ctx.sampleRate);
 
     const masterGain = ctx.createGain();
     masterGain.gain.value = medState.muted ? 0 : medState.volume;
