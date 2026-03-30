@@ -95,12 +95,20 @@ function renderTodayMedications() {
       checkbox.textContent = '';
     }
     
+    // Add undo button for logged meds
+    let undoBtn = '';
+    if (todayMedLogs.length > 0) {
+      const lastLog = todayMedLogs[todayMedLogs.length - 1];
+      undoBtn = `<button class="med-undo-btn" data-log-id="${lastLog.id}" title="Undo last log">↩️</button>`;
+    }
+    
     item.innerHTML = `
       <div class="medication-info">
         <div class="medication-name" style="color:${med.color || TIMER_COLORS[0]}">${med.name}</div>
         <div class="medication-dosage">${med.dosage}</div>
-        <div class="medication-frequency">${med.frequency === 'once' ? 'Once daily' : 'Multiple daily'}</div>
+        <div class="medication-frequency">${med.frequency === 'once' ? 'Once daily' : 'Multiple daily'}${todayMedLogs.length > 0 ? ` · ${timeStr(todayMedLogs[todayMedLogs.length-1].timestamp)}` : ''}</div>
       </div>
+      ${undoBtn}
       <button class="medication-edit-btn" title="Edit">✏️</button>
       <button class="medication-delete-btn" title="Delete">×</button>
     `;
@@ -113,6 +121,14 @@ function renderTodayMedications() {
       if (e.target.matches('.medication-edit-btn, .medication-delete-btn')) return;
       logMedication(med);
     });
+    
+    const undoBtnEl = item.querySelector('.med-undo-btn');
+    if (undoBtnEl) {
+      undoBtnEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        undoMedicationLog(undoBtnEl.dataset.logId);
+      });
+    }
     
     item.querySelector('.medication-edit-btn').addEventListener('click', (e) => {
       e.stopPropagation();
@@ -336,16 +352,45 @@ function renderMedicationHistory() {
     entry.innerHTML = `
       <div class="medication-history-date">${dateStr(new Date(dk))}</div>
       ${dayLogs.map(log => `
-        <div class="medication-history-item">
-          <div>
+        <div class="medication-history-item" data-log-id="${log.id}">
+          <div style="flex:1">
             <strong>${log.medicationName}</strong> (${log.dosage})
             <div style="font-size: 12px; color: var(--text-secondary);">${timeStr(log.timestamp)}</div>
             ${log.notes ? `<div style="font-size: 12px; color: var(--text-tertiary); margin-top: 2px;">${log.notes}</div>` : ''}
           </div>
+          <button class="med-log-delete-btn" data-log-id="${log.id}" title="Remove log">✕</button>
         </div>
       `).join('')}
     `;
     
     list.appendChild(entry);
   });
+  
+  // Add delete handlers
+  list.querySelectorAll('.med-log-delete-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const logId = btn.dataset.logId;
+      undoMedicationLog(logId);
+    });
+  });
+}
+
+function undoMedicationLog(logId) {
+  const logs = loadMedicationLogs();
+  const log = logs.find(l => l.id === logId);
+  if (!log) { showToast('Log not found'); return; }
+  
+  const filtered = logs.filter(l => l.id !== logId);
+  saveMedicationLogs(filtered);
+  showToast(`Removed ${log.medicationName} log`, () => {
+    // Undo: re-add
+    const current = loadMedicationLogs();
+    current.push(log);
+    saveMedicationLogs(current);
+    renderMedicationHistory();
+    renderTodayMedications();
+  });
+  renderMedicationHistory();
+  renderTodayMedications();
 }

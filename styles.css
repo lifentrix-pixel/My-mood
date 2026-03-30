@@ -1568,6 +1568,47 @@ input[type="range"]::-moz-range-thumb {
   border-bottom: none;
 }
 
+.med-undo-btn {
+  background: rgba(255, 193, 7, 0.15);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  color: #ffc107;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+  margin-right: 4px;
+}
+
+.med-undo-btn:active {
+  background: rgba(255, 193, 7, 0.3);
+  transform: scale(0.95);
+}
+
+.med-log-delete-btn {
+  background: rgba(239, 83, 80, 0.1);
+  border: 1px solid rgba(239, 83, 80, 0.25);
+  color: #ef5350;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.med-log-delete-btn:active {
+  background: rgba(239, 83, 80, 0.25);
+  transform: scale(0.95);
+}
+
 .medication-edit-btn, .medication-delete-btn {
   position: absolute;
   top: 8px;
