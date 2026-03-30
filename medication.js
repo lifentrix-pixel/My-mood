@@ -204,10 +204,7 @@ function logMedication(medication) {
   const todayStart = startOfDay(new Date()).getTime();
   const todayLogs = logs.filter(log => log.medicationId === medication.id && log.timestamp >= todayStart);
   
-  if (medication.frequency === 'once' && todayLogs.length > 0) {
-    showToast('Already taken today');
-    return;
-  }
+  // Even if already taken today, allow opening modal to log for other dates
   
   currentLoggingMedication = medication;
   $('#medication-log-modal').classList.remove('hidden');

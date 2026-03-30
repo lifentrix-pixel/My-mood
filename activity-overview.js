@@ -606,31 +606,103 @@ function deleteActivityEntry(entryId) {
 }
 
 function addManualEntry() {
-  const modal = $('#timer-manual-modal');
+  // Create our own modal since the timer's modal is hidden inside its view
+  let modal = document.getElementById('ao-add-modal');
   if (!modal) {
-    showToast('Add entry modal not found');
-    return;
-  }
-  
-  // Populate activity dropdown
-  const activities = loadActivities();
-  const activitySelect = $('#timer-manual-activity');
-  if (activitySelect) {
-    activitySelect.innerHTML = activities.map(a => 
+    modal = document.createElement('div');
+    modal.id = 'ao-add-modal';
+    modal.className = 'timer-modal';
+    
+    const activities = loadActivities();
+    const actOptions = activities.map(a => 
+      `<option value="${a.id}">${a.emoji || '⏱'} ${a.name}</option>`
+    ).join('');
+    
+    modal.innerHTML = `
+      <div class="timer-modal-card">
+        <h3>Add Activity Entry</h3>
+        <div class="timer-modal-field">
+          <label>Activity</label>
+          <select id="ao-add-activity" class="timer-modal-input">${actOptions}</select>
+        </div>
+        <div class="timer-modal-field">
+          <label>Date</label>
+          <input type="date" id="ao-add-date" class="timer-modal-input">
+        </div>
+        <div class="timer-modal-field">
+          <label>Start Time</label>
+          <input type="time" id="ao-add-start" class="timer-modal-input">
+        </div>
+        <div class="timer-modal-field">
+          <label>End Time</label>
+          <input type="time" id="ao-add-end" class="timer-modal-input">
+        </div>
+        <div class="timer-modal-field">
+          <label>Note (optional)</label>
+          <input type="text" id="ao-add-note" class="timer-modal-input" placeholder="Optional note…">
+        </div>
+        <div class="timer-modal-actions">
+          <button id="ao-add-cancel" class="dream-btn-secondary">Cancel</button>
+          <button id="ao-add-save" class="dream-btn-primary">Add Entry</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    
+    document.getElementById('ao-add-cancel').addEventListener('click', () => {
+      modal.classList.add('hidden');
+    });
+    
+    document.getElementById('ao-add-save').addEventListener('click', saveAoManualEntry);
+  } else {
+    // Refresh the activity list in case it changed
+    const activities = loadActivities();
+    const sel = document.getElementById('ao-add-activity');
+    sel.innerHTML = activities.map(a => 
       `<option value="${a.id}">${a.emoji || '⏱'} ${a.name}</option>`
     ).join('');
   }
   
-  // Set default date to today
-  const today = new Date().toISOString().split('T')[0];
-  $('#timer-manual-date').value = today;
-  
-  // Clear other fields
-  $('#timer-manual-start').value = '';
-  $('#timer-manual-end').value = '';
-  $('#timer-manual-note').value = '';
+  // Set defaults
+  document.getElementById('ao-add-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('ao-add-start').value = '';
+  document.getElementById('ao-add-end').value = '';
+  document.getElementById('ao-add-note').value = '';
   
   modal.classList.remove('hidden');
+}
+
+function saveAoManualEntry() {
+  const actId = document.getElementById('ao-add-activity').value;
+  const date = document.getElementById('ao-add-date').value;
+  const startStr = document.getElementById('ao-add-start').value;
+  const endStr = document.getElementById('ao-add-end').value;
+  const note = document.getElementById('ao-add-note').value.trim();
+  
+  if (!actId || !date || !startStr || !endStr) {
+    showToast('Fill in all required fields');
+    return;
+  }
+  
+  const startTime = new Date(`${date}T${startStr}`).getTime();
+  let endTime = new Date(`${date}T${endStr}`).getTime();
+  if (endTime <= startTime) endTime += 86400000; // crossed midnight
+  
+  const entries = loadTimeEntries();
+  const newEntry = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    activityId: actId,
+    startTime,
+    endTime,
+  };
+  if (note) newEntry.note = note;
+  
+  entries.push(newEntry);
+  saveTimeEntries(entries);
+  
+  document.getElementById('ao-add-modal').classList.add('hidden');
+  showToast('Entry added ✓');
+  showActivityOverview();
 }
 
 // Refresh activity overview after edits
