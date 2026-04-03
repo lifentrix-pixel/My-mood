@@ -2391,13 +2391,17 @@ input[type="range"]::-moz-range-thumb {
   position: absolute; top: 8px; right: 40px;
   display: none; gap: 4px;
 }
-.todo-edit-btn, .todo-delete-btn {
+.todo-worked-btn, .todo-edit-btn, .todo-delete-btn {
   width: 20px; height: 20px; border-radius: 4px; border: none;
   cursor: pointer; font-size: 10px;
   display: flex; align-items: center; justify-content: center;
 }
 .todo-edit-btn { background: rgba(76,175,80,0.7); color: #fff; }
+.todo-worked-btn { background: rgba(255,152,0,0.7); color: #fff; }
 .todo-delete-btn { background: rgba(244,67,54,0.7); color: #fff; }
+.todo-progress-log { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.todo-progress-entry { font-size: 11px; color: #FF9800; background: rgba(255,152,0,0.12); padding: 1px 6px; border-radius: 6px; }
+.todo-progress-more { font-size: 11px; color: var(--text2); opacity: 0.7; padding: 1px 4px; }
 @media (hover: hover) and (pointer: fine) { .todo-item:hover .todo-actions { display: flex; } }
 @media (hover: none) or (pointer: coarse) { .todo-actions { display: flex; opacity: 0.8; } }
 .todo-empty { text-align: center; padding: 40px 20px; color: var(--text-secondary); display: none; }

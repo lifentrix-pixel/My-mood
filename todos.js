@@ -71,20 +71,41 @@ function renderTodos() {
 function buildTodoItem(todo) {
   const item = document.createElement('div');
   item.className = 'todo-item' + (todo.completed ? ' completed' : '');
+  const progressLog = todo.progress || [];
+  const progressHtml = !todo.completed && progressLog.length ? `
+    <div class="todo-progress-log">
+      ${progressLog.slice(-3).map(p => {
+        const d = new Date(p.ts);
+        const timeAgo = formatTodoTimeAgo(p.ts);
+        return `<span class="todo-progress-entry">🔨 ${timeAgo}</span>`;
+      }).join('')}
+      ${progressLog.length > 3 ? `<span class="todo-progress-more">+${progressLog.length - 3} more</span>` : ''}
+    </div>
+  ` : '';
+
   item.innerHTML = `
     <div class="todo-checkbox ${todo.completed ? 'checked' : ''}">${todo.completed ? '✓' : ''}</div>
     <div class="todo-content">
       <div class="todo-text">${todo.text}</div>
       ${todo.notes ? `<div class="todo-notes-display">${todo.notes}</div>` : ''}
+      ${progressHtml}
     </div>
     <div class="todo-priority" data-priority="${todo.priority}">${todo.priority}</div>
     <div class="todo-actions">
+      ${!todo.completed ? '<button class="todo-worked-btn" title="Worked on it">🔨</button>' : ''}
       <button class="todo-edit-btn" title="Edit">✏️</button>
       <button class="todo-delete-btn" title="Delete">×</button>
     </div>
   `;
 
   item.querySelector('.todo-checkbox').addEventListener('click', () => toggleTodo(todo.id));
+  const workedBtn = item.querySelector('.todo-worked-btn');
+  if (workedBtn) {
+    workedBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      logTodoProgress(todo.id);
+    });
+  }
   item.querySelector('.todo-edit-btn').addEventListener('click', (e) => {
     e.stopPropagation();
     openTodoModal(todo.category, todo);
@@ -179,6 +200,29 @@ function toggleTodo(id) {
   saveTodos(todos);
   renderTodos();
   showToast(todo.completed ? 'Task completed ✓' : 'Task reopened');
+}
+
+function logTodoProgress(id) {
+  const todos = loadTodos();
+  const todo = todos.find(t => t.id === id);
+  if (!todo) return;
+
+  if (!todo.progress) todo.progress = [];
+  todo.progress.push({ ts: Date.now() });
+  saveTodos(todos);
+  renderTodos();
+  showToast('Progress logged 🔨');
+}
+
+function formatTodoTimeAgo(ts) {
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
 }
 
 function deleteTodo(id) {
