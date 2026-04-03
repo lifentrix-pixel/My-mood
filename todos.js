@@ -68,9 +68,20 @@ function renderTodos() {
   });
 }
 
+const TODO_PROGRESS_COLORS = [
+  '', // 0 taps — default
+  'todo-effort-1', // 1 tap
+  'todo-effort-2', // 2 taps
+  'todo-effort-3', // 3 taps
+  'todo-effort-4', // 4 taps
+  'todo-effort-5', // 5+ taps
+];
+
 function buildTodoItem(todo) {
   const item = document.createElement('div');
-  item.className = 'todo-item' + (todo.completed ? ' completed' : '');
+  const effortLevel = Math.min((todo.progress || []).length, 5);
+  const effortClass = effortLevel > 0 ? ` ${TODO_PROGRESS_COLORS[effortLevel]}` : '';
+  item.className = 'todo-item' + (todo.completed ? ' completed' : '') + effortClass;
   const progressLog = todo.progress || [];
   const progressHtml = !todo.completed && progressLog.length ? `
     <div class="todo-progress-log">
