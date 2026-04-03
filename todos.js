@@ -109,12 +109,12 @@ function buildTodoItem(todo) {
     </div>
   `;
 
-  item.querySelector('.todo-checkbox').addEventListener('click', () => toggleTodo(todo.id));
+  item.querySelector('.todo-checkbox').addEventListener('click', () => toggleTodo(todo.id, item));
   const workedBtn = item.querySelector('.todo-worked-btn');
   if (workedBtn) {
     workedBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      logTodoProgress(todo.id);
+      logTodoProgress(todo.id, item);
     });
   }
   item.querySelector('.todo-edit-btn').addEventListener('click', (e) => {
@@ -201,19 +201,25 @@ function saveTodo() {
   }
 }
 
-function toggleTodo(id) {
+function toggleTodo(id, itemEl) {
   const todos = loadTodos();
   const todo = todos.find(t => t.id === id);
   if (!todo) return;
 
+  const wasCompleted = todo.completed;
   todo.completed = !todo.completed;
   todo.completedAt = todo.completed ? Date.now() : null;
   saveTodos(todos);
+
+  if (todo.completed && itemEl) {
+    todoBurstEffect(itemEl, 'complete', 0);
+  }
+
   renderTodos();
   showToast(todo.completed ? 'Task completed ✓' : 'Task reopened');
 }
 
-function logTodoProgress(id) {
+function logTodoProgress(id, itemEl) {
   const todos = loadTodos();
   const todo = todos.find(t => t.id === id);
   if (!todo) return;
@@ -221,6 +227,9 @@ function logTodoProgress(id) {
   if (!todo.progress) todo.progress = [];
   todo.progress.push({ ts: Date.now() });
   saveTodos(todos);
+
+  const level = Math.min(todo.progress.length, 5);
+  todoBurstEffect(itemEl, 'effort', level);
   renderTodos();
   showToast('Progress logged 🔨');
 }
@@ -234,6 +243,71 @@ function formatTodoTimeAgo(ts) {
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   return `${days}d ago`;
+}
+
+/* ── Todo Celebrations ── */
+function todoBurstEffect(el, type, level) {
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+
+  if (type === 'complete') {
+    // Big celebration — green/gold sparks
+    const chars = ['✓', '✦', '⋆', '★', '✧', '♡', '✿', '⊹'];
+    const colors = ['#34d399', '#6ee7b7', '#fbbf24', '#a7f3d0', '#fff', '#4ade80', '#86efac'];
+    const count = 24;
+    for (let i = 0; i < count; i++) {
+      const spark = document.createElement('div');
+      spark.className = 'todo-spark';
+      spark.textContent = chars[Math.floor(Math.random() * chars.length)];
+      spark.style.color = colors[Math.floor(Math.random() * colors.length)];
+      spark.style.fontSize = (10 + Math.random() * 18) + 'px';
+      spark.style.animationDelay = (Math.random() * 0.4) + 's';
+      const x = rect.left + Math.random() * rect.width;
+      const y = rect.top + Math.random() * rect.height;
+      spark.style.left = x + 'px';
+      spark.style.top = y + 'px';
+      const dx = (Math.random() - 0.5) * 140;
+      const dy = -40 - Math.random() * 120;
+      spark.style.setProperty('--dx', dx + 'px');
+      spark.style.setProperty('--dy', dy + 'px');
+      document.body.appendChild(spark);
+      setTimeout(() => spark.remove(), 2800);
+    }
+    // Haptic
+    if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+  } else {
+    // Effort tap — smaller burst, warm colors that match effort level
+    const effortColors = [
+      ['#FF9800', '#FFB74D', '#fff'],
+      ['#FF9800', '#FFB74D', '#FFA726'],
+      ['#FFB300', '#FFC107', '#FFD54F'],
+      ['#C0CA33', '#CDDC39', '#D4E157'],
+      ['#66BB6A', '#81C784', '#A5D6A7', '#4CAF50'],
+    ];
+    const colors = effortColors[Math.min(level - 1, 4)];
+    const chars = ['🔨', '⚡', '✦', '⋆', '·', '∗'];
+    const count = 10 + level * 2;
+    for (let i = 0; i < count; i++) {
+      const spark = document.createElement('div');
+      spark.className = 'todo-spark';
+      spark.textContent = chars[Math.floor(Math.random() * chars.length)];
+      spark.style.color = colors[Math.floor(Math.random() * colors.length)];
+      spark.style.fontSize = (7 + Math.random() * 12) + 'px';
+      spark.style.animationDelay = (Math.random() * 0.3) + 's';
+      const x = rect.left + Math.random() * rect.width;
+      const y = rect.top + Math.random() * rect.height * 0.6;
+      spark.style.left = x + 'px';
+      spark.style.top = y + 'px';
+      const dx = (Math.random() - 0.5) * 80;
+      const dy = -20 - Math.random() * 60;
+      spark.style.setProperty('--dx', dx + 'px');
+      spark.style.setProperty('--dy', dy + 'px');
+      document.body.appendChild(spark);
+      setTimeout(() => spark.remove(), 2000);
+    }
+    // Light haptic
+    if (navigator.vibrate) navigator.vibrate(15);
+  }
 }
 
 function deleteTodo(id) {
