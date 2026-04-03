@@ -75,26 +75,26 @@ function buildTodoItem(todo) {
   const progressHtml = !todo.completed && progressLog.length ? `
     <div class="todo-progress-log">
       ${progressLog.slice(-3).map(p => {
-        const d = new Date(p.ts);
-        const timeAgo = formatTodoTimeAgo(p.ts);
-        return `<span class="todo-progress-entry">🔨 ${timeAgo}</span>`;
+        return `<span class="todo-progress-entry">🔨 ${formatTodoTimeAgo(p.ts)}</span>`;
       }).join('')}
       ${progressLog.length > 3 ? `<span class="todo-progress-more">+${progressLog.length - 3} more</span>` : ''}
     </div>
   ` : '';
 
   item.innerHTML = `
-    <div class="todo-checkbox ${todo.completed ? 'checked' : ''}">${todo.completed ? '✓' : ''}</div>
-    <div class="todo-content">
-      <div class="todo-text">${todo.text}</div>
-      ${todo.notes ? `<div class="todo-notes-display">${todo.notes}</div>` : ''}
-      ${progressHtml}
+    <div class="todo-top-row">
+      <div class="todo-checkbox ${todo.completed ? 'checked' : ''}">${todo.completed ? '✓' : ''}</div>
+      <div class="todo-content">
+        <div class="todo-text">${todo.text}</div>
+        ${todo.notes ? `<div class="todo-notes-display">${todo.notes}</div>` : ''}
+        ${progressHtml}
+      </div>
+      <div class="todo-priority" data-priority="${todo.priority}">${todo.priority}</div>
     </div>
-    <div class="todo-priority" data-priority="${todo.priority}">${todo.priority}</div>
     <div class="todo-actions">
-      ${!todo.completed ? '<button class="todo-worked-btn" title="Worked on it">🔨</button>' : ''}
-      <button class="todo-edit-btn" title="Edit">✏️</button>
-      <button class="todo-delete-btn" title="Delete">×</button>
+      ${!todo.completed ? '<button class="todo-worked-btn" title="Worked on it"><span>🔨</span> Worked on it</button>' : ''}
+      <button class="todo-edit-btn" title="Edit"><span>✏️</span> Edit</button>
+      <button class="todo-delete-btn" title="Delete"><span>✕</span> Delete</button>
     </div>
   `;
 
