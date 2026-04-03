@@ -488,11 +488,11 @@ function showActiveTimer(activity) {
   timerState.interval = setInterval(updateTimerClock, 1000);
   updateTimerClock();
   
-  // Restore saved notes
+  // Restore saved notes (or clear from previous activity)
   const savedNotes = localStorage.getItem(`innerscape_timer_notes_${activity.id}`);
   const notesField = $('#timer-session-notes');
-  if (notesField && savedNotes) {
-    notesField.value = savedNotes;
+  if (notesField) {
+    notesField.value = savedNotes || '';
   }
   
 }
