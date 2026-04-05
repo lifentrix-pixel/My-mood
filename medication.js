@@ -145,10 +145,13 @@ function renderTodayMedications() {
 }
 
 function openMedicationModal() {
+  editingMedicationId = null;
   const modal = $('#medication-modal');
   if (!modal) return;
   
   modal.classList.remove('hidden');
+  $('#medication-modal-title').textContent = 'Add Medication';
+  $('#medication-save').textContent = 'Save';
   
   $('#medication-name').value = '';
   $('#medication-dosage').value = '';
@@ -164,6 +167,7 @@ function openMedicationModal() {
 
 function closeMedicationModal() {
   $('#medication-modal').classList.add('hidden');
+  editingMedicationId = null;
 }
 
 function saveMedication() {
@@ -194,21 +198,35 @@ function saveMedication() {
     const color = selectedColor ? selectedColor.style.background : TIMER_COLORS[0];
     
     const medications = loadMedications();
-    const newMedication = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      name,
-      dosage,
-      frequency,
-      color,
-      createdAt: Date.now()
-    };
     
-    medications.push(newMedication);
-    saveMedications(medications);
-    
-    closeMedicationModal();
-    renderTodayMedications();
-    showToast('Medication added ✓');
+    if (editingMedicationId) {
+      const med = medications.find(m => m.id === editingMedicationId);
+      if (med) {
+        med.name = name;
+        med.dosage = dosage;
+        med.frequency = frequency;
+        med.color = color;
+        med.updatedAt = Date.now();
+      }
+      saveMedications(medications);
+      closeMedicationModal();
+      renderTodayMedications();
+      showToast('Medication updated ✓');
+    } else {
+      const newMedication = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        name,
+        dosage,
+        frequency,
+        color,
+        createdAt: Date.now()
+      };
+      medications.push(newMedication);
+      saveMedications(medications);
+      closeMedicationModal();
+      renderTodayMedications();
+      showToast('Medication added ✓');
+    }
     
   } finally {
     setTimeout(() => { saveBtn.disabled = false; }, 1000);
@@ -291,8 +309,33 @@ function saveMedicationLog() {
   }
 }
 
+let editingMedicationId = null;
+
 function editMedication(medication) {
-  showToast('Use delete + add new to edit medication');
+  editingMedicationId = medication.id;
+  const modal = $('#medication-modal');
+  if (!modal) return;
+
+  modal.classList.remove('hidden');
+  $('#medication-modal-title').textContent = 'Edit Medication';
+  $('#medication-save').textContent = 'Save Changes';
+
+  $('#medication-name').value = medication.name;
+  $('#medication-dosage').value = medication.dosage;
+  $('#medication-frequency').value = medication.frequency || 'once';
+
+  // Select matching color
+  const picks = modal.querySelectorAll('.timer-color-pick');
+  picks.forEach(b => {
+    b.classList.remove('selected');
+    if (b.style.background === medication.color) b.classList.add('selected');
+  });
+  // If no match, select first
+  if (!modal.querySelector('.timer-color-pick.selected') && picks.length) {
+    picks[0].classList.add('selected');
+  }
+
+  setTimeout(() => $('#medication-name').focus(), 100);
 }
 
 function deleteMedication(id) {
