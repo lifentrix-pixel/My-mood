@@ -259,9 +259,35 @@ function renderTrends() {
   if (sub) sub.textContent = `Daily averages over ${days} days`;
   
   const trendsOpts = JSON.parse(JSON.stringify(chartOpts));
-  trendsOpts.aspectRatio = days > 60 ? 1.0 : 1.4;
-  // Reduce x-axis label clutter for long ranges
-  trendsOpts.scales.x.ticks = { ...trendsOpts.scales.x.ticks, maxTicksLimit: days > 60 ? 8 : 12 };
+  trendsOpts.aspectRatio = days > 60 ? 0.7 : days > 30 ? 0.85 : 1.0;
+  // Grid: lines at every integer, dashed at halves
+  trendsOpts.scales.y = {
+    min: 1, max: 10,
+    ticks: { color: '#9892a6', stepSize: 1, font: { size: 11 } },
+    grid: {
+      color: (ctx) => {
+        const v = ctx.tick.value;
+        return Number.isInteger(v) ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)';
+      },
+      lineWidth: (ctx) => Number.isInteger(ctx.tick.value) ? 1 : 0.5,
+    },
+    afterBuildTicks: (axis) => {
+      // Add half-step ticks: 1.5, 2.5, ... 9.5
+      const ticks = [];
+      for (let v = 1; v <= 10; v++) {
+        ticks.push({ value: v });
+        if (v < 10) ticks.push({ value: v + 0.5 });
+      }
+      axis.ticks = ticks;
+    },
+    afterTickToLabelConversion: (axis) => {
+      // Only show labels for integers
+      axis.ticks.forEach(t => {
+        if (!Number.isInteger(t.value)) t.label = '';
+      });
+    },
+  };
+  trendsOpts.scales.x.ticks = { color: '#9892a6', font: { size: 11 }, maxTicksLimit: days > 60 ? 8 : 12 };
   
   if (trendsChart) { trendsChart.data = data; trendsChart.options = trendsOpts; trendsChart.update(); return; }
   trendsChart = new Chart($('#trends-chart'), { type: 'line', data, options: trendsOpts });
