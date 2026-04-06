@@ -1369,22 +1369,31 @@
 
     <!-- Media Add Modal -->
     <div id="media-add-modal" class="timer-modal hidden">
-      <div class="timer-modal-content">
+      <div class="timer-modal-card">
         <h3>Add to Queue</h3>
-        <input type="text" id="media-add-title" placeholder="What do you want to watch/listen/read?" class="timer-input">
-        <div class="media-platform-picker">
-          <button class="media-platform-btn" data-platform="youtube">📺</button>
-          <button class="media-platform-btn" data-platform="instagram">📸</button>
-          <button class="media-platform-btn" data-platform="tiktok">🎵</button>
-          <button class="media-platform-btn" data-platform="spotify">🎧</button>
-          <button class="media-platform-btn" data-platform="twitter">🐦</button>
-          <button class="media-platform-btn" data-platform="reddit">🟠</button>
-          <button class="media-platform-btn" data-platform="other">🌐</button>
+        <div class="timer-modal-field">
+          <label>What do you want to watch/listen/read?</label>
+          <input type="text" id="media-add-title" placeholder="e.g. Photography tutorial" class="timer-modal-input">
         </div>
-        <textarea id="media-add-note" placeholder="Notes (optional)" rows="2" class="timer-input" style="resize:vertical"></textarea>
+        <div class="timer-modal-field">
+          <label>Platform</label>
+          <div class="media-platform-picker">
+            <button class="media-platform-btn" data-platform="youtube"><span>📺</span>YouTube</button>
+            <button class="media-platform-btn" data-platform="instagram"><span>📸</span>Instagram</button>
+            <button class="media-platform-btn" data-platform="tiktok"><span>🎵</span>TikTok</button>
+            <button class="media-platform-btn" data-platform="spotify"><span>🎧</span>Spotify</button>
+            <button class="media-platform-btn" data-platform="twitter"><span>🐦</span>X</button>
+            <button class="media-platform-btn" data-platform="reddit"><span>🟠</span>Reddit</button>
+            <button class="media-platform-btn" data-platform="other"><span>🌐</span>Other</button>
+          </div>
+        </div>
+        <div class="timer-modal-field">
+          <label>Notes (optional)</label>
+          <textarea id="media-add-note" placeholder="Why do you want to check this out?" rows="2" class="timer-modal-input" style="resize:vertical"></textarea>
+        </div>
         <div class="timer-modal-actions">
-          <button id="media-add-cancel" class="timer-btn-secondary" onclick="closeMediaAddModal()">Cancel</button>
-          <button id="media-add-save" class="timer-btn-primary" onclick="saveMediaQueueItem()">Add ✓</button>
+          <button class="timer-btn-secondary" onclick="closeMediaAddModal()">Cancel</button>
+          <button class="timer-btn-primary" onclick="saveMediaQueueItem()">Add ✓</button>
         </div>
       </div>
     </div>

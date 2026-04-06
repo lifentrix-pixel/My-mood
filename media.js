@@ -104,6 +104,7 @@ function renderMediaQueue(queue, todayImpulses) {
         <button class="media-impulse-btn" id="media-impulse-tap">
           🛡️ Impulse Caught${todayImpulses > 0 ? ` <span class="media-impulse-count">${todayImpulses}</span>` : ''}
         </button>
+        ${todayImpulses > 0 ? `<button class="media-impulse-undo" id="media-impulse-undo" title="Undo last">↩️</button>` : ''}
         <span class="media-impulse-hint">Tap when you resist mindless scrolling</span>
       </div>
 
@@ -331,6 +332,7 @@ function renderMediaLog(sessions, impulses) {
             ${intentLabel ? ` · ${intentLabel}` : ''}
           </div>
           ${s.note ? `<div class="media-log-note">${s.note}</div>` : ''}
+          <button class="media-log-delete" data-session-id="${s.id}">×</button>
         </div>
       `;
     });
@@ -365,6 +367,19 @@ function bindMediaEvents() {
     saveImpulseCaught(arr);
     if (navigator.vibrate) navigator.vibrate(20);
     showToast('Impulse caught! 🛡️');
+    renderMedia();
+  });
+
+  // Undo impulse
+  $('#media-impulse-undo')?.addEventListener('click', () => {
+    const arr = loadImpulseCaught();
+    const todayStart = startOfDay(new Date()).getTime();
+    // Remove last today impulse
+    for (let i = arr.length - 1; i >= 0; i--) {
+      if (arr[i].ts >= todayStart) { arr.splice(i, 1); break; }
+    }
+    saveImpulseCaught(arr);
+    showToast('Impulse log removed');
     renderMedia();
   });
 
@@ -468,6 +483,18 @@ function bindMediaEvents() {
       sliderVal.textContent = `${v} — ${intentionalLabel(v).replace(/^[^\s]+ /, '')}`;
     });
   }
+
+  // Delete session logs
+  document.querySelectorAll('.media-log-delete').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.sessionId;
+      const sessions = loadMediaSessions().filter(s => s.id !== id);
+      saveMediaSessions(sessions);
+      showToast('Log removed');
+      renderMedia();
+    });
+  });
 
   // Save reflection
   $('#media-save-reflect')?.addEventListener('click', saveMediaReflection);
