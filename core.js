@@ -330,6 +330,7 @@ function switchView(view) {
   if (view === 'trends') renderTrends();
   if (view === 'timer') renderTimerView();
   if (view === 'studio') renderStudioGallery();
+  if (view === 'media') initMedia();
   if (view === 'export') initExport();
   
   migrateMeditationToTimer();

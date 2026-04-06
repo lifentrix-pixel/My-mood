@@ -55,6 +55,7 @@
         <button class="sub-nav-btn" data-view="intentions">✨ Intentions</button>
         <button class="sub-nav-btn" data-view="meditate">Meditate</button>
         <button class="sub-nav-btn" data-view="studio">Studio</button>
+        <button class="sub-nav-btn" data-view="media">📱 Media</button>
       </div>
       <div class="sub-nav-group" data-group="activity">
         <button class="sub-nav-btn" data-view="timer">Timer</button>
@@ -432,6 +433,15 @@
     </section>
 
     <!-- Stool View -->
+    <!-- My Media View -->
+    <section id="view-media" class="view">
+      <div class="view-header">
+        <h1>📱 My Media</h1>
+        <p class="subtitle">Browse with intention</p>
+      </div>
+      <div id="media-content"></div>
+    </section>
+
     <section id="view-stool" class="view">
       <div id="stool-content"></div>
     </section>
@@ -1357,6 +1367,28 @@
       </div>
     </div>
 
+    <!-- Media Add Modal -->
+    <div id="media-add-modal" class="timer-modal hidden">
+      <div class="timer-modal-content">
+        <h3>Add to Queue</h3>
+        <input type="text" id="media-add-title" placeholder="What do you want to watch/listen/read?" class="timer-input">
+        <div class="media-platform-picker">
+          <button class="media-platform-btn" data-platform="youtube">📺</button>
+          <button class="media-platform-btn" data-platform="instagram">📸</button>
+          <button class="media-platform-btn" data-platform="tiktok">🎵</button>
+          <button class="media-platform-btn" data-platform="spotify">🎧</button>
+          <button class="media-platform-btn" data-platform="twitter">🐦</button>
+          <button class="media-platform-btn" data-platform="reddit">🟠</button>
+          <button class="media-platform-btn" data-platform="other">🌐</button>
+        </div>
+        <textarea id="media-add-note" placeholder="Notes (optional)" rows="2" class="timer-input" style="resize:vertical"></textarea>
+        <div class="timer-modal-actions">
+          <button id="media-add-cancel" class="timer-btn-secondary" onclick="closeMediaAddModal()">Cancel</button>
+          <button id="media-add-save" class="timer-btn-primary" onclick="saveMediaQueueItem()">Add ✓</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Toast -->
     <div id="toast" class="toast"></div>
   </div>
@@ -1384,6 +1416,7 @@
   <script src="oura.js"></script>
   <script src="activity-overview.js"></script>
   <script src="intentions.js"></script>
+  <script src="media.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

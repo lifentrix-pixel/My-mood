@@ -1,5 +1,5 @@
-const CACHE = 'innerscape-v149';
-const ASSETS = ['/', '/index.html', '/styles.css', '/core.js', '/mood.js', '/dreams.js', '/timer.js', '/meditation.js', '/food.js', '/insights.js', '/sync.js', '/medication.js', '/todos.js', '/wishlist.js', '/studio.js', '/stool.js', '/forecast.js', '/oura.js', '/activity-overview.js', '/app.js', '/intentions.js', '/manifest.json', '/import-data.html'];
+const CACHE = 'innerscape-v150';
+const ASSETS = ['/', '/index.html', '/styles.css', '/core.js', '/mood.js', '/dreams.js', '/timer.js', '/meditation.js', '/food.js', '/insights.js', '/sync.js', '/medication.js', '/todos.js', '/wishlist.js', '/studio.js', '/stool.js', '/forecast.js', '/oura.js', '/activity-overview.js', '/app.js', '/intentions.js', '/media.js', '/manifest.json', '/import-data.html'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
