@@ -278,26 +278,30 @@ function buildTrendsZoom(containerId, totalDays) {
     el.className = 'trends-zoom-row';
     toggles.after(el);
   }
-  const options = [
-    { label: '30d', val: 30 },
-    { label: '60d', val: 60 },
-    { label: '90d', val: 90 },
-  ];
-  if (totalDays > 90) options.push({ label: 'All', val: 'all' });
+  const zoomLevels = [7, 15, 30, 60, 90];
+  if (totalDays > 90) zoomLevels.push('all');
+  const currentIdx = trendsZoom === 'all' ? zoomLevels.indexOf('all') : zoomLevels.indexOf(trendsZoom);
+  const canMinus = currentIdx > 0;
+  const canPlus = currentIdx < zoomLevels.length - 1;
 
-  el.innerHTML = options.map(o =>
-    `<button class="trends-zoom-btn ${trendsZoom == o.val ? 'active' : ''}" data-zoom="${o.val}">${o.label}</button>`
-  ).join('');
+  const currentLabel = trendsZoom === 'all' ? 'All' : `${trendsZoom}d`;
 
-  el.querySelectorAll('.trends-zoom-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const v = btn.dataset.zoom;
-      trendsZoom = v === 'all' ? 'all' : parseInt(v);
-      // Destroy and recreate chart for clean aspect ratio
-      if (trendsChart) { trendsChart.destroy(); trendsChart = null; }
-      renderTrends();
-    });
-  });
+  el.innerHTML = `
+    <button class="trends-zoom-arrow ${canMinus ? '' : 'disabled'}" id="trends-zoom-minus">−</button>
+    <span class="trends-zoom-label">${currentLabel}</span>
+    <button class="trends-zoom-arrow ${canPlus ? '' : 'disabled'}" id="trends-zoom-plus">+</button>
+  `;
+
+  const stepZoom = (dir) => {
+    const idx = trendsZoom === 'all' ? zoomLevels.indexOf('all') : zoomLevels.indexOf(trendsZoom);
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= zoomLevels.length) return;
+    trendsZoom = zoomLevels[newIdx];
+    if (trendsChart) { trendsChart.destroy(); trendsChart = null; }
+    renderTrends();
+  };
+  $('#trends-zoom-minus')?.addEventListener('click', () => stepZoom(-1));
+  $('#trends-zoom-plus')?.addEventListener('click', () => stepZoom(1));
 }
 
 // ── Export Functions ──
