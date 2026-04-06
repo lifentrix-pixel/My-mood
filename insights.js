@@ -300,8 +300,8 @@ function buildTrendsZoom(containerId, totalDays) {
     if (trendsChart) { trendsChart.destroy(); trendsChart = null; }
     renderTrends();
   };
-  $('#trends-zoom-minus')?.addEventListener('click', () => stepZoom(-1));
-  $('#trends-zoom-plus')?.addEventListener('click', () => stepZoom(1));
+  $('#trends-zoom-minus')?.addEventListener('click', () => stepZoom(1));
+  $('#trends-zoom-plus')?.addEventListener('click', () => stepZoom(-1));
 }
 
 // ── Export Functions ──
