@@ -281,8 +281,9 @@ function buildTrendsZoom(containerId, totalDays) {
   const zoomLevels = [7, 15, 30, 60, 90];
   if (totalDays > 90) zoomLevels.push('all');
   const currentIdx = trendsZoom === 'all' ? zoomLevels.indexOf('all') : zoomLevels.indexOf(trendsZoom);
-  const canMinus = currentIdx > 0;
-  const canPlus = currentIdx < zoomLevels.length - 1;
+  // − zooms out (more days = higher index), + zooms in (fewer days = lower index)
+  const canMinus = currentIdx < zoomLevels.length - 1; // can go to more days
+  const canPlus = currentIdx > 0; // can go to fewer days
 
   const currentLabel = trendsZoom === 'all' ? 'All' : `${trendsZoom}d`;
 
@@ -300,8 +301,8 @@ function buildTrendsZoom(containerId, totalDays) {
     if (trendsChart) { trendsChart.destroy(); trendsChart = null; }
     renderTrends();
   };
-  $('#trends-zoom-minus')?.addEventListener('click', () => stepZoom(1));
-  $('#trends-zoom-plus')?.addEventListener('click', () => stepZoom(-1));
+  $('#trends-zoom-minus')?.addEventListener('click', () => stepZoom(1));  // more days
+  $('#trends-zoom-plus')?.addEventListener('click', () => stepZoom(-1)); // fewer days
 }
 
 // ── Export Functions ──
