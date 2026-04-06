@@ -267,9 +267,9 @@ function renderTrends() {
     grid: {
       color: (ctx) => {
         const v = ctx.tick.value;
-        return Number.isInteger(v) ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)';
+        return Number.isInteger(v) ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)';
       },
-      lineWidth: (ctx) => Number.isInteger(ctx.tick.value) ? 1 : 0.5,
+      lineWidth: (ctx) => Number.isInteger(ctx.tick.value) ? 3 : 1,
     },
     afterBuildTicks: (axis) => {
       // Add half-step ticks: 1.5, 2.5, ... 9.5
