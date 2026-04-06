@@ -412,6 +412,14 @@ input[type="range"]::-moz-range-thumb {
   color: var(--toggle-color);
   background: rgba(167, 139, 250, 0.08);
 }
+.trends-zoom-row { display: flex; gap: 6px; margin: 10px 0 4px; }
+.trends-zoom-btn {
+  padding: 6px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.03); color: var(--text2); font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s;
+}
+.trends-zoom-btn.active { border-color: var(--accent); background: rgba(167,139,250,0.15); color: var(--accent); }
+
 .chart-wrap {
   background: var(--surface);
   border-radius: 16px;

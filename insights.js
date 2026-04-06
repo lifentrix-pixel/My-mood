@@ -4,6 +4,7 @@ let weeklyChart = null, monthlyChart = null, trendsChart = null, todayChart = nu
 let weeklyVisible = { body: true, energy: true, mood: true, mind: true };
 let monthlyVisible = { body: true, energy: true, mood: true, mind: true };
 let trendsVisible = { overall: true, body: true, energy: true, mood: true, mind: true };
+let trendsZoom = 90;
 let todayVisible = { body: true, energy: true, mood: true, mind: true };
 
 function renderTodayChart(todayEntries) {
@@ -150,9 +151,9 @@ function makeTrendsData(agg, visible) {
       borderColor: '#a78bfa',
       backgroundColor: '#a78bfa18',
       tension: 0.35,
-      pointRadius: 5,
-      pointHoverRadius: 7,
-      borderWidth: 3,
+      pointRadius: 0,
+      pointHoverRadius: 5,
+      borderWidth: 2.5,
       fill: true,
       spanGaps: true,
     });
@@ -168,8 +169,8 @@ function makeTrendsData(agg, visible) {
       borderColor: cat.color,
       backgroundColor: cat.color + '18',
       tension: 0.35,
-      pointRadius: 3,
-      pointHoverRadius: 5,
+      pointRadius: 0,
+      pointHoverRadius: 4,
       borderWidth: 2,
       fill: false,
       spanGaps: true,
@@ -246,12 +247,57 @@ function renderMonthly() {
 
 function renderTrends() {
   const entries = loadEntries();
-  const agg = aggregateByDay(entries, 90);
+  const totalDays = entries.length ? Math.ceil((Date.now() - entries[0].ts) / 86400000) : 0;
+  const days = trendsZoom === 'all' ? Math.max(totalDays, 90) : trendsZoom;
+  const agg = aggregateByDay(entries, days);
   const data = makeTrendsData(agg, trendsVisible);
   buildTrendsToggles('trends-toggles', trendsVisible, renderTrends);
+  buildTrendsZoom('trends-zoom', totalDays);
   
-  if (trendsChart) { trendsChart.data = data; trendsChart.update(); return; }
-  trendsChart = new Chart($('#trends-chart'), { type: 'line', data, options: chartOpts });
+  // Update subtitle
+  const sub = document.querySelector('#view-trends .subtitle');
+  if (sub) sub.textContent = `Daily averages over ${days} days`;
+  
+  const trendsOpts = JSON.parse(JSON.stringify(chartOpts));
+  trendsOpts.aspectRatio = days > 60 ? 1.0 : 1.4;
+  // Reduce x-axis label clutter for long ranges
+  trendsOpts.scales.x.ticks = { ...trendsOpts.scales.x.ticks, maxTicksLimit: days > 60 ? 8 : 12 };
+  
+  if (trendsChart) { trendsChart.data = data; trendsChart.options = trendsOpts; trendsChart.update(); return; }
+  trendsChart = new Chart($('#trends-chart'), { type: 'line', data, options: trendsOpts });
+}
+
+function buildTrendsZoom(containerId, totalDays) {
+  let el = document.getElementById(containerId);
+  if (!el) {
+    // Create zoom container after toggles
+    const toggles = document.getElementById('trends-toggles');
+    if (!toggles) return;
+    el = document.createElement('div');
+    el.id = containerId;
+    el.className = 'trends-zoom-row';
+    toggles.after(el);
+  }
+  const options = [
+    { label: '30d', val: 30 },
+    { label: '60d', val: 60 },
+    { label: '90d', val: 90 },
+  ];
+  if (totalDays > 90) options.push({ label: 'All', val: 'all' });
+
+  el.innerHTML = options.map(o =>
+    `<button class="trends-zoom-btn ${trendsZoom == o.val ? 'active' : ''}" data-zoom="${o.val}">${o.label}</button>`
+  ).join('');
+
+  el.querySelectorAll('.trends-zoom-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const v = btn.dataset.zoom;
+      trendsZoom = v === 'all' ? 'all' : parseInt(v);
+      // Destroy and recreate chart for clean aspect ratio
+      if (trendsChart) { trendsChart.destroy(); trendsChart = null; }
+      renderTrends();
+    });
+  });
 }
 
 // ── Export Functions ──
