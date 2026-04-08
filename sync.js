@@ -227,10 +227,8 @@ function initSync() {
   window.addEventListener('online', () => updateSyncStatus('Online', '☁️'));
   window.addEventListener('offline', () => updateSyncStatus('Offline', '🔴'));
 
-  // Render cloud sync section when insights/export view loads
-  const observer = new MutationObserver(() => renderCloudSyncSection());
-  const app = document.getElementById('app');
-  if (app) observer.observe(app, { childList: true, subtree: true });
+  // Render cloud sync section periodically (avoids MutationObserver infinite loop)
+  setInterval(() => renderCloudSyncSection(), 3000);
 
   updateSyncStatus(navigator.onLine ? 'Ready' : 'Offline', navigator.onLine ? '☁️' : '🔴');
 }
