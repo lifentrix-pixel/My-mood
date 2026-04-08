@@ -148,3 +148,59 @@ function closeAllNotesModal() {
 // Make functions globally available
 window.showAllNotes = showAllNotes;
 window.closeAllNotesModal = closeAllNotesModal;
+
+/* ── Data Restore Banner (shows when localStorage empty) ── */
+function checkRestoreBanner() {
+  const entries = JSON.parse(localStorage.getItem('innerscape_entries') || '[]');
+  if (entries.length > 5) return; // has data, skip
+  
+  const banner = document.createElement('div');
+  banner.id = 'restore-banner';
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(135deg,#7c3aed,#a78bfa);padding:16px 20px;text-align:center;color:white;font-weight:600;font-size:0.95rem;';
+  banner.innerHTML = `
+    <div>📦 Data restore available</div>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:10px;">
+      <button onclick="doCloudRestore()" style="background:white;color:#7c3aed;border:none;padding:10px 20px;border-radius:8px;font-weight:600;font-size:0.95rem;">✨ Restore My Data</button>
+      <button onclick="this.parentElement.parentElement.remove()" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:10px 16px;border-radius:8px;font-size:0.9rem;">Dismiss</button>
+    </div>
+  `;
+  document.body.prepend(banner);
+}
+
+async function doCloudRestore() {
+  const banner = document.getElementById('restore-banner');
+  if (banner) banner.innerHTML = '<div>⏳ Restoring data...</div>';
+  try {
+    const r = await fetch('combined-backup.json?t=' + Date.now());
+    const DATA = await r.json();
+    
+    const entries = (DATA.mood_entries || []).map(e => ({
+      id: e.id || ('entry-' + e.ts), ts: e.ts, scores: e.scores, notes: e.notes || {}
+    }));
+    localStorage.setItem('innerscape_entries', JSON.stringify(entries));
+    
+    const dreams = (DATA.dreams || []).map(d => ({
+      id: d.id || ('dream-' + d.ts), ts: d.ts || d.timestamp, text: d.text || '',
+      tags: d.tags || [], hasAudio: d.hasAudio || null, noRecall: d.noRecall || false
+    }));
+    localStorage.setItem('innerscape_dreams', JSON.stringify(dreams));
+    localStorage.setItem('innerscape_time_entries', JSON.stringify(DATA.time_entries || []));
+    localStorage.setItem('innerscape_activities', JSON.stringify(DATA.activities || []));
+    localStorage.setItem('innerscape_food_entries', JSON.stringify(DATA.food_entries || []));
+    localStorage.setItem('innerscape_medications', JSON.stringify(DATA.medications || []));
+    localStorage.setItem('innerscape_medication_logs', JSON.stringify(DATA.medication_logs || []));
+    localStorage.setItem('innerscape_stool_entries', JSON.stringify(DATA.stool_entries || []));
+    localStorage.setItem('innerscape_todos', JSON.stringify(DATA.todos || []));
+    localStorage.setItem('innerscape_wishes', JSON.stringify(DATA.wishes || []));
+    if (DATA.meditations?.length) localStorage.setItem('innerscape_meditations', JSON.stringify(DATA.meditations));
+    
+    if (banner) banner.innerHTML = '<div>✅ Data restored! Reloading...</div>';
+    setTimeout(() => location.reload(), 1000);
+  } catch(e) {
+    if (banner) banner.innerHTML = '<div>❌ Error: ' + e.message + '</div>';
+  }
+}
+window.doCloudRestore = doCloudRestore;
+
+// Check on load
+setTimeout(checkRestoreBanner, 500);
