@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Innerscape — Restore Data</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #1a1a2e; color: #e0e0e0; font-family: -apple-system, sans-serif; padding: 20px; min-height: 100vh; }
+  .container { max-width: 500px; margin: 0 auto; }
+  h1 { text-align: center; margin: 20px 0; font-size: 1.5rem; }
+  .card { background: rgba(255,255,255,0.08); border-radius: 16px; padding: 20px; margin: 16px 0; }
+  .card h2 { font-size: 1.1rem; margin-bottom: 12px; color: #c084fc; }
+  .stat { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .stat:last-child { border: none; }
+  .stat .label { opacity: 0.7; }
+  .stat .val { font-weight: 600; color: #a78bfa; }
+  button { width: 100%; padding: 16px; border: none; border-radius: 12px; font-size: 1.1rem; font-weight: 600; cursor: pointer; margin: 8px 0; }
+  .btn-restore { background: linear-gradient(135deg, #7c3aed, #a78bfa); color: white; }
+  .btn-restore:disabled { opacity: 0.4; }
+  .btn-home { background: rgba(255,255,255,0.1); color: #c084fc; }
+  .status { text-align: center; padding: 16px; font-size: 1rem; }
+  .success { color: #4ade80; }
+  .error { color: #f87171; }
+  .warn { color: #fbbf24; font-size: 0.9rem; margin-top: 12px; }
+</style>
+</head><body>
+<div class="container">
+  <h1>🔮 Restore Innerscape Data</h1>
+  
+  <div class="card">
+    <h2>📦 Combined Backup</h2>
+    <p style="opacity:0.7;margin-bottom:12px;">This will load your merged data from both exports (Feb 16 – Apr 7) back into the app.</p>
+    <div id="stats"></div>
+  </div>
+
+  <button class="btn-restore" id="restoreBtn" onclick="doRestore()">✨ Restore All Data</button>
+  
+  <div id="status" class="status"></div>
+
+  <button class="btn-home" onclick="window.location.href='/'">← Back to Innerscape</button>
+  
+  <p class="warn">⚠️ This will overwrite any existing data in the app. Only use on a fresh/empty install.</p>
+</div>
+
+<script>
+let DATA = null;
+
+async function loadData() {
+  try {
+    const r = await fetch('combined-backup.json');
+    DATA = await r.json();
+    const stats = document.getElementById('stats');
+    const items = [
+      ['🧠 Mood check-ins', DATA.mood_entries?.length || 0],
+      ['⏱️ Time entries', DATA.time_entries?.length || 0],
+      ['🎨 Activities', DATA.activities?.length || 0],
+      ['🍽️ Food entries', DATA.food_entries?.length || 0],
+      ['💊 Medications', DATA.medications?.length || 0],
+      ['💊 Medication logs', DATA.medication_logs?.length || 0],
+      ['💤 Dreams', DATA.dreams?.length || 0],
+      ['💩 Stool entries', DATA.stool_entries?.length || 0],
+      ['✅ Todos', DATA.todos?.length || 0],
+      ['✨ Wishes', DATA.wishes?.length || 0],
+      ['🧘 Meditations', DATA.meditations?.length || 0],
+    ];
+    stats.innerHTML = items.map(([l,v]) => 
+      `<div class="stat"><span class="label">${l}</span><span class="val">${v}</span></div>`
+    ).join('');
+  } catch(e) {
+    document.getElementById('status').innerHTML = '<span class="error">Failed to load backup file: ' + e.message + '</span>';
+    document.getElementById('restoreBtn').disabled = true;
+  }
+}
+
+function doRestore() {
+  if (!DATA) return;
+  const btn = document.getElementById('restoreBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Restoring...';
+  
+  try {
+    // Map mood entries to innerscape format (array with id/ts/scores/notes)
+    const entries = (DATA.mood_entries || []).map(e => ({
+      id: e.id || ('entry-' + e.ts),
+      ts: e.ts,
+      scores: e.scores,
+      notes: e.notes || {}
+    }));
+    localStorage.setItem('innerscape_entries', JSON.stringify(entries));
+
+    // Dreams
+    const dreams = (DATA.dreams || []).map(d => ({
+      id: d.id || ('dream-' + d.ts),
+      ts: d.ts || d.timestamp,
+      text: d.text || '',
+      tags: d.tags || [],
+      hasAudio: d.hasAudio || null,
+      noRecall: d.noRecall || false
+    }));
+    localStorage.setItem('innerscape_dreams', JSON.stringify(dreams));
+
+    // Time entries
+    localStorage.setItem('innerscape_time_entries', JSON.stringify(DATA.time_entries || []));
+
+    // Activities
+    localStorage.setItem('innerscape_activities', JSON.stringify(DATA.activities || []));
+
+    // Food entries
+    localStorage.setItem('innerscape_food_entries', JSON.stringify(DATA.food_entries || []));
+
+    // Medications
+    localStorage.setItem('innerscape_medications', JSON.stringify(DATA.medications || []));
+
+    // Medication logs
+    localStorage.setItem('innerscape_medication_logs', JSON.stringify(DATA.medication_logs || []));
+
+    // Stool entries
+    localStorage.setItem('innerscape_stool_entries', JSON.stringify(DATA.stool_entries || []));
+
+    // Todos
+    localStorage.setItem('innerscape_todos', JSON.stringify(DATA.todos || []));
+
+    // Wishes
+    localStorage.setItem('innerscape_wishes', JSON.stringify(DATA.wishes || []));
+
+    // Meditations
+    if (DATA.meditations?.length) {
+      localStorage.setItem('innerscape_meditations', JSON.stringify(DATA.meditations));
+    }
+
+    document.getElementById('status').innerHTML = '<span class="success">✅ All data restored! You can now go back to the app.</span>';
+    btn.textContent = '✅ Done!';
+  } catch(e) {
+    document.getElementById('status').innerHTML = '<span class="error">❌ Error: ' + e.message + '</span>';
+    btn.disabled = false;
+    btn.textContent = '✨ Restore All Data';
+  }
+}
+
+loadData();
+</script>
+</body></html>
