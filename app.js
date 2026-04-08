@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
   registerSW();
   setupNotifications();
   scheduleBackups();
-  initFirebase();
+  if (typeof initFirebase === 'function') initFirebase();
   initDreams();
   initMeditate();
   initTimer();

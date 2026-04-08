@@ -239,9 +239,11 @@ window.forceSyncAll = forceSyncAll;
 window.initSync = initSync;
 window.renderCloudSyncSection = renderCloudSyncSection;
 
-// Auto-init
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initSync);
-} else {
-  initSync();
-}
+// Auto-init (wrapped for safety)
+try {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => { try { initSync(); } catch(e) { console.error('Sync init error:', e); } });
+  } else {
+    initSync();
+  }
+} catch(e) { console.error('Sync init error:', e); }
