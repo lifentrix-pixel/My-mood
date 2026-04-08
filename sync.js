@@ -113,14 +113,171 @@ function updateSyncStatus(status, icon) {
   }
 }
 
-/* ── Core Sync ── */
+/* ── Reverse Mappers (Supabase → localStorage) ── */
 
-async function syncToSupabase(force) {
+function unmapCheckins(rows) {
+  return rows.map(r => ({
+    id: r.id,
+    ts: r.ts,
+    scores: r.scores || {},
+    notes: r.notes || {}
+  }));
+}
+
+function unmapTimeEntries(rows) {
+  return rows.map(r => ({
+    id: r.id,
+    activityId: r.activity_id || null,
+    startTime: r.start_time || null,
+    endTime: r.end_time || null,
+    subActivity: r.sub_activity || null,
+    notes: r.notes || null
+  }));
+}
+
+function unmapActivities(rows) {
+  return rows.map(r => ({
+    id: r.id,
+    name: r.name || null,
+    emoji: r.emoji || null,
+    category: r.category || null
+  }));
+}
+
+function unmapFoodEntries(rows) {
+  return rows.map(r => ({
+    id: r.id,
+    timestamp: r.ts || null,
+    description: r.description || null,
+    category: r.category || null,
+    photo: r.photo || null
+  }));
+}
+
+function unmapMedicationLogs(rows) {
+  return rows.map(r => ({
+    id: r.id,
+    medicationId: r.medication_id || null,
+    medicationName: r.medication_name || null,
+    timestamp: r.ts || null
+  }));
+}
+
+function unmapStoolEntries(rows) {
+  return rows.map(r => {
+    if (r.data && typeof r.data === 'object') {
+      // stool entries store full object in data column
+      return { ...r.data, id: r.id, timestamp: r.ts || r.data.timestamp };
+    }
+    return { id: r.id, timestamp: r.ts };
+  });
+}
+
+/* ── Pull from Supabase ── */
+
+async function fetchAllRows(table) {
+  const rows = [];
+  let offset = 0;
+  const limit = 1000;
+  while (true) {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/${table}?select=*&order=created_at.asc&offset=${offset}&limit=${limit}`,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } }
+    );
+    if (!res.ok) throw new Error(`Pull ${table}: ${res.status}`);
+    const chunk = await res.json();
+    rows.push(...chunk);
+    if (chunk.length < limit) break;
+    offset += limit;
+  }
+  return rows;
+}
+
+function mergeById(local, remote) {
+  const map = new Map();
+  // Local first, then remote overwrites if same id — but we prefer keeping both,
+  // so we just union by id (remote fills gaps, local stays)
+  local.forEach(e => map.set(e.id, e));
+  remote.forEach(e => { if (!map.has(e.id)) map.set(e.id, e); });
+  return Array.from(map.values());
+}
+
+async function pullFromSupabase() {
+  if (!navigator.onLine) return;
+  updateSyncStatus('Pulling...', 'syncing');
+
+  try {
+    const [cRows, tRows, aRows, fRows, mRows, sRows] = await Promise.all([
+      fetchAllRows('checkins'),
+      fetchAllRows('time_entries'),
+      fetchAllRows('activities'),
+      fetchAllRows('food_entries'),
+      fetchAllRows('medication_logs'),
+      fetchAllRows('stool_entries')
+    ]);
+
+    const merges = [
+      { key: 'innerscape_entries', remote: unmapCheckins(cRows) },
+      { key: 'innerscape_time_entries', remote: unmapTimeEntries(tRows) },
+      { key: 'innerscape_activities', remote: unmapActivities(aRows) },
+      { key: 'innerscape_food_entries', remote: unmapFoodEntries(fRows) },
+      { key: 'innerscape_medication_logs', remote: unmapMedicationLogs(mRows) },
+      { key: 'innerscape_stool_entries', remote: unmapStoolEntries(sRows) }
+    ];
+
+    let pulled = 0;
+    merges.forEach(({ key, remote }) => {
+      if (remote.length === 0) return;
+      const local = safeLoad(key);
+      const merged = mergeById(local, remote);
+      const added = merged.length - local.length;
+      if (added > 0) pulled += added;
+      localStorage.setItem(key, JSON.stringify(merged));
+    });
+
+    console.log(`Pull complete: ${pulled} new entries from cloud`);
+    return pulled;
+  } catch (err) {
+    console.error('Pull error:', err);
+    _syncState.error = err.message;
+    updateSyncStatus('Pull error', 'error');
+    return 0;
+  }
+}
+
+/* ── Full Two-Way Sync ── */
+
+async function fullSync(force) {
   if (_syncState.status === 'syncing') return;
-  if (!navigator.onLine) { updateSyncStatus('Offline', '🔴'); return; }
-
   _syncState.status = 'syncing';
   updateSyncStatus('Syncing...', 'syncing');
+
+  try {
+    // 1. Pull remote → merge into local
+    const pulled = await pullFromSupabase();
+    // 2. Push local → remote
+    await syncToSupabase(force, true);
+
+    if (pulled > 0) {
+      updateSyncStatus(`Synced (+${pulled} from cloud)`, 'synced');
+    }
+  } catch (err) {
+    console.error('Full sync error:', err);
+    _syncState.error = err.message;
+    updateSyncStatus('Sync error', 'error');
+  }
+}
+
+/* ── Core Sync (Push) ── */
+
+async function syncToSupabase(force, _skipStatusGuard) {
+  if (!_skipStatusGuard && _syncState.status === 'syncing') return;
+  if (!navigator.onLine) { updateSyncStatus('Offline', '🔴'); return; }
+
+  if (!_skipStatusGuard) {
+    _syncState.status = 'syncing';
+    updateSyncStatus('Syncing...', 'syncing');
+  }
 
   const lastSync = force ? 0 : parseInt(localStorage.getItem(SYNC_TS_KEY) || '0');
 
@@ -171,7 +328,7 @@ async function syncToSupabase(force) {
 
 async function forceSyncAll() {
   localStorage.removeItem(SYNC_TS_KEY);
-  return syncToSupabase(true);
+  return fullSync(true);
 }
 
 /* ── Cloud Sync UI Section ── */
@@ -210,16 +367,16 @@ function renderCloudSyncSection() {
 /* ── Init ── */
 
 function initSync() {
-  // Initial sync after short delay
-  setTimeout(() => syncToSupabase(), 2000);
+  // Initial two-way sync after short delay (pull then push)
+  setTimeout(() => fullSync(), 2000);
 
-  // Periodic sync every 5 minutes
-  setInterval(() => syncToSupabase(), 5 * 60 * 1000);
+  // Periodic two-way sync every 5 minutes
+  setInterval(() => fullSync(), 5 * 60 * 1000);
 
-  // Sync on visibility change (user comes back to tab)
+  // Two-way sync on visibility change (user comes back to tab/app)
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      setTimeout(() => syncToSupabase(), 1000);
+      setTimeout(() => fullSync(), 1000);
     }
   });
 
@@ -236,6 +393,8 @@ function initSync() {
 // Expose on window
 window.syncToSupabase = syncToSupabase;
 window.forceSyncAll = forceSyncAll;
+window.fullSync = fullSync;
+window.pullFromSupabase = pullFromSupabase;
 window.initSync = initSync;
 window.renderCloudSyncSection = renderCloudSyncSection;
 
