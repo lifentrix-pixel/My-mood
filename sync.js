@@ -195,10 +195,25 @@ async function fetchAllRows(table) {
 
 function mergeById(local, remote) {
   const map = new Map();
-  // Local first, then remote overwrites if same id — but we prefer keeping both,
-  // so we just union by id (remote fills gaps, local stays)
+  // Local first
   local.forEach(e => map.set(e.id, e));
-  remote.forEach(e => { if (!map.has(e.id)) map.set(e.id, e); });
+  // Remote: add missing entries, and for existing ones merge fields
+  // (remote may have notes/scores that local lost during restore)
+  remote.forEach(e => {
+    if (!map.has(e.id)) {
+      map.set(e.id, e);
+    } else {
+      const existing = map.get(e.id);
+      // Merge: fill in any missing fields from remote
+      for (const key of Object.keys(e)) {
+        if (existing[key] === undefined || existing[key] === null ||
+            (typeof existing[key] === 'object' && Object.keys(existing[key]).length === 0 && 
+             typeof e[key] === 'object' && Object.keys(e[key]).length > 0)) {
+          existing[key] = e[key];
+        }
+      }
+    }
+  });
   return Array.from(map.values());
 }
 
