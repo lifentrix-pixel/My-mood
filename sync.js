@@ -342,7 +342,8 @@ async function pullFromSupabase() {
       { key: 'innerscape_wishes', remote: unmapJsonbTable(wishRows) },
       { key: 'innerscape_medications', remote: unmapJsonbTable(medRows) },
       { key: 'innerscape_meditations', remote: unmapJsonbTable(meditRows) },
-      { key: 'innerscape_food_presets', remote: unmapJsonbTable(fpRows) },
+      // food_presets handled separately (object, not array)
+
       { key: 'innerscape_media_queue', remote: unmapJsonbTable(mqRows) },
       { key: 'innerscape_media_sessions', remote: unmapJsonbTable(msRows) },
       { key: 'innerscape_media_impulse', remote: unmapJsonbTable(miRows) }
@@ -357,6 +358,18 @@ async function pullFromSupabase() {
       if (added > 0) pulled += added;
       localStorage.setItem(key, JSON.stringify(merged));
     });
+
+    // Food presets: special merge (object, not array)
+    if (fpRows.length > 0) {
+      const remoteFp = fpRows.find(r => r.id === 'food_presets');
+      if (remoteFp && remoteFp.data) {
+        const localFp = (() => { try { return JSON.parse(localStorage.getItem('innerscape_food_presets') || 'null'); } catch { return null; } })();
+        if (!localFp) {
+          localStorage.setItem('innerscape_food_presets', JSON.stringify(remoteFp.data));
+          pulled++;
+        }
+      }
+    }
 
     // Oura data: special merge (dict, not array)
     if (ouraRows.length > 0) {
@@ -448,7 +461,7 @@ async function syncToSupabase(force, _skipStatusGuard) {
       upsertRows('wishes', mapJsonbTable(safeLoad('innerscape_wishes'), 'wish')),
       upsertRows('medications', mapJsonbTable(safeLoad('innerscape_medications'), 'med')),
       upsertRows('meditations', mapJsonbTable(safeLoad('innerscape_meditations'), 'med')),
-      upsertRows('food_presets', mapJsonbTable(safeLoad('innerscape_food_presets'), 'preset')),
+      upsertRows('food_presets', (() => { try { const fp = JSON.parse(localStorage.getItem('innerscape_food_presets') || 'null'); return fp ? [{ id: 'food_presets', data: fp }] : []; } catch { return []; } })()),
       upsertRows('media_queue', mapJsonbTable(safeLoad('innerscape_media_queue'), 'mq')),
       upsertRows('media_sessions', mapJsonbTable(safeLoad('innerscape_media_sessions'), 'ms')),
       upsertRows('media_impulse', mapJsonbTable(safeLoad('innerscape_media_impulse'), 'mi')),
