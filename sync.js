@@ -195,21 +195,40 @@ async function fetchAllRows(table) {
 
 function mergeById(local, remote) {
   const map = new Map();
+  const tsByTs = new Map(); // track by timestamp for dedup across ID formats
   // Local first
-  local.forEach(e => map.set(e.id, e));
+  local.forEach(e => {
+    map.set(e.id, e);
+    if (e.ts) tsByTs.set(String(e.ts), e);
+  });
   // Remote: add missing entries, and for existing ones merge fields
   // (remote may have notes/scores that local lost during restore)
   remote.forEach(e => {
-    if (!map.has(e.id)) {
+    // Check for same-timestamp duplicate with different ID (entry-{ts} vs ci-{ts})
+    const tsKey = e.ts ? String(e.ts) : null;
+    const tsMatch = tsKey ? tsByTs.get(tsKey) : null;
+    const existing = map.get(e.id) || (tsMatch && tsMatch.id !== e.id ? tsMatch : null);
+    
+    if (!existing) {
       map.set(e.id, e);
+      if (tsKey) tsByTs.set(tsKey, e);
     } else {
-      const existing = map.get(e.id);
-      // Merge: fill in any missing fields from remote
+      // Merge: fill in any missing fields from remote (prefer richer data)
       for (const key of Object.keys(e)) {
         if (existing[key] === undefined || existing[key] === null ||
             (typeof existing[key] === 'object' && Object.keys(existing[key]).length === 0 && 
              typeof e[key] === 'object' && Object.keys(e[key]).length > 0)) {
           existing[key] = e[key];
+        }
+      }
+      // If matched by timestamp (different IDs), remove the duplicate entry
+      if (tsMatch && tsMatch.id !== e.id && map.has(tsMatch.id) && map.has(e.id)) {
+        // Keep the ci- prefixed one, remove the entry- one
+        if (tsMatch.id.startsWith('entry-') && e.id.startsWith('ci-')) {
+          map.delete(tsMatch.id);
+          map.set(e.id, existing); // existing already has merged data
+        } else if (e.id.startsWith('entry-') && tsMatch.id.startsWith('ci-')) {
+          // remote is entry-, local is ci- — just skip, local is better ID
         }
       }
     }
