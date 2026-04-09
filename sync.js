@@ -57,7 +57,7 @@ function mapTimeEntries(entries) {
     start_time: e.startTime || null,
     end_time: e.endTime || null,
     sub_activity: e.subActivity || null,
-    notes: e.notes || null
+    notes: e.notes || e.note || null
   }));
 }
 
@@ -131,7 +131,7 @@ function unmapTimeEntries(rows) {
     startTime: r.start_time || null,
     endTime: r.end_time || null,
     subActivity: r.sub_activity || null,
-    notes: r.notes || null
+    note: r.notes || null
   }));
 }
 
