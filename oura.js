@@ -160,7 +160,8 @@ async function syncOuraData() {
     try {
         // Get data for last 30 days (+ 1 extra day to catch timezone delays)
         const endDate = new Date(Date.now() + 24*60*60*1000).toISOString().split('T')[0];
-        const startDate = new Date(Date.now() - 90*24*60*60*1000).toISOString().split('T')[0];
+        // Fetch ALL historical data from Oura (ring started ~Feb 2026)
+        const startDate = '2025-01-01';
         
         const headers = {
             'Authorization': `Bearer ${ouraConfig.apiToken}`
@@ -248,24 +249,35 @@ function renderSleepTab() {
         `;
     }
     
-    const recent = [...ouraData.sleep].sort((a, b) => new Date(b.day) - new Date(a.day)).slice(0, 7);
+    const allSorted = [...ouraData.sleep].sort((a, b) => new Date(b.day) - new Date(a.day));
+    const recent = allSorted.slice(0, 7);
+    const older = allSorted.slice(7);
+    
+    const renderCard = (sleep) => `
+        <div class="sleep-card">
+            <div class="sleep-date">${formatDate(sleep.day)}</div>
+            <div class="sleep-score ${getScoreClass(sleep.score)}">${sleep.score || 'N/A'}</div>
+            <div class="sleep-details">
+                <div><strong>Duration:</strong> ${formatDuration(sleep.total_sleep_duration)}</div>
+                <div><strong>Efficiency:</strong> ${sleep.efficiency}%</div>
+                <div><strong>HRV:</strong> ${sleep.average_hrv ? sleep.average_hrv + 'ms' : 'N/A'}</div>
+            </div>
+        </div>`;
     
     return `
         <div class="sleep-overview">
             <h3>Recent Sleep</h3>
             <div class="sleep-cards">
-                ${recent.map(sleep => `
-                    <div class="sleep-card">
-                        <div class="sleep-date">${formatDate(sleep.day)}</div>
-                        <div class="sleep-score ${getScoreClass(sleep.score)}">${sleep.score || 'N/A'}</div>
-                        <div class="sleep-details">
-                            <div><strong>Duration:</strong> ${formatDuration(sleep.total_sleep_duration)}</div>
-                            <div><strong>Efficiency:</strong> ${sleep.efficiency}%</div>
-                            <div><strong>HRV:</strong> ${sleep.average_hrv ? sleep.average_hrv + 'ms' : 'N/A'}</div>
-                        </div>
-                    </div>
-                `).join('')}
+                ${recent.map(renderCard).join('')}
             </div>
+            ${older.length > 0 ? `
+                <button class="show-more-btn" onclick="document.getElementById('older-sleep').classList.toggle('hidden'); this.textContent = this.textContent.includes('Show') ? 'Hide older' : 'Show ${older.length} more days'">
+                    Show ${older.length} more days
+                </button>
+                <div id="older-sleep" class="sleep-cards hidden">
+                    ${older.map(renderCard).join('')}
+                </div>
+            ` : ''}
         </div>
         
         <div class="dreams-correlation">
@@ -286,24 +298,35 @@ function renderReadinessTab() {
         `;
     }
     
-    const recent = [...ouraData.readiness].sort((a, b) => new Date(b.day) - new Date(a.day)).slice(0, 7);
+    const allSorted = [...ouraData.readiness].sort((a, b) => new Date(b.day) - new Date(a.day));
+    const recent = allSorted.slice(0, 7);
+    const older = allSorted.slice(7);
+    
+    const renderCard = (day) => `
+        <div class="readiness-card">
+            <div class="readiness-date">${formatDate(day.day)}</div>
+            <div class="readiness-score ${getScoreClass(day.score)}">${day.score || 'N/A'}</div>
+            <div class="readiness-contributors">
+                ${day.contributors ? Object.entries(day.contributors).map(([key, value]) => 
+                    `<div class="contributor"><span>${key}:</span> ${value}</div>`
+                ).join('') : ''}
+            </div>
+        </div>`;
     
     return `
         <div class="readiness-overview">
             <h3>Recent Readiness</h3>
             <div class="readiness-cards">
-                ${recent.map(day => `
-                    <div class="readiness-card">
-                        <div class="readiness-date">${formatDate(day.day)}</div>
-                        <div class="readiness-score ${getScoreClass(day.score)}">${day.score || 'N/A'}</div>
-                        <div class="readiness-contributors">
-                            ${day.contributors ? Object.entries(day.contributors).map(([key, value]) => 
-                                `<div class="contributor"><span>${key}:</span> ${value}</div>`
-                            ).join('') : ''}
-                        </div>
-                    </div>
-                `).join('')}
+                ${recent.map(renderCard).join('')}
             </div>
+            ${older.length > 0 ? `
+                <button class="show-more-btn" onclick="document.getElementById('older-readiness').classList.toggle('hidden'); this.textContent = this.textContent.includes('Show') ? 'Hide older' : 'Show ${older.length} more days'">
+                    Show ${older.length} more days
+                </button>
+                <div id="older-readiness" class="readiness-cards hidden">
+                    ${older.map(renderCard).join('')}
+                </div>
+            ` : ''}
         </div>
     `;
 }
@@ -318,24 +341,35 @@ function renderActivityTab() {
         `;
     }
     
-    const recent = [...ouraData.activity].sort((a, b) => new Date(b.day) - new Date(a.day)).slice(0, 7);
+    const allSorted = [...ouraData.activity].sort((a, b) => new Date(b.day) - new Date(a.day));
+    const recent = allSorted.slice(0, 7);
+    const older = allSorted.slice(7);
+    
+    const renderCard = (day) => `
+        <div class="activity-card">
+            <div class="activity-date">${formatDate(day.day)}</div>
+            <div class="activity-score ${getScoreClass(day.score)}">${day.score || 'N/A'}</div>
+            <div class="activity-metrics">
+                <div><strong>Steps:</strong> ${day.steps?.toLocaleString() || 'N/A'}</div>
+                <div><strong>Calories:</strong> ${day.active_calories || 'N/A'}</div>
+                <div><strong>Active:</strong> ${formatDuration(day.active_duration)}</div>
+            </div>
+        </div>`;
     
     return `
         <div class="activity-overview">
             <h3>Recent Activity</h3>
             <div class="activity-cards">
-                ${recent.map(day => `
-                    <div class="activity-card">
-                        <div class="activity-date">${formatDate(day.day)}</div>
-                        <div class="activity-score ${getScoreClass(day.score)}">${day.score || 'N/A'}</div>
-                        <div class="activity-metrics">
-                            <div><strong>Steps:</strong> ${day.steps?.toLocaleString() || 'N/A'}</div>
-                            <div><strong>Calories:</strong> ${day.active_calories || 'N/A'}</div>
-                            <div><strong>Active:</strong> ${formatDuration(day.active_duration)}</div>
-                        </div>
-                    </div>
-                `).join('')}
+                ${recent.map(renderCard).join('')}
             </div>
+            ${older.length > 0 ? `
+                <button class="show-more-btn" onclick="document.getElementById('older-activity').classList.toggle('hidden'); this.textContent = this.textContent.includes('Show') ? 'Hide older' : 'Show ${older.length} more days'">
+                    Show ${older.length} more days
+                </button>
+                <div id="older-activity" class="activity-cards hidden">
+                    ${older.map(renderCard).join('')}
+                </div>
+            ` : ''}
         </div>
     `;
 }
