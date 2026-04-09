@@ -160,7 +160,7 @@ async function syncOuraData() {
     try {
         // Get data for last 30 days (+ 1 extra day to catch timezone delays)
         const endDate = new Date(Date.now() + 24*60*60*1000).toISOString().split('T')[0];
-        const startDate = new Date(Date.now() - 31*24*60*60*1000).toISOString().split('T')[0];
+        const startDate = new Date(Date.now() - 90*24*60*60*1000).toISOString().split('T')[0];
         
         const headers = {
             'Authorization': `Bearer ${ouraConfig.apiToken}`
@@ -170,7 +170,8 @@ async function syncOuraData() {
         const sleepResponse = await fetch(`/api/oura?endpoint=${encodeURIComponent(`usercollection/sleep?start_date=${startDate}&end_date=${endDate}`)}`, { headers });
         if (sleepResponse.ok) {
             const sleepData = await sleepResponse.json();
-            ouraData.sleep = sleepData.data || [];
+            // Filter to long_sleep only (excludes brief naps with no real data)
+            ouraData.sleep = (sleepData.data || []).filter(s => s.type === 'long_sleep' || s.total_sleep_duration > 3600);
         }
         
         // Fetch daily sleep scores (separate from sleep periods)
