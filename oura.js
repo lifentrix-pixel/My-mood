@@ -258,7 +258,7 @@ function renderSleepTab() {
             <div class="sleep-date">${formatDate(sleep.day)}</div>
             <div class="sleep-score ${getScoreClass(sleep.score)}">${sleep.score || 'N/A'}</div>
             <div class="sleep-details">
-                <div><strong>Duration:</strong> ${formatDuration(sleep.total_sleep_duration)}</div>
+                <div><strong>Duration:</strong> ${ouraFormatDuration(sleep.total_sleep_duration)}</div>
                 <div><strong>Efficiency:</strong> ${sleep.efficiency}%</div>
                 <div><strong>HRV:</strong> ${sleep.average_hrv ? sleep.average_hrv + 'ms' : 'N/A'}</div>
             </div>
@@ -352,7 +352,7 @@ function renderActivityTab() {
             <div class="activity-metrics">
                 <div><strong>Steps:</strong> ${day.steps?.toLocaleString() || 'N/A'}</div>
                 <div><strong>Calories:</strong> ${day.active_calories || 'N/A'}</div>
-                <div><strong>Active:</strong> ${formatDuration(day.active_duration)}</div>
+                <div><strong>Active:</strong> ${ouraFormatDuration(day.active_duration)}</div>
             </div>
         </div>`;
     
@@ -391,7 +391,7 @@ function renderInsightsTab() {
 }
 
 // Helper functions
-function formatDuration(seconds) {
+function ouraFormatDuration(seconds) {
     if (!seconds) return 'N/A';
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
