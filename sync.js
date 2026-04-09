@@ -97,6 +97,42 @@ function mapStoolEntries(entries) {
   }));
 }
 
+/* ── New Data Mappers (12 tables) ── */
+
+function mapQuickNotes(entries) {
+  return entries.filter(e => e && e.id).map(e => ({
+    id: e.id, ts: e.ts || null, text: e.text || null
+  }));
+}
+
+function mapIntentions(entries) {
+  return entries.filter(e => e && e.id).map(e => ({
+    id: e.id, type: e.type || null, period: e.period || null,
+    text: e.text || null, created_at: e.createdAt || null, updated_at: e.updatedAt || null
+  }));
+}
+
+function mapDreams(entries) {
+  return entries.map(e => ({ ...e, id: e.id || ('dream-' + (e.ts || e.timestamp || Date.now())) }))
+    .filter(e => e && e.id).map(e => ({
+      id: e.id, ts: e.ts || null, text: e.text || null,
+      tags: e.tags || null, has_audio: e.hasAudio || false, no_recall: e.noRecall || false
+    }));
+}
+
+function mapJsonbTable(entries, idPrefix) {
+  return entries.map((e, i) => ({ ...e, id: e.id || (idPrefix + '-' + (e.startTime || e.ts || i)) }))
+    .filter(e => e && e.id).map(e => {
+      const { id, ...rest } = e;
+      return { id, data: rest };
+    });
+}
+
+function mapOuraData(obj) {
+  if (!obj || typeof obj !== 'object') return [];
+  return Object.keys(obj).map(key => ({ id: key, data: obj[key] }));
+}
+
 /* ── Sync Status UI ── */
 
 function updateSyncStatus(status, icon) {
@@ -166,11 +202,40 @@ function unmapMedicationLogs(rows) {
 function unmapStoolEntries(rows) {
   return rows.map(r => {
     if (r.data && typeof r.data === 'object') {
-      // stool entries store full object in data column
       return { ...r.data, id: r.id, timestamp: r.ts || r.data.timestamp };
     }
     return { id: r.id, timestamp: r.ts };
   });
+}
+
+/* ── New Reverse Mappers ── */
+
+function unmapQuickNotes(rows) {
+  return rows.map(r => ({ id: r.id, ts: r.ts, text: r.text }));
+}
+
+function unmapIntentions(rows) {
+  return rows.map(r => ({
+    id: r.id, type: r.type, period: r.period, text: r.text,
+    createdAt: r.created_at, updatedAt: r.updated_at
+  }));
+}
+
+function unmapDreams(rows) {
+  return rows.map(r => ({
+    id: r.id, ts: r.ts, text: r.text, tags: r.tags,
+    hasAudio: r.has_audio, noRecall: r.no_recall
+  }));
+}
+
+function unmapJsonbTable(rows) {
+  return rows.map(r => ({ ...(r.data || {}), id: r.id }));
+}
+
+function unmapOuraData(rows) {
+  const obj = {};
+  rows.forEach(r => { obj[r.id] = r.data; });
+  return obj;
 }
 
 /* ── Pull from Supabase ── */
@@ -241,13 +306,26 @@ async function pullFromSupabase() {
   updateSyncStatus('Pulling...', 'syncing');
 
   try {
-    const [cRows, tRows, aRows, fRows, mRows, sRows] = await Promise.all([
+    const [cRows, tRows, aRows, fRows, mRows, sRows,
+           qnRows, intRows, drRows, todoRows, wishRows, medRows, meditRows, fpRows, mqRows, msRows, miRows, ouraRows] = await Promise.all([
       fetchAllRows('checkins'),
       fetchAllRows('time_entries'),
       fetchAllRows('activities'),
       fetchAllRows('food_entries'),
       fetchAllRows('medication_logs'),
-      fetchAllRows('stool_entries')
+      fetchAllRows('stool_entries'),
+      fetchAllRows('quick_notes'),
+      fetchAllRows('intentions'),
+      fetchAllRows('dreams'),
+      fetchAllRows('todos'),
+      fetchAllRows('wishes'),
+      fetchAllRows('medications'),
+      fetchAllRows('meditations'),
+      fetchAllRows('food_presets'),
+      fetchAllRows('media_queue'),
+      fetchAllRows('media_sessions'),
+      fetchAllRows('media_impulse'),
+      fetchAllRows('oura_data')
     ]);
 
     const merges = [
@@ -256,7 +334,18 @@ async function pullFromSupabase() {
       { key: 'innerscape_activities', remote: unmapActivities(aRows) },
       { key: 'innerscape_food_entries', remote: unmapFoodEntries(fRows) },
       { key: 'innerscape_medication_logs', remote: unmapMedicationLogs(mRows) },
-      { key: 'innerscape_stool_entries', remote: unmapStoolEntries(sRows) }
+      { key: 'innerscape_stool_entries', remote: unmapStoolEntries(sRows) },
+      { key: 'innerscape_quick_notes', remote: unmapQuickNotes(qnRows) },
+      { key: 'innerscape_intentions', remote: unmapIntentions(intRows) },
+      { key: 'innerscape_dreams', remote: unmapDreams(drRows) },
+      { key: 'innerscape_todos', remote: unmapJsonbTable(todoRows) },
+      { key: 'innerscape_wishes', remote: unmapJsonbTable(wishRows) },
+      { key: 'innerscape_medications', remote: unmapJsonbTable(medRows) },
+      { key: 'innerscape_meditations', remote: unmapJsonbTable(meditRows) },
+      { key: 'innerscape_food_presets', remote: unmapJsonbTable(fpRows) },
+      { key: 'innerscape_media_queue', remote: unmapJsonbTable(mqRows) },
+      { key: 'innerscape_media_sessions', remote: unmapJsonbTable(msRows) },
+      { key: 'innerscape_media_impulse', remote: unmapJsonbTable(miRows) }
     ];
 
     let pulled = 0;
@@ -268,6 +357,18 @@ async function pullFromSupabase() {
       if (added > 0) pulled += added;
       localStorage.setItem(key, JSON.stringify(merged));
     });
+
+    // Oura data: special merge (dict, not array)
+    if (ouraRows.length > 0) {
+      const localOura = (() => { try { return JSON.parse(localStorage.getItem('innerscape_oura_data') || '{}'); } catch { return {}; } })();
+      const remoteOura = unmapOuraData(ouraRows);
+      Object.keys(remoteOura).forEach(k => {
+        if (!localOura[k] || (Array.isArray(remoteOura[k]) && remoteOura[k].length > (localOura[k]?.length || 0))) {
+          localOura[k] = remoteOura[k];
+        }
+      });
+      localStorage.setItem('innerscape_oura_data', JSON.stringify(localOura));
+    }
 
     console.log(`Pull complete: ${pulled} new entries from cloud`);
     return pulled;
@@ -338,7 +439,20 @@ async function syncToSupabase(force, _skipStatusGuard) {
       upsertRows('activities', mapActivities(activities)), // always sync all (small dataset)
       upsertRows('food_entries', mapFoodEntries(filterNew(food, 'timestamp'))),
       upsertRows('medication_logs', mapMedicationLogs(filterNew(medLogs, 'timestamp'))),
-      upsertRows('stool_entries', mapStoolEntries(filterNew(stool, 'timestamp')))
+      upsertRows('stool_entries', mapStoolEntries(filterNew(stool, 'timestamp'))),
+      // 12 new tables
+      upsertRows('quick_notes', mapQuickNotes(filterNew(safeLoad('innerscape_quick_notes'), 'ts'))),
+      upsertRows('intentions', mapIntentions(safeLoad('innerscape_intentions'))),
+      upsertRows('dreams', mapDreams(filterNew(safeLoad('innerscape_dreams'), 'ts'))),
+      upsertRows('todos', mapJsonbTable(safeLoad('innerscape_todos'), 'todo')),
+      upsertRows('wishes', mapJsonbTable(safeLoad('innerscape_wishes'), 'wish')),
+      upsertRows('medications', mapJsonbTable(safeLoad('innerscape_medications'), 'med')),
+      upsertRows('meditations', mapJsonbTable(safeLoad('innerscape_meditations'), 'med')),
+      upsertRows('food_presets', mapJsonbTable(safeLoad('innerscape_food_presets'), 'preset')),
+      upsertRows('media_queue', mapJsonbTable(safeLoad('innerscape_media_queue'), 'mq')),
+      upsertRows('media_sessions', mapJsonbTable(safeLoad('innerscape_media_sessions'), 'ms')),
+      upsertRows('media_impulse', mapJsonbTable(safeLoad('innerscape_media_impulse'), 'mi')),
+      upsertRows('oura_data', mapOuraData((() => { try { return JSON.parse(localStorage.getItem('innerscape_oura_data') || '{}'); } catch { return {}; } })()))
     ]);
 
     const failed = results.filter(r => r.status === 'rejected');

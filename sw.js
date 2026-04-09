@@ -1,4 +1,4 @@
-const CACHE = 'innerscape-v175';
+const CACHE = 'innerscape-v176';
 const ASSETS = ['/', '/index.html', '/styles.css', '/core.js', '/mood.js', '/dreams.js', '/timer.js', '/meditation.js', '/food.js', '/insights.js', '/sync.js', '/medication.js', '/todos.js', '/wishlist.js', '/studio.js', '/stool.js', '/forecast.js', '/oura.js', '/activity-overview.js', '/app.js', '/intentions.js', '/media.js', '/manifest.json', '/import-data.html', '/restore.html', '/combined-backup.json'];
 
 self.addEventListener('install', e => {
