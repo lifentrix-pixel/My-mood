@@ -42,8 +42,8 @@ function safeLoad(key) {
 /* ── Data Mappers ── */
 
 function mapCheckins(entries) {
-  return entries.filter(e => e.id).map(e => ({
-    id: e.id,
+  return entries.map(e => ({
+    id: e.id || ('ci-' + (e.ts || Date.now())),
     ts: e.ts,
     scores: e.scores || null,
     notes: e.notes || null

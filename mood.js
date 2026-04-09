@@ -54,7 +54,8 @@ function buildSliders() {
 
 function handleSubmit() {
   const btn = $('#submit-btn');
-  const entry = { ts: Date.now(), scores: {}, notes: {} };
+  const now = Date.now();
+  const entry = { id: 'ci-' + now, ts: now, scores: {}, notes: {} };
   CATS.forEach(cat => {
     entry.scores[cat.id] = parseFloat($(`#slider-${cat.id}`).value);
     const note = $(`#notes-${cat.id}`).value.trim();
