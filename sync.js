@@ -42,7 +42,7 @@ function safeLoad(key) {
 /* ── Data Mappers ── */
 
 function mapCheckins(entries) {
-  return entries.map(e => ({
+  return entries.filter(e => e.id).map(e => ({
     id: e.id,
     ts: e.ts,
     scores: e.scores || null,
@@ -51,7 +51,7 @@ function mapCheckins(entries) {
 }
 
 function mapTimeEntries(entries) {
-  return entries.map(e => ({
+  return entries.filter(e => e.id).map(e => ({
     id: e.id,
     activity_id: e.activityId || null,
     start_time: e.startTime || null,
@@ -71,7 +71,7 @@ function mapActivities(entries) {
 }
 
 function mapFoodEntries(entries) {
-  return entries.map(e => ({
+  return entries.filter(e => e.id).map(e => ({
     id: e.id,
     ts: e.timestamp || null,
     description: e.description || null,
@@ -81,7 +81,7 @@ function mapFoodEntries(entries) {
 }
 
 function mapMedicationLogs(entries) {
-  return entries.map(e => ({
+  return entries.filter(e => e.id).map(e => ({
     id: e.id,
     medication_id: e.medicationId || null,
     medication_name: e.medicationName || null,
@@ -90,7 +90,7 @@ function mapMedicationLogs(entries) {
 }
 
 function mapStoolEntries(entries) {
-  return entries.map(e => ({
+  return entries.filter(e => e.id).map(e => ({
     id: e.id,
     ts: e.timestamp || null,
     data: e
