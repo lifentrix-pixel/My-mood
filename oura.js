@@ -173,6 +173,16 @@ async function syncOuraData() {
             ouraData.sleep = sleepData.data || [];
         }
         
+        // Fetch daily sleep scores (separate from sleep periods)
+        const dailySleepResponse = await fetch(`/api/oura?endpoint=${encodeURIComponent(`usercollection/daily_sleep?start_date=${startDate}&end_date=${endDate}`)}`, { headers });
+        if (dailySleepResponse.ok) {
+            const dailySleepData = await dailySleepResponse.json();
+            // Merge scores into sleep periods by day
+            const scoresByDay = {};
+            (dailySleepData.data || []).forEach(d => { scoresByDay[d.day] = d.score; });
+            ouraData.sleep.forEach(s => { if (scoresByDay[s.day]) s.score = scoresByDay[s.day]; });
+        }
+
         // Fetch readiness data
         const readinessResponse = await fetch(`/api/oura?endpoint=${encodeURIComponent(`usercollection/daily_readiness?start_date=${startDate}&end_date=${endDate}`)}`, { headers });
         if (readinessResponse.ok) {
@@ -250,7 +260,7 @@ function renderSleepTab() {
                         <div class="sleep-details">
                             <div><strong>Duration:</strong> ${formatDuration(sleep.total_sleep_duration)}</div>
                             <div><strong>Efficiency:</strong> ${sleep.efficiency}%</div>
-                            <div><strong>HRV:</strong> ${sleep.heart_rate?.rmssd || 'N/A'}ms</div>
+                            <div><strong>HRV:</strong> ${sleep.average_hrv ? sleep.average_hrv + 'ms' : 'N/A'}</div>
                         </div>
                     </div>
                 `).join('')}
