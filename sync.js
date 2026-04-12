@@ -56,7 +56,7 @@ function mapTimeEntries(entries) {
     activity_id: e.activityId || null,
     start_time: e.startTime || null,
     end_time: e.endTime || null,
-    sub_activity: e.subActivity || null,
+    sub_activity: e.subActivityName || e.subActivityId || e.subActivity || null,
     notes: e.notes || e.note || null
   }));
 }
@@ -166,7 +166,8 @@ function unmapTimeEntries(rows) {
     activityId: r.activity_id || null,
     startTime: r.start_time || null,
     endTime: r.end_time || null,
-    subActivity: r.sub_activity || null,
+    subActivityName: r.sub_activity || null,
+    subActivityId: r.sub_activity || null,
     note: r.notes || null
   }));
 }
