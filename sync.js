@@ -470,14 +470,14 @@ async function syncToSupabase(force, _skipStatusGuard) {
     ]);
 
     const failed = results.filter(r => r.status === 'rejected');
+    const now = Date.now();
+    localStorage.setItem(SYNC_TS_KEY, String(now));
+    _syncState.lastSync = now;
     if (failed.length > 0) {
       console.warn('Sync partial failures:', failed.map(f => f.reason?.message));
       _syncState.error = failed[0].reason?.message;
-      updateSyncStatus('Partial sync', 'error');
+      updateSyncStatus('Partial sync ⚠️', 'error');
     } else {
-      const now = Date.now();
-      localStorage.setItem(SYNC_TS_KEY, String(now));
-      _syncState.lastSync = now;
       _syncState.error = null;
       updateSyncStatus('Synced', 'synced');
     }
@@ -489,7 +489,7 @@ async function syncToSupabase(force, _skipStatusGuard) {
 }
 
 async function forceSyncAll() {
-  localStorage.removeItem(SYNC_TS_KEY);
+  // Don't remove timestamp before sync — let fullSync handle it
   return fullSync(true);
 }
 
