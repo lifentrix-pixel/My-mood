@@ -1,5 +1,90 @@
 /* ── Core: Utilities, Navigation, Shared State, DOM Helpers ── */
 
+// ── IndexedDB for large data (photos, oura raw data) ──
+const IDB_NAME = 'innerscape_idb';
+const IDB_VERSION = 1;
+const IDB_STORE = 'blobs';
+let _idb = null;
+
+function openIDB() {
+  if (_idb) return Promise.resolve(_idb);
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = () => { req.result.createObjectStore(IDB_STORE); };
+    req.onsuccess = () => { _idb = req.result; resolve(_idb); };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbGet(key) {
+  const db = await openIDB();
+  return new Promise((resolve) => {
+    const tx = db.transaction(IDB_STORE, 'readonly');
+    const req = tx.objectStore(IDB_STORE).get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => resolve(null);
+  });
+}
+
+async function idbSet(key, value) {
+  const db = await openIDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function idbDelete(key) {
+  const db = await openIDB();
+  return new Promise((resolve) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => resolve();
+  });
+}
+
+// Migrate food photos from localStorage to IndexedDB
+async function migrateFoodPhotosToIDB() {
+  try {
+    const food = JSON.parse(localStorage.getItem('innerscape_food_entries') || '[]');
+    let migrated = 0;
+    for (const entry of food) {
+      if (entry.photo && entry.photo.length > 100) {
+        // Move photo to IDB, replace with reference
+        const photoKey = 'food_photo_' + (entry.id || entry.timestamp || Date.now());
+        await idbSet(photoKey, entry.photo);
+        entry.photoRef = photoKey;
+        delete entry.photo;
+        migrated++;
+      }
+    }
+    if (migrated > 0) {
+      localStorage.setItem('innerscape_food_entries', JSON.stringify(food));
+      console.log(`Migrated ${migrated} food photos to IndexedDB`);
+    }
+    return migrated;
+  } catch (e) {
+    console.error('Photo migration error:', e);
+    return 0;
+  }
+}
+
+// Get food photo from IDB reference
+async function getFoodPhoto(entry) {
+  if (entry.photo) return entry.photo;
+  if (entry.photoRef) return await idbGet(entry.photoRef);
+  return null;
+}
+
+window.idbGet = idbGet;
+window.idbSet = idbSet;
+window.idbDelete = idbDelete;
+window.getFoodPhoto = getFoodPhoto;
+window.migrateFoodPhotosToIDB = migrateFoodPhotosToIDB;
+
 // Safe localStorage write — catches quota exceeded errors
 function safeSave(key, data) {
   try {
@@ -8,24 +93,30 @@ function safeSave(key, data) {
   } catch (e) {
     if (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014) {
       console.error('Storage quota exceeded for key:', key);
-      // Try to free space by removing old food photos
+      // Try to free space by migrating food photos to IndexedDB
       try {
         const foodKey = 'innerscape_food_entries';
         const food = JSON.parse(localStorage.getItem(foodKey) || '[]');
         let freed = 0;
-        for (let i = 0; i < food.length && freed < 5; i++) {
-          if (food[i].photo) { food[i].photo = null; freed++; }
+        for (let i = 0; i < food.length; i++) {
+          if (food[i].photo && food[i].photo.length > 100) {
+            const photoKey = 'food_photo_' + (food[i].id || food[i].timestamp || i);
+            idbSet(photoKey, food[i].photo); // async but fire-and-forget
+            food[i].photoRef = photoKey;
+            delete food[i].photo;
+            freed++;
+          }
         }
         if (freed > 0) {
           localStorage.setItem(foodKey, JSON.stringify(food));
-          console.log(`Freed ${freed} food photos to make space`);
+          console.log(`Moved ${freed} food photos to IndexedDB`);
           // Retry the original save
           localStorage.setItem(key, typeof data === 'string' ? data : JSON.stringify(data));
-          showToast(`⚠️ Storage full — removed ${freed} old food photos to make space`);
+          showToast(`📦 Moved ${freed} photos to IndexedDB — saved!`);
           return true;
         }
-      } catch (e2) {}
-      showToast('⚠️ Storage full! Go to Export → Full Re-sync to back up, then clear old food photos.');
+      } catch (e2) { console.error('Quota recovery failed:', e2); }
+      showToast('⚠️ Storage full! Go to Export → Full Re-sync to back up.');
       return false;
     }
     throw e;

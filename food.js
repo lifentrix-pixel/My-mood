@@ -339,7 +339,7 @@ function renderFoodHistory() {
         <span class="food-entry-time">${new Date(entry.timestamp).toLocaleDateString()} ${timeStr(entry.timestamp)}</span>
       </div>
       ${entry.description ? `<div class="food-entry-description">${entry.description}</div>` : ''}
-      ${entry.photo ? `<button class="food-photo-toggle" onclick="this.nextElementSibling.classList.toggle('hidden');this.textContent=this.nextElementSibling.classList.contains('hidden')?'📷 Show photo':'📷 Hide photo'">📷 Show photo</button><img src="${entry.photo}" class="food-entry-photo hidden" alt="Food photo">` : ''}
+      ${(entry.photo || entry.photoRef) ? `<button class="food-photo-toggle" onclick="toggleFoodPhoto(this)">📷 Show photo</button><img class="food-entry-photo hidden" alt="Food photo" ${entry.photo ? `src="${entry.photo}"` : `data-ref="${entry.photoRef}"`}>` : ''}
       <div class="food-entry-footer">
         <div class="food-entry-tags">
           ${entry.tags.map(tag => `<span class="food-entry-tag">${tag}</span>`).join('')}
@@ -356,3 +356,18 @@ function renderFoodHistory() {
     historyEl.appendChild(entryEl);
   });
 }
+
+// Toggle food photo — loads from IndexedDB if needed
+async function toggleFoodPhoto(btn) {
+  const img = btn.nextElementSibling;
+  if (!img) return;
+  img.classList.toggle('hidden');
+  btn.textContent = img.classList.contains('hidden') ? '📷 Show photo' : '📷 Hide photo';
+  // Load from IDB if not yet loaded
+  if (!img.src && img.dataset.ref) {
+    const photo = await idbGet(img.dataset.ref);
+    if (photo) img.src = photo;
+    else { btn.textContent = '📷 Photo unavailable'; img.classList.add('hidden'); }
+  }
+}
+window.toggleFoodPhoto = toggleFoodPhoto;

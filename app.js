@@ -31,7 +31,37 @@ document.addEventListener('DOMContentLoaded', () => {
   initQuickNotes();
   initIntentions();
   seedIntentions();
+  
+  // Migrate large data to IndexedDB to free localStorage
+  if (typeof migrateFoodPhotosToIDB === 'function') {
+    migrateFoodPhotosToIDB().then(n => { if (n > 0) console.log('Migrated', n, 'food photos to IDB'); });
+  }
+  migrateOuraToIDB();
 });
+
+// Move Oura raw data to IndexedDB (heart_rate arrays are huge)
+async function migrateOuraToIDB() {
+  try {
+    const key = 'innerscape_oura_data';
+    const raw = localStorage.getItem(key);
+    if (!raw || raw.length < 50000) return; // only migrate if >50KB
+    const data = JSON.parse(raw);
+    await idbSet('oura_data_full', data);
+    // Keep a slim version in localStorage (just scores, no HR arrays)
+    if (data.sleep) {
+      data.sleep = data.sleep.map(s => {
+        const slim = { ...s };
+        delete slim.heart_rate;
+        delete slim.hrv;
+        delete slim.movement;
+        delete slim.sleep_phase_5_min;
+        return slim;
+      });
+    }
+    localStorage.setItem(key, JSON.stringify(data));
+    console.log('Moved Oura raw data to IDB, localStorage freed:', ((raw.length - JSON.stringify(data).length) * 2 / 1024).toFixed(0), 'KB');
+  } catch(e) { console.error('Oura IDB migration:', e); }
+}
 
 /* ── One-time intention restore from backup ── */
 function seedIntentions() {
