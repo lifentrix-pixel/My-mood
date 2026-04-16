@@ -1,5 +1,37 @@
 /* ── Core: Utilities, Navigation, Shared State, DOM Helpers ── */
 
+// Safe localStorage write — catches quota exceeded errors
+function safeSave(key, data) {
+  try {
+    localStorage.setItem(key, typeof data === 'string' ? data : JSON.stringify(data));
+    return true;
+  } catch (e) {
+    if (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014) {
+      console.error('Storage quota exceeded for key:', key);
+      // Try to free space by removing old food photos
+      try {
+        const foodKey = 'innerscape_food_entries';
+        const food = JSON.parse(localStorage.getItem(foodKey) || '[]');
+        let freed = 0;
+        for (let i = 0; i < food.length && freed < 5; i++) {
+          if (food[i].photo) { food[i].photo = null; freed++; }
+        }
+        if (freed > 0) {
+          localStorage.setItem(foodKey, JSON.stringify(food));
+          console.log(`Freed ${freed} food photos to make space`);
+          // Retry the original save
+          localStorage.setItem(key, typeof data === 'string' ? data : JSON.stringify(data));
+          showToast(`⚠️ Storage full — removed ${freed} old food photos to make space`);
+          return true;
+        }
+      } catch (e2) {}
+      showToast('⚠️ Storage full! Go to Export → Full Re-sync to back up, then clear old food photos.');
+      return false;
+    }
+    throw e;
+  }
+}
+
 // ── Firebase Configuration ──
 const firebaseConfig = {
   apiKey: "AIzaSyA4HY1dgJpgM6X_gRD9yPQ9Elu4NyTkPhU",
@@ -100,7 +132,7 @@ function loadEntries() {
 function saveEntry(entry) {
   const entries = loadEntries();
   entries.push(entry);
-  localStorage.setItem(STORE_KEY, JSON.stringify(entries));
+  safeSave(STORE_KEY, entries);
   setTimeout(() => syncMoodEntries(), 500);
 }
 function deleteEntry(ts) {
@@ -133,7 +165,7 @@ function loadTimeEntries() {
   try { return JSON.parse(localStorage.getItem(TIME_ENTRIES_KEY)) || []; } catch { return []; }
 }
 function saveTimeEntries(entries) { 
-  localStorage.setItem(TIME_ENTRIES_KEY, JSON.stringify(entries));
+  safeSave(TIME_ENTRIES_KEY, entries);
   if (currentUser && db) {
     setTimeout(() => syncTimeEntries(), 100);
   }
@@ -144,7 +176,7 @@ function loadMedications() {
   try { return JSON.parse(localStorage.getItem(MEDICATIONS_KEY)) || []; } catch { return []; }
 }
 function saveMedications(medications) { 
-  localStorage.setItem(MEDICATIONS_KEY, JSON.stringify(medications)); 
+  safeSave(MEDICATIONS_KEY, medications); 
   if (currentUser && db) {
     setTimeout(() => syncMedications(), 100);
   }
@@ -153,7 +185,7 @@ function loadMedicationLogs() {
   try { return JSON.parse(localStorage.getItem(MEDICATION_LOGS_KEY)) || []; } catch { return []; }
 }
 function saveMedicationLogs(logs) { 
-  localStorage.setItem(MEDICATION_LOGS_KEY, JSON.stringify(logs));
+  safeSave(MEDICATION_LOGS_KEY, logs);
   if (currentUser && db) {
     setTimeout(() => syncMedicationLogs(), 100);
   }
@@ -171,11 +203,11 @@ function loadMeditations() {
 function saveMeditation(entry) {
   const entries = loadMeditations();
   entries.push(entry);
-  localStorage.setItem(MED_STORE_KEY, JSON.stringify(entries));
+  safeSave(MED_STORE_KEY, entries);
 }
 function deleteMeditation(ts) {
   const entries = loadMeditations().filter(e => e.ts !== ts);
-  localStorage.setItem(MED_STORE_KEY, JSON.stringify(entries));
+  safeSave(MED_STORE_KEY, entries);
   const timeEntries = loadTimeEntries();
   const updatedTimeEntries = timeEntries.filter(e => 
     !(e.activityId === 'meditation-cleaning' && e.endTime === ts)
@@ -232,7 +264,7 @@ function saveDreamEntry(dream) {
           (d.text === dream.text && Math.abs(d.ts - dream.ts) < 5000));
   if (!exists) {
     dreams.push(dream);
-    localStorage.setItem(DREAM_STORE_KEY, JSON.stringify(dreams));
+    safeSave(DREAM_STORE_KEY, dreams);
     if (currentUser && db) {
       setTimeout(() => syncDreams(), 100);
     }
@@ -240,7 +272,7 @@ function saveDreamEntry(dream) {
 }
 function deleteDreamEntry(ts) {
   const dreams = loadDreams().filter(d => d.ts !== ts);
-  localStorage.setItem(DREAM_STORE_KEY, JSON.stringify(dreams));
+  safeSave(DREAM_STORE_KEY, dreams);
 }
 
 // ── Storage: Todos ──

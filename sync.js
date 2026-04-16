@@ -518,6 +518,24 @@ function renderCloudSyncSection() {
         📊 Checkins: ${counts.checkins} · ⏱ Time: ${counts.time_entries} · 🎯 Activities: ${counts.activities}<br>
         🍽 Food: ${counts.food_entries} · 💊 Meds: ${counts.medication_logs} · 🚽 Stool: ${counts.stool_entries}
       </div>
+      ${(() => {
+        let totalBytes = 0;
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          totalBytes += (localStorage.getItem(k) || '').length * 2;
+        }
+        const mb = (totalBytes / 1024 / 1024).toFixed(1);
+        const pct = Math.min(100, (totalBytes / (5 * 1024 * 1024) * 100)).toFixed(0);
+        const color = pct > 80 ? '#f87171' : pct > 60 ? '#fbbf24' : '#a78bfa';
+        return `<div style="margin:8px 0;">
+          <div style="display:flex;justify-content:space-between;font-size:0.8em;opacity:0.6;margin-bottom:4px;">
+            <span>📦 Storage: ${mb}MB / ~5MB</span><span>${pct}%</span>
+          </div>
+          <div style="height:6px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:${color};border-radius:3px;"></div>
+          </div>
+        </div>`;
+      })()}
       <div style="display:flex;gap:8px;margin-top:12px;">
         <button onclick="syncToSupabase()" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(167,139,250,0.3);background:rgba(167,139,250,0.15);color:#a78bfa;font-size:0.9em;cursor:pointer;">🔄 Sync Now</button>
         <button onclick="forceSyncAll()" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(167,139,250,0.3);background:rgba(167,139,250,0.15);color:#a78bfa;font-size:0.9em;cursor:pointer;">🔁 Full Re-sync</button>
