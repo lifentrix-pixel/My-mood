@@ -713,57 +713,70 @@ function saveSessionDirectly() {
   
   clearInterval(timerState.interval);
 
-  // Save any active sub-activity
-  if (timerState.activeSubActivityId && timerState.subStartTime) {
+  try {
+    // Save any active sub-activity
+    if (timerState.activeSubActivityId && timerState.subStartTime) {
+      const entries = loadTimeEntries();
+      entries.push({
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        activityId: timerState.activeActivityId,
+        subActivityId: timerState.activeSubActivityId,
+        startTime: timerState.subStartTime,
+        endTime: Date.now()
+      });
+      saveTimeEntries(entries);
+    }
+
+    // Get the session note
+    const notesField = $('#timer-session-notes');
+    const note = notesField ? notesField.value.trim() : '';
+    
+    // Save the main session
     const entries = loadTimeEntries();
-    entries.push({
+    const entry = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       activityId: timerState.activeActivityId,
-      subActivityId: timerState.activeSubActivityId,
-      startTime: timerState.subStartTime,
-      endTime: Date.now()
-    });
+      startTime: timerState.startTime,
+      endTime: Date.now(),
+    };
+    if (note) entry.note = note;
+    
+    entries.push(entry);
     saveTimeEntries(entries);
+    
+    // Clean up
+    localStorage.removeItem('innerscape_active_timer');
+    localStorage.removeItem('innerscape_active_sub');
+    localStorage.removeItem('innerscape_active_subsub');
+    localStorage.removeItem(`innerscape_timer_notes_${timerState.activeActivityId}`);
+
+    const act = loadActivities().find(a => a.id === timerState.activeActivityId);
+    timerState.activeActivityId = null;
+    timerState.activeSubActivityId = null;
+    timerState.startTime = null;
+    timerState.subStartTime = null;
+
+    // Return to main timer view
+    $('#timer-sub-display').classList.add('hidden');
+    $('#timer-session-display').classList.remove('hidden');
+    $('#timer-active').classList.add('hidden');
+    $('#timer-main').classList.remove('hidden');
+    renderTimerGrid();
+    renderTimerStats();
+    
+    showToast(`${act ? act.emoji : '⏱'} Session saved ✓`);
+  } catch (err) {
+    console.error('Save session error:', err);
+    showToast('⚠️ Error saving — check console');
+    // Still try to return to main view
+    try {
+      timerState.activeActivityId = null;
+      timerState.activeSubActivityId = null;
+      timerState.startTime = null;
+      $('#timer-active').classList.add('hidden');
+      $('#timer-main').classList.remove('hidden');
+    } catch(e) {}
   }
-
-  // Get the session note
-  const notesField = $('#timer-session-notes');
-  const note = notesField ? notesField.value.trim() : '';
-  
-  // Save the main session
-  const entries = loadTimeEntries();
-  const entry = {
-    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-    activityId: timerState.activeActivityId,
-    startTime: timerState.startTime,
-    endTime: Date.now(),
-  };
-  if (note) entry.note = note;
-  
-  entries.push(entry);
-  saveTimeEntries(entries);
-  
-  // Clean up
-  localStorage.removeItem('innerscape_active_timer');
-  localStorage.removeItem('innerscape_active_sub');
-  localStorage.removeItem('innerscape_active_subsub');
-  localStorage.removeItem(`innerscape_timer_notes_${timerState.activeActivityId}`);
-
-  const act = loadActivities().find(a => a.id === timerState.activeActivityId);
-  timerState.activeActivityId = null;
-  timerState.activeSubActivityId = null;
-  timerState.startTime = null;
-  timerState.subStartTime = null;
-
-  // Return to main timer view
-  $('#timer-sub-display').classList.add('hidden');
-  $('#timer-session-display').classList.remove('hidden');
-  $('#timer-active').classList.add('hidden');
-  $('#timer-main').classList.remove('hidden');
-  renderTimerGrid();
-  renderTimerStats();
-  
-  showToast(`${act ? act.emoji : '⏱'} Session saved ✓`);
 }
 
 function saveStoppedTimer() {

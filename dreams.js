@@ -193,11 +193,14 @@ async function saveDream() {
       try { await saveAudioBlob(String(ts), dreamAudioBlob); } catch {}
     }
 
-    saveDreamEntry({ ts, text, tags: [...dreamSelectedTags], hasAudio });
+    saveDreamEntry({ id: 'dream-' + ts, ts, text, tags: [...dreamSelectedTags], hasAudio });
 
     showToast('Dream saved 🌙');
     resetDreamUI();
     renderDreams();
+  } catch (err) {
+    console.error('Dream save error:', err);
+    showToast('⚠️ Error saving dream — ' + err.message);
   } finally {
     setTimeout(() => { saveBtn.disabled = false; }, 1000);
   }
