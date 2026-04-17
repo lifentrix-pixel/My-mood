@@ -142,6 +142,7 @@ function renderQuickNotes() {
 function deleteQuickNote(id) {
   const notes = JSON.parse(localStorage.getItem('innerscape_quick_notes') || '[]');
   localStorage.setItem('innerscape_quick_notes', JSON.stringify(notes.filter(n => n.id !== id)));
+  deleteFromSupabase('quick_notes', id);
   renderQuickNotes();
   // Also refresh all notes modal if it's open
   if ($('#all-notes-modal') && !$('#all-notes-modal').classList.contains('hidden')) {

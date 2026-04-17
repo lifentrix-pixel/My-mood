@@ -17,6 +17,18 @@ function supabaseHeaders() {
   };
 }
 
+async function deleteFromSupabase(table, id) {
+  if (!navigator.onLine || !id) return;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: supabaseHeaders()
+    });
+    if (!res.ok) console.warn(`Delete from ${table} failed:`, res.status);
+  } catch (e) { console.warn('Supabase delete error:', e); }
+}
+window.deleteFromSupabase = deleteFromSupabase;
+
 async function upsertRows(table, rows) {
   if (!rows || rows.length === 0) return { ok: true, count: 0 };
   // Batch in chunks of 500

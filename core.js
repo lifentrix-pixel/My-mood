@@ -227,8 +227,11 @@ function saveEntry(entry) {
   setTimeout(() => syncMoodEntries(), 500);
 }
 function deleteEntry(ts) {
-  const entries = loadEntries().filter(e => e.ts !== ts);
-  localStorage.setItem(STORE_KEY, JSON.stringify(entries));
+  const entries = loadEntries();
+  const entry = entries.find(e => e.ts === ts);
+  if (entry && entry.id) deleteFromSupabase('checkins', entry.id);
+  else deleteFromSupabase('checkins', 'ci-' + ts);
+  safeSave(STORE_KEY, entries.filter(e => e.ts !== ts));
 }
 
 // ── Storage: Activities ──
@@ -297,8 +300,10 @@ function saveMeditation(entry) {
   safeSave(MED_STORE_KEY, entries);
 }
 function deleteMeditation(ts) {
-  const entries = loadMeditations().filter(e => e.ts !== ts);
-  safeSave(MED_STORE_KEY, entries);
+  const entries = loadMeditations();
+  const entry = entries.find(e => e.ts === ts);
+  if (entry && entry.id) deleteFromSupabase('meditations', entry.id);
+  safeSave(MED_STORE_KEY, entries.filter(e => e.ts !== ts));
   const timeEntries = loadTimeEntries();
   const updatedTimeEntries = timeEntries.filter(e => 
     !(e.activityId === 'meditation-cleaning' && e.endTime === ts)
@@ -362,8 +367,11 @@ function saveDreamEntry(dream) {
   }
 }
 function deleteDreamEntry(ts) {
-  const dreams = loadDreams().filter(d => d.ts !== ts);
-  safeSave(DREAM_STORE_KEY, dreams);
+  const dreams = loadDreams();
+  const dream = dreams.find(d => d.ts === ts);
+  if (dream && dream.id) deleteFromSupabase('dreams', dream.id);
+  else deleteFromSupabase('dreams', 'dream-' + ts);
+  safeSave(DREAM_STORE_KEY, dreams.filter(d => d.ts !== ts));
 }
 
 // ── Storage: Todos ──

@@ -308,6 +308,7 @@ function deleteStoolEntry(id) {
   if (!confirm('Delete this entry?')) return;
   stoolEntries = stoolEntries.filter(e => e.id !== id);
   saveStoolData();
+  deleteFromSupabase('stool_entries', id);
   renderStoolList();
   showToast('Entry deleted');
 }

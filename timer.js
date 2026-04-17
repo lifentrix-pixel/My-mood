@@ -440,6 +440,7 @@ function deleteActivity(id) {
   const deleted = acts.find(a => a.id === id);
   if (!deleted) return;
   saveActivities(acts.filter(a => a.id !== id));
+  deleteFromSupabase('activities', id);
   trackDeletion('activities', id);
   renderTimerGrid();
   showToast('Activity deleted', () => {
@@ -1025,6 +1026,7 @@ function deleteTimeEntry(entryId) {
   const deleted = entries.find(e => e.id === entryId);
   if (!deleted) return;
   saveTimeEntries(entries.filter(e => e.id !== entryId));
+  deleteFromSupabase('time_entries', entryId);
   renderTimerStats();
   showToast('Entry deleted', () => {
     const current = loadTimeEntries();

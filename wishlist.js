@@ -356,6 +356,7 @@ function deleteWish(id) {
   if (!deleted) return;
 
   saveWishes(wishes.filter(w => w.id !== id));
+  deleteFromSupabase('wishes', id);
   renderWishlist();
   showToast('Dream deleted', () => {
     const current = loadWishes();

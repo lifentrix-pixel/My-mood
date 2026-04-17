@@ -129,6 +129,7 @@ function saveFoodEntry(entry) {
 function deleteFoodEntry(id) {
   const entries = loadFoodEntries().filter(e => e.id !== id);
   localStorage.setItem(FOOD_STORE_KEY, JSON.stringify(entries));
+  deleteFromSupabase('food_entries', id);
 }
 
 function deleteFoodEntryWithUndo(id) {

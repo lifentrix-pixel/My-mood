@@ -316,6 +316,7 @@ function deleteTodo(id) {
   if (!deleted) return;
 
   saveTodos(todos.filter(t => t.id !== id));
+  deleteFromSupabase('todos', id);
   renderTodos();
   showToast('Task deleted', () => {
     const current = loadTodos();

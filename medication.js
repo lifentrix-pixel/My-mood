@@ -344,6 +344,7 @@ function deleteMedication(id) {
   if (!deleted) return;
   
   saveMedications(medications.filter(m => m.id !== id));
+  deleteFromSupabase('medications', id);
   trackDeletion('medications', id);
   renderTodayMedications();
   

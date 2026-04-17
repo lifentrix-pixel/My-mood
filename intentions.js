@@ -382,6 +382,7 @@ function deleteIntention(id) {
   const intentions = JSON.parse(localStorage.getItem('innerscape_intentions') || '[]');
   const filtered = intentions.filter(i => i.id !== id);
   localStorage.setItem('innerscape_intentions', JSON.stringify(filtered));
+  deleteFromSupabase('intentions', id);
   
   showToast('✨ Intention deleted');
   renderIntentionHistory();
