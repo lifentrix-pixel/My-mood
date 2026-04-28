@@ -19,6 +19,11 @@ function showForecastPage() {
   const foodEntries = loadFoodEntries();
   const medications = loadMedications();
   const medLogs = loadMedicationLogs();
+  const meditationEntries = typeof loadMeditations === 'function' ? loadMeditations() : [];
+  const dreams = typeof loadDreams === 'function' ? loadDreams() : [];
+  const quickNotes = fcLoadArray('innerscape_quick_notes');
+  const stoolEntries = fcLoadArray('innerscape_stool_entries');
+  const mediaSessions = fcLoadArray('innerscape_media_sessions');
   const oura = fcLoadOuraData();
 
   // Core calculations
@@ -36,49 +41,55 @@ function showForecastPage() {
   // 1. Hero
   html.push(fcBuildHero(entries, currentAvg, prevAvg, velocity, now));
 
-  // 1b. Momentum streaks (after hero)
-  html.push(fcBuildMomentum(entries, now));
-
   // 2. Check-in nudge (if needed)
   html.push(fcBuildCheckinNudge(entries, now));
 
-  // 3. Active Insights — the most important personalized statements
+  // 3. Today's dynamic brief
+  html.push(fcBuildTodayBrief(entries, timeEntries, activities, foodEntries, medLogs, medications, oura, dreams, quickNotes, now, velocity));
+
+  // 4. What the forecast can currently see
+  html.push(fcBuildDataPulse(entries, timeEntries, foodEntries, medLogs, oura, dreams, quickNotes, meditationEntries, stoolEntries, mediaSessions, now));
+
+  // 5. Momentum streaks
+  html.push(fcBuildMomentum(entries, now));
+
+  // 6. Active Insights — the most important personalized statements
   html.push(fcBuildActiveInsights(entries, timeEntries, activities, foodEntries, medLogs, medications, oura, now));
 
-  // 4. What Works For You
-  html.push(fcBuildWhatWorks(entries, timeEntries, activities, foodEntries, medLogs, medications, now));
-
-  // 5. Tomorrow's Prediction
+  // 7. Tomorrow's Prediction
   html.push(fcBuildPrediction(entries, timeEntries, activities, oura, velocity, now));
 
-  // 6. Spiral Risk
+  // 8. What Works For You
+  html.push(fcBuildWhatWorks(entries, timeEntries, activities, foodEntries, medLogs, medications, now));
+
+  // 9. Spiral Risk
   html.push(fcBuildSpiralRisk(entries, recent24, oura));
 
-  // 7. Sleep Integration
+  // 10. Sleep Integration
   html.push(fcBuildSleepCard(oura, entries));
 
-  // 7b. Recovery Insights (after sleep, only when low)
+  // 11. Recovery Insights (after sleep, only when low)
   html.push(fcBuildRecoveryInsights(entries, timeEntries, activities, foodEntries, now));
 
-  // 8. Your Trajectory (weekly trends)
+  // 12. Your Trajectory (weekly trends)
   html.push(fcBuildTrajectory(entries, now));
 
-  // 9. Current Dimensions
+  // 13. Current Dimensions
   html.push(fcBuildDimensions(entries, recent24));
 
-  // 10. Pattern Warnings (now proactive)
+  // 14. Pattern Warnings (now proactive)
   html.push(fcBuildPatternWarnings(entries, recent24, timeEntries, activities, now));
 
-  // 11. Alerts
+  // 15. Alerts
   html.push(fcBuildAlerts(entries, recent24));
 
-  // 12. Time-of-Day Patterns
+  // 16. Time-of-Day Patterns
   html.push(fcBuildTimeOfDay(entries));
 
-  // 13. Day-of-Week Patterns
+  // 17. Day-of-Week Patterns
   html.push(fcBuildDayOfWeek(entries));
 
-  // 14. Your Patterns (collapsible — historical)
+  // 18. Your Patterns (collapsible — historical)
   html.push(fcBuildPatterns(entries, now));
 
   html.push('</div>');
@@ -240,6 +251,374 @@ function fcBuildMomentum(entries, now) {
   `;
 }
 
+
+/* ═══════════════════════════════════
+   TODAY BRIEF — Recency-aware forecast
+   ═══════════════════════════════════ */
+
+function fcBuildTodayBrief(entries, timeEntries, activities, foodEntries, medLogs, medications, oura, dreams, quickNotes, now, velocity) {
+  if (entries.length < 3) return '';
+
+  const model = fcBuildTodayModel(entries, oura, now, velocity);
+  const dims = fcBuildDimensionSignals(entries, now);
+  const pressure = dims[0];
+  const lever = fcPickTodayLever(entries, timeEntries, activities, foodEntries, medLogs, medications, oura, dims, now);
+  const timeSignal = fcBuildTimeWindowSignal(entries, now);
+  const textSignal = fcBuildTextSignal(entries, dreams, quickNotes, now);
+  const sources = fcBuildSourceStats(entries, timeEntries, foodEntries, medLogs, oura, dreams, quickNotes, [], [], [], now);
+  const confidence = fcForecastConfidence(entries, sources, now);
+
+  const signals = [];
+  if (pressure) {
+    const deltaText = Math.abs(pressure.delta) >= 0.2
+      ? `${pressure.delta > 0 ? '+' : ''}${pressure.delta.toFixed(1)} vs baseline`
+      : 'near baseline';
+    signals.push({
+      score: pressure.score,
+      type: pressure.current < 4.2 ? 'warning' : 'info',
+      icon: pressure.icon,
+      title: `${pressure.label} needs the most attention`,
+      body: `${pressure.label} is at ${pressure.current.toFixed(1)} (${deltaText}). Start there if today gets wobbly.`,
+      meta: 'current pressure point'
+    });
+  }
+  if (lever) signals.push(lever);
+  if (timeSignal) signals.push(timeSignal);
+  if (textSignal) signals.push(textSignal);
+
+  const orderedSignals = signals
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 4);
+
+  const rangePctLeft = ((model.low - 1) / 9) * 100;
+  const rangePctRight = 100 - ((model.high - 1) / 9) * 100;
+  const dotPct = ((model.score - 1) / 9) * 100;
+  const baselineDiff = model.score - model.baselineAvg;
+  const baselineLabel = Math.abs(baselineDiff) < 0.2
+    ? 'near your baseline'
+    : `${baselineDiff > 0 ? '+' : ''}${baselineDiff.toFixed(1)} vs baseline`;
+
+  return `
+    <div class="fc-card fc-brief-card">
+      <div class="fc-brief-topline">
+        <div>
+          <div class="fc-card-header"><span>🧭</span> Today's Brief</div>
+          <div class="fc-brief-summary">${model.label}. Forecast is <strong>${baselineLabel}</strong>.</div>
+        </div>
+        <div class="fc-confidence-pill" style="--conf:${confidence}%">
+          <span>${confidence}%</span>
+          <small>confidence</small>
+        </div>
+      </div>
+
+      <div class="fc-today-meter">
+        <div class="fc-today-low">${model.low.toFixed(1)}</div>
+        <div class="fc-today-track">
+          <div class="fc-today-range" style="left:${rangePctLeft}%;right:${rangePctRight}%;background:${fcStateColor(model.score)}"></div>
+          <div class="fc-today-dot" style="left:${dotPct}%;background:${fcStateColor(model.score)}"></div>
+        </div>
+        <div class="fc-today-high">${model.high.toFixed(1)}</div>
+      </div>
+
+      <div class="fc-factor-row">
+        ${model.factors.map(f => `<span>${f}</span>`).join('')}
+      </div>
+
+      <div class="fc-brief-grid">
+        ${orderedSignals.map(s => `
+          <div class="fc-brief-signal fc-brief-${s.type || 'info'}">
+            <div class="fc-brief-signal-head">
+              <span class="fc-brief-icon">${s.icon}</span>
+              <div>
+                <div class="fc-brief-title">${s.title}</div>
+                <div class="fc-brief-meta">${s.meta || ''}</div>
+              </div>
+            </div>
+            <div class="fc-brief-body">${s.body}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function fcBuildTodayModel(entries, oura, now, velocity) {
+  const recent24 = entries.filter(e => now - e.ts < 24 * 3600000);
+  const currentEntries = recent24.length ? recent24 : [entries[entries.length - 1]];
+  const currentAvg = fcAvg(currentEntries.map(fcAvgScore));
+  const baselineEntries = entries.filter(e => now - e.ts >= 24 * 3600000 && now - e.ts < 60 * 86400000);
+  const baselineAvg = baselineEntries.length >= 5 ? fcAvg(baselineEntries.map(fcAvgScore)) : fcAvg(entries.map(fcAvgScore));
+  const dayProfile = fcGetDayProfile(entries, now, 0);
+  const sleep = fcLatestSleepSignal(oura);
+  let score = currentAvg + velocity * 0.35;
+  const factors = [];
+
+  if (velocity > 0.35) factors.push('rising now');
+  else if (velocity < -0.35) factors.push('dropping now');
+  else factors.push('steady now');
+
+  if (dayProfile && dayProfile.count >= 3 && Math.abs(dayProfile.diff) >= 0.25) {
+    score += dayProfile.diff * 0.25;
+    factors.push(`${dayProfile.label} pattern ${dayProfile.diff > 0 ? '+' : ''}${dayProfile.diff.toFixed(1)}`);
+  }
+
+  if (sleep && sleep.score) {
+    score += sleep.adjust;
+    if (sleep.score < 65) factors.push('sleep drag');
+    else if (sleep.score >= 82) factors.push('sleep support');
+  }
+
+  score = score * 0.78 + baselineAvg * 0.22;
+  score = Math.max(1, Math.min(10, score));
+
+  const recentScores = entries.slice(-14).map(fcAvgScore);
+  const mean = fcAvg(recentScores);
+  const variance = recentScores.length ? fcAvg(recentScores.map(s => Math.pow(s - mean, 2))) : 0;
+  const spread = Math.max(0.45, Math.min(1.6, Math.sqrt(variance) || 0.7));
+  const low = Math.max(1, score - spread);
+  const high = Math.min(10, score + spread);
+
+  return {
+    score,
+    low,
+    high,
+    currentAvg,
+    baselineAvg,
+    factors: factors.slice(0, 4),
+    label: fcStateLabel(score).replace(/[💚]/g, '').trim()
+  };
+}
+
+function fcBuildDimensionSignals(entries, now) {
+  const recent24 = entries.filter(e => now - e.ts < 24 * 3600000);
+  const currentEntries = recent24.length ? recent24 : [entries[entries.length - 1]];
+  const baselineEntries = entries.filter(e => now - e.ts >= 24 * 3600000 && now - e.ts < 60 * 86400000);
+  const baselinePool = baselineEntries.length >= 5 ? baselineEntries : entries;
+  const meta = {
+    body: { label: 'Body', icon: '🫀' },
+    energy: { label: 'Energy', icon: '⚡' },
+    mood: { label: 'Mood', icon: '💜' },
+    mind: { label: 'Mind', icon: '🧠' }
+  };
+
+  return Object.keys(meta).map(dim => {
+    const currentVals = currentEntries.map(e => fcGetScore(e, dim)).filter(v => v > 0);
+    const baselineVals = baselinePool.map(e => fcGetScore(e, dim)).filter(v => v > 0);
+    const current = currentVals.length ? fcAvg(currentVals) : 5;
+    const baseline = baselineVals.length ? fcAvg(baselineVals) : current;
+    const delta = current - baseline;
+    const lowPressure = Math.max(0, 5.5 - current) * 11;
+    const dropPressure = Math.max(0, -delta) * 12;
+    const score = lowPressure + dropPressure + (dim === 'body' ? 3 : 0);
+    return { dim, ...meta[dim], current, baseline, delta, score };
+  }).sort((a, b) => b.score - a.score);
+}
+
+function fcPickTodayLever(entries, timeEntries, activities, foodEntries, medLogs, medications, oura, dims, now) {
+  const candidates = [];
+  const todayStart = startOfDay(new Date(now)).getTime();
+  const hour = new Date(now).getHours();
+  const sleep = fcLatestSleepSignal(oura);
+
+  if (sleep && sleep.score && sleep.score < 68) {
+    candidates.push({
+      score: 90 - sleep.score,
+      type: 'warning',
+      icon: '🌙',
+      title: 'Recovery pacing will matter',
+      body: `Last sleep score was ${sleep.score}. Keep the day lighter where you can and watch body/energy first.`,
+      meta: 'Oura sleep signal'
+    });
+  }
+
+  const boosts = fcFindActivityBoosts(entries, timeEntries, activities)
+    .map(b => {
+      const lastSession = timeEntries
+        .filter(t => t.activityId === b.id)
+        .sort((a, b2) => b2.endTime - a.endTime)[0];
+      const daysSince = lastSession ? Math.floor((now - lastSession.endTime) / 86400000) : 99;
+      return { ...b, daysSince };
+    });
+  const staleBoost = boosts.find(b => b.daysSince >= 2) || boosts[0];
+  if (staleBoost) {
+    const name = fcEscape(staleBoost.name);
+    const when = staleBoost.daysSince === 0 ? 'today' : staleBoost.daysSince === 1 ? 'yesterday' : `${staleBoost.daysSince} days ago`;
+    candidates.push({
+      score: 42 + Math.min(28, staleBoost.boost * 10) + Math.min(18, staleBoost.daysSince * 3),
+      type: staleBoost.daysSince >= 3 ? 'action' : 'info',
+      icon: staleBoost.emoji || '⏱',
+      title: staleBoost.daysSince >= 2 ? `Bring back ${name}` : `${name} is a strong lever`,
+      body: `Tracked sessions of ${name} are associated with +${staleBoost.boost.toFixed(1)} mood. Last logged ${when}.`,
+      meta: `${staleBoost.sessions} sessions`
+    });
+  }
+
+  const todayFoods = foodEntries.filter(f => f.timestamp >= todayStart && f.timestamp < todayStart + 86400000);
+  if (foodEntries.length >= 5 && ((hour >= 13 && todayFoods.length === 0) || (hour >= 17 && todayFoods.length <= 1))) {
+    candidates.push({
+      score: 64 + (hour >= 17 ? 10 : 0),
+      type: 'action',
+      icon: '🍽',
+      title: 'Food rhythm is thin today',
+      body: `${todayFoods.length} meal${todayFoods.length === 1 ? '' : 's'} logged today. If you have eaten, logging it will sharpen the forecast; if not, food may be the simplest lever.`,
+      meta: 'today data gap'
+    });
+  }
+
+  const todayMedLogs = medLogs.filter(log => log.timestamp >= todayStart && log.timestamp < todayStart + 86400000);
+  if (medications.length && !todayMedLogs.length && hour >= 9) {
+    candidates.push({
+      score: 58,
+      type: 'info',
+      icon: '💊',
+      title: 'Medication log is empty today',
+      body: 'Nothing is logged yet. Check the medication page if something belongs there today.',
+      meta: `${medications.length} saved`
+    });
+  }
+
+  const pressure = dims[0];
+  if (pressure && pressure.current < 4.2) {
+    candidates.push({
+      score: 68 + (4.2 - pressure.current) * 8,
+      type: 'warning',
+      icon: pressure.icon,
+      title: `${pressure.label}-first plan`,
+      body: `${pressure.label} is low enough that big plans may cost more than usual. Choose the smallest helpful version of the day.`,
+      meta: `${pressure.current.toFixed(1)} now`
+    });
+  }
+
+  if (!candidates.length) return null;
+  return candidates.sort((a, b) => b.score - a.score)[0];
+}
+
+function fcBuildTimeWindowSignal(entries, now) {
+  const slots = fcTimeOfDayScores(entries);
+  if (slots.length < 2) return null;
+  const best = slots.reduce((a, b) => a.avg > b.avg ? a : b);
+  const worst = slots.reduce((a, b) => a.avg < b.avg ? a : b);
+  if (best.avg - worst.avg < 0.35) return null;
+
+  const hour = new Date(now).getHours();
+  const currentDef = fcTimeSlotForHour(hour);
+  const current = currentDef ? slots.find(s => s.label === currentDef.label) : null;
+  const upcoming = fcUpcomingSlot(slots, hour);
+
+  if (current && current.label === worst.label) {
+    return {
+      score: 58 + (best.avg - worst.avg) * 8,
+      type: 'warning',
+      icon: '🕐',
+      title: `${current.label} is your lower window`,
+      body: `Historically ${current.label.toLowerCase()} averages ${current.avg.toFixed(1)}, while ${best.label.toLowerCase()} averages ${best.avg.toFixed(1)}. Avoid judging the whole day from this window.`,
+      meta: 'time pattern'
+    };
+  }
+
+  if (upcoming && upcoming.label === best.label && current?.label !== best.label) {
+    return {
+      score: 54 + (best.avg - worst.avg) * 7,
+      type: 'info',
+      icon: '🌤',
+      title: `${best.label} may be your best window`,
+      body: `${best.label} tends to score highest for you (${best.avg.toFixed(1)} avg). Put the thing that needs care there if you can.`,
+      meta: 'upcoming support'
+    };
+  }
+
+  return {
+    score: 48 + (best.avg - worst.avg) * 6,
+    type: 'info',
+    icon: '🕐',
+    title: `${best.label} is your strongest window`,
+    body: `Best: ${best.label} (${best.avg.toFixed(1)}). Hardest: ${worst.label} (${worst.avg.toFixed(1)}).`,
+    meta: 'time pattern'
+  };
+}
+
+function fcBuildTextSignal(entries, dreams, quickNotes, now) {
+  const weekText = [];
+  entries.filter(e => now - e.ts < 7 * 86400000).forEach(e => {
+    if (e.notes) weekText.push(Object.values(e.notes).join(' '));
+  });
+  dreams.filter(d => now - d.ts < 7 * 86400000).forEach(d => weekText.push(d.text || (d.noRecall ? 'no dream recall' : '')));
+  quickNotes.filter(n => now - n.ts < 7 * 86400000).forEach(n => weekText.push(n.text || ''));
+
+  const text = weekText.join(' ').toLowerCase();
+  if (!text.trim()) return null;
+
+  const tenseWords = ['anxious', 'tired', 'stressed', 'sad', 'frustrated', 'angry', 'overwhelmed', 'lonely', 'exhausted', 'worried', 'scared', 'pressure'];
+  const anchorWords = ['calm', 'creative', 'proud', 'connected', 'hopeful', 'inspired', 'peaceful', 'grateful', 'focused', 'joy', 'soft', 'rest'];
+  const tense = tenseWords.filter(w => text.includes(w));
+  const anchors = anchorWords.filter(w => text.includes(w));
+
+  if (tense.length >= 2 && tense.length > anchors.length) {
+    return {
+      score: 55 + Math.min(20, tense.length * 4),
+      type: 'warning',
+      icon: '📝',
+      title: 'Recent notes sound loaded',
+      body: `Words like ${tense.slice(0, 3).map(fcEscape).join(', ')} showed up this week. The forecast is treating your mind/emotion load as active context.`,
+      meta: `${weekText.length} text signals`
+    };
+  }
+
+  if (anchors.length >= 2) {
+    return {
+      score: 50 + Math.min(14, anchors.length * 3),
+      type: 'info',
+      icon: '✨',
+      title: 'There are positive anchors in the text',
+      body: `Recent notes include ${anchors.slice(0, 3).map(fcEscape).join(', ')}. Those are useful clues for what supports you.`,
+      meta: `${weekText.length} text signals`
+    };
+  }
+
+  if (dreams.filter(d => now - d.ts < 7 * 86400000).length >= 2) {
+    return {
+      score: 46,
+      type: 'info',
+      icon: '🌙',
+      title: 'Dream data is active',
+      body: 'You have recent dream entries, so the forecast is reading sleep/reflective patterns as part of the week.',
+      meta: 'dream journal'
+    };
+  }
+
+  return null;
+}
+
+function fcBuildDataPulse(entries, timeEntries, foodEntries, medLogs, oura, dreams, quickNotes, meditationEntries, stoolEntries, mediaSessions, now) {
+  const sources = fcBuildSourceStats(entries, timeEntries, foodEntries, medLogs, oura, dreams, quickNotes, meditationEntries, stoolEntries, mediaSessions, now);
+  const confidence = fcForecastConfidence(entries, sources, now);
+  const active = sources.filter(s => s.status === 'active').length;
+  const quiet = sources.filter(s => s.status === 'quiet').length;
+
+  return `
+    <div class="fc-card fc-data-card">
+      <div class="fc-card-header"><span>📡</span> Forecast Ingredients</div>
+      <div class="fc-data-summary">
+        <strong>${active}</strong> active source${active === 1 ? '' : 's'} this week${quiet ? ` · ${quiet} quiet but available` : ''}.
+        The forecast trusts fresh check-ins most, then looks for support from activity, sleep, food, meds, dreams, and notes.
+      </div>
+      <div class="fc-source-grid">
+        ${sources.map(s => `
+          <div class="fc-source-chip fc-source-${s.status}">
+            <span>${s.icon}</span>
+            <div>
+              <strong>${s.label}</strong>
+              <small>${s.detail}</small>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="fc-confidence-line">
+        <div class="fc-confidence-fill" style="width:${confidence}%"></div>
+      </div>
+    </div>
+  `;
+}
 
 /* ═══════════════════════════════════
    ACTIVE INSIGHTS — Front & Center
@@ -417,18 +796,22 @@ function fcBuildActiveInsights(entries, timeEntries, activities, foodEntries, me
   // Sort: action items first, then warnings, then info
   const order = { action: 0, warning: 1, info: 2 };
   insights.sort((a, b) => (order[a.type] || 2) - (order[b.type] || 2));
+  const picked = fcPickDailyInsights(insights, now, 6);
 
   return `
     <div class="fc-card fc-insights-card">
       <div class="fc-card-header"><span>💡</span> What Your Data Says</div>
       <div class="fc-insights-list">
-        ${insights.map(i => `
-          <div class="fc-insight fc-insight-${i.type}">
-            <span class="fc-insight-emoji">${i.emoji}</span>
-            <div class="fc-insight-text">${i.text}</div>
-          </div>
-        `).join('')}
+        ${picked.visible.map(fcRenderInsight).join('')}
       </div>
+      ${picked.hidden.length ? `
+        <details class="fc-more-insights">
+          <summary>Show ${picked.hidden.length} more background pattern${picked.hidden.length === 1 ? '' : 's'}</summary>
+          <div class="fc-insights-list">
+            ${picked.hidden.map(fcRenderInsight).join('')}
+          </div>
+        </details>
+      ` : ''}
     </div>
   `;
 }
@@ -1661,6 +2044,214 @@ function fcGetTrackingStreak(entries, now) {
     else break;
   }
   return streak;
+}
+
+
+/* ═══════════════════════════════════
+   HELPER: Dynamic forecast utilities
+   ═══════════════════════════════════ */
+
+function fcLoadArray(key) {
+  try {
+    const value = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+}
+
+function fcBuildSourceStats(entries, timeEntries, foodEntries, medLogs, oura, dreams, quickNotes, meditationEntries, stoolEntries, mediaSessions, now) {
+  const sleepRecords = oura && Array.isArray(oura.sleep)
+    ? oura.sleep.map(s => ({ day: s.day, timestamp: fcDayToTs(s.day) }))
+    : [];
+
+  return [
+    fcSourceStat('✦', 'Check-ins', entries, ['ts', 'timestamp'], now),
+    fcSourceStat('⏱', 'Activities', timeEntries, ['endTime', 'startTime', 'timestamp'], now),
+    fcSourceStat('🍽', 'Food', foodEntries, ['timestamp', 'ts'], now),
+    fcSourceStat('💊', 'Meds', medLogs, ['timestamp', 'ts'], now),
+    fcSourceStat('🌙', 'Oura', sleepRecords, ['timestamp', 'day'], now),
+    fcSourceStat('🌌', 'Dreams', dreams, ['ts', 'timestamp'], now),
+    fcSourceStat('📝', 'Notes', quickNotes, ['ts', 'timestamp'], now),
+    fcSourceStat('🧘', 'Meditation', meditationEntries, ['ts', 'timestamp'], now),
+    fcSourceStat('💩', 'Stool', stoolEntries, ['timestamp', 'ts'], now),
+    fcSourceStat('📱', 'Media', mediaSessions, ['endTime', 'timestamp', 'ts'], now)
+  ];
+}
+
+function fcSourceStat(icon, label, records, fields, now) {
+  const list = Array.isArray(records) ? records : [];
+  const times = list
+    .map(r => fcRecordTime(r, fields))
+    .filter(ts => Number.isFinite(ts) && ts > 0 && ts <= now + 3600000);
+  const week = 7 * 86400000;
+  const month = 30 * 86400000;
+  const count7 = times.filter(ts => now - ts <= week).length;
+  const latest = times.length ? Math.max(...times) : null;
+  const status = count7 > 0 ? 'active' : latest && now - latest <= month ? 'quiet' : 'empty';
+  const detail = count7 > 0 ? `${count7} in 7d` : latest ? `last ${fcHumanAge(latest, now)}` : 'no data';
+  return { icon, label, count7, latest, status, detail };
+}
+
+function fcRecordTime(record, fields) {
+  if (!record) return null;
+  for (const field of fields) {
+    const raw = record[field];
+    if (raw == null || raw === '') continue;
+    if (field === 'day') return fcDayToTs(raw);
+    const asNumber = Number(raw);
+    if (Number.isFinite(asNumber) && asNumber > 0) return asNumber;
+    const parsed = Date.parse(raw);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function fcDayToTs(day) {
+  if (!day || typeof day !== 'string') return null;
+  const parts = day.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(n => !Number.isFinite(n))) return null;
+  return new Date(parts[0], parts[1] - 1, parts[2]).getTime();
+}
+
+function fcHumanAge(ts, now) {
+  const diff = Math.max(0, now - ts);
+  const hours = diff / 3600000;
+  if (hours < 1) return 'just now';
+  if (hours < 24) return `${Math.round(hours)}h ago`;
+  const days = hours / 24;
+  if (days < 14) return `${Math.round(days)}d ago`;
+  if (days < 70) return `${Math.round(days / 7)}w ago`;
+  return `${Math.round(days / 30)}mo ago`;
+}
+
+function fcForecastConfidence(entries, sources, now) {
+  const latestEntry = entries.length ? Math.max(...entries.map(e => e.ts || 0)) : null;
+  const hoursSince = latestEntry ? (now - latestEntry) / 3600000 : Infinity;
+  const daySpan = entries.length > 1
+    ? Math.max(1, (Math.max(...entries.map(e => e.ts || 0)) - Math.min(...entries.map(e => e.ts || 0))) / 86400000)
+    : 1;
+  const activeSources = (sources || []).filter(s => s.status === 'active').length;
+
+  let score = 18;
+  if (hoursSince <= 8) score += 28;
+  else if (hoursSince <= 24) score += 22;
+  else if (hoursSince <= 72) score += 12;
+  else score += 4;
+
+  if (entries.length >= 80) score += 25;
+  else if (entries.length >= 35) score += 20;
+  else if (entries.length >= 12) score += 12;
+  else score += 6;
+
+  if (daySpan >= 45) score += 14;
+  else if (daySpan >= 14) score += 9;
+  else if (daySpan >= 5) score += 5;
+
+  score += Math.min(22, activeSources * 4);
+  return Math.max(25, Math.min(95, Math.round(score)));
+}
+
+function fcLatestSleepSignal(oura) {
+  if (!oura || !Array.isArray(oura.sleep) || !oura.sleep.length) return null;
+  const sorted = [...oura.sleep]
+    .filter(s => s && (s.score || s.score === 0))
+    .sort((a, b) => (fcDayToTs(b.day) || 0) - (fcDayToTs(a.day) || 0));
+  const last = sorted[0];
+  if (!last) return null;
+  const score = Math.round(Number(last.score));
+  let adjust = 0;
+  if (score < 55) adjust = -0.65;
+  else if (score < 65) adjust = -0.45;
+  else if (score < 75) adjust = -0.15;
+  else if (score >= 85) adjust = 0.35;
+  else if (score >= 80) adjust = 0.2;
+  return { score, day: last.day, adjust };
+}
+
+function fcGetDayProfile(entries, now, offsetDays) {
+  const target = new Date(now);
+  target.setDate(target.getDate() + offsetDays);
+  const dow = target.getDay();
+  const labels = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const historical = entries.filter(e => now - e.ts > 24 * 3600000);
+  const pool = historical.length >= 7 ? historical : entries;
+  const dowEntries = pool.filter(e => new Date(e.ts).getDay() === dow);
+  if (!dowEntries.length) return null;
+  const overall = fcAvg(pool.map(fcAvgScore));
+  const avg = fcAvg(dowEntries.map(fcAvgScore));
+  return { label: labels[dow], avg, overall, diff: avg - overall, count: dowEntries.length };
+}
+
+function fcTimeSlotForHour(hour) {
+  if (hour >= 6 && hour < 12) return { label: 'Morning', from: 6, to: 12 };
+  if (hour >= 12 && hour < 18) return { label: 'Afternoon', from: 12, to: 18 };
+  if (hour >= 18 && hour < 24) return { label: 'Evening', from: 18, to: 24 };
+  return { label: 'Night', from: 0, to: 6 };
+}
+
+function fcUpcomingSlot(slots, hour) {
+  const order = [
+    { label: 'Morning', from: 6 },
+    { label: 'Afternoon', from: 12 },
+    { label: 'Evening', from: 18 },
+    { label: 'Night', from: 24 }
+  ];
+  const upcoming = order.find(s => s.from > hour) || order[0];
+  return slots.find(s => s.label === upcoming.label) || null;
+}
+
+function fcPickDailyInsights(insights, now, limit) {
+  const seen = new Set();
+  const unique = insights.filter(i => {
+    const key = fcStripTags(i.text || '').toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const important = unique.filter(i => i.type === 'action' || i.type === 'warning');
+  const background = unique.filter(i => i.type !== 'action' && i.type !== 'warning');
+  const seed = Math.floor(now / 86400000);
+  background.sort((a, b) => fcHashString(`${a.text}|${seed}`) - fcHashString(`${b.text}|${seed}`));
+
+  const visible = important.slice(0, limit);
+  const room = Math.max(0, limit - visible.length);
+  visible.push(...background.slice(0, room));
+  const hidden = unique.filter(i => !visible.includes(i));
+  return { visible, hidden };
+}
+
+function fcRenderInsight(i) {
+  return `
+    <div class="fc-insight fc-insight-${i.type}">
+      <span class="fc-insight-emoji">${i.emoji}</span>
+      <div class="fc-insight-text">${i.text}</div>
+    </div>
+  `;
+}
+
+function fcHashString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function fcStripTags(str) {
+  return String(str || '').replace(/<[^>]*>/g, '');
+}
+
+function fcEscape(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[ch]));
 }
 
 
