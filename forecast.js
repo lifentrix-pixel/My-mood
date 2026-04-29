@@ -47,49 +47,52 @@ function showForecastPage() {
   // 3. Today's dynamic brief
   html.push(fcBuildTodayBrief(entries, timeEntries, activities, foodEntries, medLogs, medications, oura, dreams, quickNotes, now, velocity));
 
-  // 4. What the forecast can currently see
+  // 4. Daily data coverage note
+  html.push(fcBuildDataCoverageNote(entries, timeEntries, foodEntries, medLogs, medications, oura, dreams, quickNotes, meditationEntries, stoolEntries, mediaSessions, now));
+
+  // 5. What the forecast can currently see
   html.push(fcBuildDataPulse(entries, timeEntries, foodEntries, medLogs, oura, dreams, quickNotes, meditationEntries, stoolEntries, mediaSessions, now));
 
-  // 5. Momentum streaks
+  // 6. Momentum streaks
   html.push(fcBuildMomentum(entries, now));
 
-  // 6. Active Insights — the most important personalized statements
+  // 7. Active Insights — the most important personalized statements
   html.push(fcBuildActiveInsights(entries, timeEntries, activities, foodEntries, medLogs, medications, oura, now));
 
-  // 7. Tomorrow's Prediction
+  // 8. Tomorrow's Prediction
   html.push(fcBuildPrediction(entries, timeEntries, activities, oura, velocity, now));
 
-  // 8. What Works For You
+  // 9. What Works For You
   html.push(fcBuildWhatWorks(entries, timeEntries, activities, foodEntries, medLogs, medications, now));
 
-  // 9. Spiral Risk
+  // 10. Spiral Risk
   html.push(fcBuildSpiralRisk(entries, recent24, oura));
 
-  // 10. Sleep Integration
+  // 11. Sleep Integration
   html.push(fcBuildSleepCard(oura, entries));
 
-  // 11. Recovery Insights (after sleep, only when low)
+  // 12. Recovery Insights (after sleep, only when low)
   html.push(fcBuildRecoveryInsights(entries, timeEntries, activities, foodEntries, now));
 
-  // 12. Your Trajectory (weekly trends)
+  // 13. Your Trajectory (weekly trends)
   html.push(fcBuildTrajectory(entries, now));
 
-  // 13. Current Dimensions
+  // 14. Current Dimensions
   html.push(fcBuildDimensions(entries, recent24));
 
-  // 14. Pattern Warnings (now proactive)
+  // 15. Pattern Warnings (now proactive)
   html.push(fcBuildPatternWarnings(entries, recent24, timeEntries, activities, now));
 
-  // 15. Alerts
+  // 16. Alerts
   html.push(fcBuildAlerts(entries, recent24));
 
-  // 16. Time-of-Day Patterns
+  // 17. Time-of-Day Patterns
   html.push(fcBuildTimeOfDay(entries));
 
-  // 17. Day-of-Week Patterns
+  // 18. Day-of-Week Patterns
   html.push(fcBuildDayOfWeek(entries));
 
-  // 18. Your Patterns (collapsible — historical)
+  // 19. Your Patterns (collapsible — historical)
   html.push(fcBuildPatterns(entries, now));
 
   html.push('</div>');
@@ -619,6 +622,276 @@ function fcBuildDataPulse(entries, timeEntries, foodEntries, medLogs, oura, drea
     </div>
   `;
 }
+
+/* ═══════════════════════════════════
+   DAILY DATA COVERAGE NOTE
+   ═══════════════════════════════════ */
+
+function fcBuildDataCoverageNote(entries, timeEntries, foodEntries, medLogs, medications, oura, dreams, quickNotes, meditationEntries, stoolEntries, mediaSessions, now) {
+  const note = fcAnalyzeDataCoverage(entries, timeEntries, foodEntries, medLogs, medications, oura, dreams, quickNotes, meditationEntries, stoolEntries, mediaSessions, now);
+  fcSaveDataCoverageNote(note);
+  const manual = fcGetManualCoverageNote(now);
+
+  const tone = note.level === 'full' ? 'good' : note.level === 'thin' ? 'warning' : 'info';
+  const title = note.level === 'full'
+    ? 'Today is well tracked'
+    : note.level === 'thin'
+      ? 'Today is partly tracked'
+      : 'Today is still filling in';
+
+  return `
+    <div class="fc-card fc-coverage-card fc-coverage-${tone}">
+      <div class="fc-card-header"><span>${note.level === 'full' ? '✅' : '🧩'}</span> Daily Data Note</div>
+      <div class="fc-coverage-title">${title}</div>
+      <div class="fc-coverage-body">${note.message}</div>
+      ${manual && manual.manualIncomplete ? `
+        <div class="fc-manual-coverage-note">
+          <div class="fc-manual-coverage-title">You marked today as not fully logged</div>
+          ${manual.manualReasons && manual.manualReasons.length ? `<div class="fc-manual-coverage-reasons">${manual.manualReasons.map(fcIncompleteReasonLabel).join(' · ')}</div>` : ''}
+          ${manual.manualText ? `<div class="fc-manual-coverage-text">${fcEscape(manual.manualText)}</div>` : ''}
+        </div>
+      ` : ''}
+      <button class="fc-incomplete-day-btn" onclick="fcOpenIncompleteDayModal()">
+        I didn't log fully today
+      </button>
+      <div class="fc-coverage-grid">
+        ${note.items.map(item => `
+          <div class="fc-coverage-chip fc-coverage-chip-${item.status}">
+            <span>${item.icon}</span>
+            <div>
+              <strong>${item.label}</strong>
+              <small>${item.detail}</small>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      ${note.missing.length ? `<div class="fc-coverage-foot">Forecast reads today gently because: ${note.missing.join(' · ')}</div>` : ''}
+    </div>
+  `;
+}
+
+function fcAnalyzeDataCoverage(entries, timeEntries, foodEntries, medLogs, medications, oura, dreams, quickNotes, meditationEntries, stoolEntries, mediaSessions, now) {
+  const todayStart = startOfDay(new Date(now)).getTime();
+  const todayEnd = todayStart + 86400000;
+  const hour = new Date(now).getHours();
+  const inToday = (arr, fields) => arr.filter(item => {
+    const ts = fcRecordTime(item, fields || ['ts', 'timestamp', 'endTime', 'startTime']);
+    return ts && ts >= todayStart && ts < todayEnd;
+  });
+
+  const todayEntries = inToday(entries, ['ts']);
+  const todayFoods = inToday(foodEntries, ['timestamp', 'ts']);
+  const todayMedLogs = inToday(medLogs, ['timestamp', 'ts']);
+  const todayActivities = inToday(timeEntries, ['endTime', 'startTime']);
+  const todayDreams = inToday(dreams, ['ts', 'timestamp']);
+  const todayNotes = inToday(quickNotes, ['ts', 'timestamp']);
+  const todayMeditations = inToday(meditationEntries, ['ts', 'timestamp']);
+  const todayStool = inToday(stoolEntries, ['timestamp', 'ts']);
+  const todayMedia = inToday(mediaSessions, ['ts', 'timestamp', 'endTime']);
+  const ouraFresh = fcHasFreshOuraSleep(oura, now);
+
+  const items = [
+    fcCoverageItem('✦', 'Check-ins', todayEntries.length, todayEntries.length >= 2 ? 'ok' : todayEntries.length === 1 ? 'partial' : 'missing', todayEntries.length ? `${todayEntries.length} today` : 'none yet'),
+    fcCoverageItem('🍽', 'Food', todayFoods.length, todayFoods.length >= 2 || hour < 15 ? 'ok' : todayFoods.length === 1 ? 'partial' : 'missing', todayFoods.length ? `${todayFoods.length} logged` : 'not logged'),
+    fcCoverageItem('💊', 'Meds', todayMedLogs.length, !medications.length ? 'optional' : todayMedLogs.length ? 'ok' : hour < 12 ? 'partial' : 'missing', !medications.length ? 'none saved' : todayMedLogs.length ? `${todayMedLogs.length} logged` : 'not logged'),
+    fcCoverageItem('🌙', 'Oura', ouraFresh ? 1 : 0, ouraFresh ? 'ok' : 'partial', ouraFresh ? 'fresh sleep' : 'sleep not fresh'),
+    fcCoverageItem('⏱', 'Activity', todayActivities.length, todayActivities.length ? 'ok' : 'optional', todayActivities.length ? `${todayActivities.length} sessions` : 'none logged'),
+    fcCoverageItem('📝', 'Notes', todayNotes.length + todayDreams.length, todayNotes.length || todayDreams.length ? 'ok' : 'optional', todayNotes.length || todayDreams.length ? `${todayNotes.length + todayDreams.length} text signals` : 'none today'),
+    fcCoverageItem('🧘', 'Meditation', todayMeditations.length, todayMeditations.length ? 'ok' : 'optional', todayMeditations.length ? `${todayMeditations.length} logged` : 'none today'),
+    fcCoverageItem('💩', 'Stool', todayStool.length, todayStool.length ? 'ok' : 'optional', todayStool.length ? `${todayStool.length} logged` : 'none today'),
+    fcCoverageItem('📱', 'Media', todayMedia.length, todayMedia.length ? 'ok' : 'optional', todayMedia.length ? `${todayMedia.length} sessions` : 'none logged')
+  ];
+
+  const importantMissing = [];
+  if (!todayEntries.length) importantMissing.push('no check-in yet');
+  else if (todayEntries.length === 1 && hour >= 18) importantMissing.push('only one check-in');
+  if (hour >= 18 && todayFoods.length < 2) importantMissing.push('food is thin');
+  if (medications.length && hour >= 12 && !todayMedLogs.length) importantMissing.push('medication log missing');
+  if (!ouraFresh) importantMissing.push('sleep signal not fresh');
+
+  const trackedImportant = items.filter(i => i.status === 'ok' && ['Check-ins', 'Food', 'Meds', 'Oura'].includes(i.label)).length;
+  const level = importantMissing.length >= 3 ? 'thin' : importantMissing.length ? 'partial' : 'full';
+  const message = level === 'full'
+    ? 'The app has enough of today to read patterns with more confidence.'
+    : level === 'thin'
+      ? 'The app may be missing important context for today, so forecasts and patterns should be read as a partial picture.'
+      : 'Some signals are still missing or early. That is okay; today may become clearer after another small log.';
+
+  const note = {
+    id: dayKey(now),
+    date: dayKey(now),
+    ts: now,
+    level,
+    message,
+    missing: importantMissing,
+    trackedImportant,
+    counts: {
+      checkins: todayEntries.length,
+      food: todayFoods.length,
+      medicationLogs: todayMedLogs.length,
+      activities: todayActivities.length,
+      dreams: todayDreams.length,
+      quickNotes: todayNotes.length,
+      meditations: todayMeditations.length,
+      stool: todayStool.length,
+      media: todayMedia.length,
+      ouraFresh
+    },
+    items
+  };
+
+  return note;
+}
+
+function fcCoverageItem(icon, label, count, status, detail) {
+  return { icon, label, count, status, detail };
+}
+
+function fcHasFreshOuraSleep(oura, now) {
+  if (!oura || !Array.isArray(oura.sleep) || !oura.sleep.length) return false;
+  const today = dayKey(now);
+  const yesterday = dayKey(now - 86400000);
+  return oura.sleep.some(s => s && (s.day === today || s.day === yesterday) && (s.score || s.score === 0));
+}
+
+function fcSaveDataCoverageNote(note) {
+  try {
+    const key = 'innerscape_data_coverage_notes';
+    const existing = fcLoadArray(key);
+    const existingToday = existing.find(n => n && n.id === note.id) || {};
+    const notes = existing.filter(n => n && n.id !== note.id);
+    notes.unshift({
+      ...existingToday,
+      id: note.id,
+      date: note.date,
+      ts: note.ts,
+      level: note.level,
+      message: note.message,
+      missing: note.missing,
+      counts: note.counts
+    });
+    localStorage.setItem(key, JSON.stringify(notes.slice(0, 60)));
+  } catch (e) {
+    console.warn('Data coverage note save failed:', e);
+  }
+}
+
+const FC_INCOMPLETE_REASONS = [
+  { id: 'forgot', label: 'Forgot' },
+  { id: 'busy', label: 'Busy day' },
+  { id: 'overwhelmed', label: 'Overwhelmed' },
+  { id: 'too_tired', label: 'Too tired' },
+  { id: 'no_phone', label: 'Away from phone' },
+  { id: 'food_missing', label: 'Food not logged' },
+  { id: 'meds_missing', label: 'Meds not logged' },
+  { id: 'activity_missing', label: 'Activity not logged' },
+  { id: 'sleep_missing', label: 'Sleep/Oura missing' },
+  { id: 'other', label: 'Other' }
+];
+
+function fcGetManualCoverageNote(now = Date.now()) {
+  const id = dayKey(now);
+  return fcLoadArray('innerscape_data_coverage_notes').find(n => n && n.id === id) || null;
+}
+
+function fcIncompleteReasonLabel(id) {
+  const found = FC_INCOMPLETE_REASONS.find(r => r.id === id);
+  return found ? found.label : id;
+}
+
+function fcOpenIncompleteDayModal() {
+  const existing = fcGetManualCoverageNote() || {};
+  const activeReasons = new Set(existing.manualReasons || []);
+  let modal = document.getElementById('fc-incomplete-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'fc-incomplete-modal';
+    modal.className = 'fc-modal-overlay';
+    document.body.appendChild(modal);
+  }
+
+  modal.innerHTML = `
+    <div class="fc-modal-card">
+      <div class="fc-modal-header">
+        <div>
+          <h3>I didn't log fully today</h3>
+          <p>Leave a note so Forecast knows today is a partial picture.</p>
+        </div>
+        <button class="fc-modal-close" onclick="fcCloseIncompleteDayModal()">×</button>
+      </div>
+      <div class="fc-incomplete-options">
+        ${FC_INCOMPLETE_REASONS.map(reason => `
+          <button class="fc-incomplete-option ${activeReasons.has(reason.id) ? 'active' : ''}" data-reason="${reason.id}" onclick="fcToggleIncompleteReason(this)">
+            ${reason.label}
+          </button>
+        `).join('')}
+      </div>
+      <textarea id="fc-incomplete-note-text" class="fc-incomplete-note-text" placeholder="Optional note... e.g. I ate but didn't log meals, or I was too tired to track after work.">${existing.manualText ? fcEscape(existing.manualText) : ''}</textarea>
+      <div class="fc-modal-actions">
+        <button class="fc-modal-secondary" onclick="fcClearIncompleteDayNote()">Clear</button>
+        <button class="fc-modal-primary" onclick="fcSaveIncompleteDayNote()">Save note</button>
+      </div>
+    </div>
+  `;
+  modal.classList.remove('hidden');
+}
+
+function fcCloseIncompleteDayModal() {
+  const modal = document.getElementById('fc-incomplete-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function fcToggleIncompleteReason(btn) {
+  btn.classList.toggle('active');
+}
+
+function fcSaveIncompleteDayNote() {
+  const key = 'innerscape_data_coverage_notes';
+  const id = dayKey(Date.now());
+  const notes = fcLoadArray(key);
+  const existing = notes.find(n => n && n.id === id) || { id, date: id };
+  const reasons = Array.from(document.querySelectorAll('.fc-incomplete-option.active')).map(btn => btn.dataset.reason);
+  const text = (document.getElementById('fc-incomplete-note-text')?.value || '').trim();
+  const updated = {
+    ...existing,
+    id,
+    date: id,
+    ts: Date.now(),
+    manualIncomplete: true,
+    manualReasons: reasons,
+    manualText: text,
+    manualUpdatedAt: Date.now()
+  };
+  const next = notes.filter(n => n && n.id !== id);
+  next.unshift(updated);
+  localStorage.setItem(key, JSON.stringify(next.slice(0, 60)));
+  fcCloseIncompleteDayModal();
+  showToast('Daily note saved ✓');
+  showForecastPage();
+}
+
+function fcClearIncompleteDayNote() {
+  const key = 'innerscape_data_coverage_notes';
+  const id = dayKey(Date.now());
+  const notes = fcLoadArray(key);
+  const existing = notes.find(n => n && n.id === id);
+  if (existing) {
+    delete existing.manualIncomplete;
+    delete existing.manualReasons;
+    delete existing.manualText;
+    delete existing.manualUpdatedAt;
+  }
+  localStorage.setItem(key, JSON.stringify(notes));
+  fcCloseIncompleteDayModal();
+  showToast('Daily note cleared');
+  showForecastPage();
+}
+
+window.fcOpenIncompleteDayModal = fcOpenIncompleteDayModal;
+window.fcCloseIncompleteDayModal = fcCloseIncompleteDayModal;
+window.fcToggleIncompleteReason = fcToggleIncompleteReason;
+window.fcSaveIncompleteDayNote = fcSaveIncompleteDayNote;
+window.fcClearIncompleteDayNote = fcClearIncompleteDayNote;
 
 /* ═══════════════════════════════════
    ACTIVE INSIGHTS — Front & Center
