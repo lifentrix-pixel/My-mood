@@ -37,7 +37,67 @@ document.addEventListener('DOMContentLoaded', () => {
     migrateFoodPhotosToIDB().then(n => { if (n > 0) console.log('Migrated', n, 'food photos to IDB'); });
   }
   migrateOuraToIDB();
+  trimLocalStorage();
 });
+
+// Trim localStorage when over 80% — move old data to IDB (Supabase has the full copy)
+async function trimLocalStorage() {
+  try {
+    let totalBytes = 0;
+    for (let i = 0; i < localStorage.length; i++) {
+      totalBytes += (localStorage.getItem(localStorage.key(i)) || '').length * 2;
+    }
+    const pct = totalBytes / (5 * 1024 * 1024) * 100;
+    if (pct < 80) return;
+    
+    console.log(`Storage at ${pct.toFixed(0)}% — trimming old data...`);
+    
+    // These keys are sorted by typical size (biggest first)
+    const trimTargets = [
+      { key: 'innerscape_time_entries', tsField: 'startTime', keepDays: 90 },
+      { key: 'innerscape_entries', tsField: 'ts', keepDays: 90 },
+      { key: 'innerscape_medication_logs', tsField: 'timestamp', keepDays: 90 },
+      { key: 'innerscape_food_entries', tsField: 'timestamp', keepDays: 90 },
+      { key: 'innerscape_stool_entries', tsField: 'timestamp', keepDays: 90 },
+    ];
+    
+    const cutoff = Date.now() - (90 * 24 * 60 * 60 * 1000);
+    let freedBytes = 0;
+    
+    for (const { key, tsField, keepDays } of trimTargets) {
+      const raw = localStorage.getItem(key);
+      if (!raw || raw.length < 10000) continue; // skip small keys
+      
+      const data = JSON.parse(raw);
+      if (!Array.isArray(data)) continue;
+      
+      // Archive old entries to IDB
+      const old = data.filter(e => (e[tsField] || e.ts || 0) < cutoff);
+      const recent = data.filter(e => (e[tsField] || e.ts || 0) >= cutoff);
+      
+      if (old.length === 0) continue;
+      
+      // Save old to IDB as archive
+      const existing = await idbGet(key + '_archive') || [];
+      const merged = [...existing, ...old];
+      await idbSet(key + '_archive', merged);
+      
+      // Keep only recent in localStorage
+      const oldSize = raw.length * 2;
+      localStorage.setItem(key, JSON.stringify(recent));
+      const newSize = localStorage.getItem(key).length * 2;
+      freedBytes += oldSize - newSize;
+      
+      console.log(`${key}: archived ${old.length} old entries to IDB, kept ${recent.length} recent`);
+    }
+    
+    if (freedBytes > 0) {
+      console.log(`Freed ${(freedBytes / 1024).toFixed(0)}KB from localStorage`);
+    }
+  } catch (e) {
+    console.error('trimLocalStorage error:', e);
+  }
+}
 
 // Move Oura raw data to IndexedDB (heart_rate arrays are huge)
 async function migrateOuraToIDB() {

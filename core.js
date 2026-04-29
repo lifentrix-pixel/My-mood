@@ -220,6 +220,19 @@ const DEFAULT_CATEGORIES = [
 function loadEntries() {
   try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch { return []; }
 }
+// Load entries including IDB archive (async — for Forecast/Trends)
+async function loadAllEntries() {
+  const local = loadEntries();
+  try {
+    const archived = await idbGet(STORE_KEY + '_archive') || [];
+    if (archived.length === 0) return local;
+    // Merge by ID, local wins
+    const ids = new Set(local.map(e => e.id || e.ts));
+    const extra = archived.filter(e => !ids.has(e.id || e.ts));
+    return [...extra, ...local];
+  } catch { return local; }
+}
+window.loadAllEntries = loadAllEntries;
 function saveEntry(entry) {
   const entries = loadEntries();
   entries.push(entry);
@@ -258,6 +271,16 @@ function saveActivities(acts) {
 function loadTimeEntries() {
   try { return JSON.parse(localStorage.getItem(TIME_ENTRIES_KEY)) || []; } catch { return []; }
 }
+async function loadAllTimeEntries() {
+  const local = loadTimeEntries();
+  try {
+    const archived = await idbGet(TIME_ENTRIES_KEY + '_archive') || [];
+    if (archived.length === 0) return local;
+    const ids = new Set(local.map(e => e.id));
+    return [...archived.filter(e => !ids.has(e.id)), ...local];
+  } catch { return local; }
+}
+window.loadAllTimeEntries = loadAllTimeEntries;
 function saveTimeEntries(entries) { 
   safeSave(TIME_ENTRIES_KEY, entries);
   if (currentUser && db) {

@@ -363,14 +363,18 @@ async function pullFromSupabase() {
     ];
 
     let pulled = 0;
-    merges.forEach(({ key, remote }) => {
-      if (remote.length === 0) return;
+    for (const { key, remote } of merges) {
+      if (remote.length === 0) continue;
       const local = safeLoad(key);
       const merged = mergeById(local, remote);
       const added = merged.length - local.length;
       if (added > 0) pulled += added;
-      localStorage.setItem(key, JSON.stringify(merged));
-    });
+      if (!safeSave(key, merged)) {
+        // localStorage full — save to IndexedDB instead, keep localStorage version as-is
+        try { await idbSet(key, merged); console.log(`${key}: saved to IDB (localStorage full)`); }
+        catch(e) { console.warn(`${key}: IDB save also failed`, e); }
+      }
+    }
 
     // Food presets: special merge (object, not array)
     if (fpRows.length > 0) {
