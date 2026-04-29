@@ -48,20 +48,23 @@ async function trimLocalStorage() {
       totalBytes += (localStorage.getItem(localStorage.key(i)) || '').length * 2;
     }
     const pct = totalBytes / (5 * 1024 * 1024) * 100;
-    if (pct < 80) return;
+    if (pct < 60) return;
     
-    console.log(`Storage at ${pct.toFixed(0)}% — trimming old data...`);
+    // Aggressive trim: if over 90%, keep only 30 days; if over 70%, keep 60 days; else 90
+    const keepDays = pct > 90 ? 30 : pct > 70 ? 60 : 90;
+    console.log(`Storage at ${pct.toFixed(0)}% — trimming to ${keepDays} days...`);
     
     // These keys are sorted by typical size (biggest first)
     const trimTargets = [
-      { key: 'innerscape_time_entries', tsField: 'startTime', keepDays: 90 },
-      { key: 'innerscape_entries', tsField: 'ts', keepDays: 90 },
-      { key: 'innerscape_medication_logs', tsField: 'timestamp', keepDays: 90 },
-      { key: 'innerscape_food_entries', tsField: 'timestamp', keepDays: 90 },
-      { key: 'innerscape_stool_entries', tsField: 'timestamp', keepDays: 90 },
+      { key: 'innerscape_time_entries', tsField: 'startTime' },
+      { key: 'innerscape_entries', tsField: 'ts' },
+      { key: 'innerscape_medication_logs', tsField: 'timestamp' },
+      { key: 'innerscape_food_entries', tsField: 'timestamp' },
+      { key: 'innerscape_stool_entries', tsField: 'timestamp' },
+      { key: 'innerscape_media_sessions', tsField: 'timestamp' },
     ];
     
-    const cutoff = Date.now() - (90 * 24 * 60 * 60 * 1000);
+    const cutoff = Date.now() - (keepDays * 24 * 60 * 60 * 1000);
     let freedBytes = 0;
     
     for (const { key, tsField, keepDays } of trimTargets) {

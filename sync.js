@@ -274,12 +274,14 @@ async function fetchAllRows(table, recentOnly) {
   let dateFilter = '';
   if (recentOnly && RECENT_PULL_TABLES[table]) {
     const col = RECENT_PULL_TABLES[table];
-    const cutoff90 = Date.now() - (90 * 24 * 60 * 60 * 1000);
+    // Match trim window — pull only what localStorage will keep
+    const pullDays = 30; // Conservative: only pull recent month
+    const cutoff = Date.now() - (pullDays * 24 * 60 * 60 * 1000);
     // ts columns are bigint (ms), created_at columns are ISO timestamp
     if (col === 'ts' || col === 'start_time') {
-      dateFilter = `&${col}=gte.${cutoff90}`;
+      dateFilter = `&${col}=gte.${cutoff}`;
     } else {
-      dateFilter = `&${col}=gte.${new Date(cutoff90).toISOString()}`;
+      dateFilter = `&${col}=gte.${new Date(cutoff).toISOString()}`;
     }
   }
   
@@ -590,8 +592,13 @@ function renderCloudSyncSection() {
 /* ── Init ── */
 
 function initSync() {
-  // Initial two-way sync after short delay (pull then push)
-  setTimeout(() => fullSync(), 2000);
+  // Initial two-way sync — wait for trim to finish first
+  (async () => {
+    if (typeof trimLocalStorage === 'function') {
+      try { await trimLocalStorage(); } catch(e) { console.warn('Pre-sync trim failed:', e); }
+    }
+    fullSync();
+  })();
 
   // Periodic two-way sync every 5 minutes
   setInterval(() => fullSync(), 5 * 60 * 1000);
