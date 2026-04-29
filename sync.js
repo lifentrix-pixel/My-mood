@@ -253,13 +253,39 @@ function unmapOuraData(rows) {
 
 /* ── Pull from Supabase ── */
 
-async function fetchAllRows(table) {
+// Tables with timestamp columns that can be filtered for recent-only pulls
+const RECENT_PULL_TABLES = {
+  'checkins': 'ts',
+  'time_entries': 'start_time',
+  'food_entries': 'created_at',
+  'medication_logs': 'created_at',
+  'stool_entries': 'created_at',
+  'quick_notes': 'ts',
+  'dreams': 'ts',
+  'media_sessions': 'created_at'
+};
+
+async function fetchAllRows(table, recentOnly) {
   const rows = [];
   let offset = 0;
   const limit = 1000;
+  
+  // For large tables, only pull last 90 days to avoid filling localStorage
+  let dateFilter = '';
+  if (recentOnly && RECENT_PULL_TABLES[table]) {
+    const col = RECENT_PULL_TABLES[table];
+    const cutoff90 = Date.now() - (90 * 24 * 60 * 60 * 1000);
+    // ts columns are bigint (ms), created_at columns are ISO timestamp
+    if (col === 'ts' || col === 'start_time') {
+      dateFilter = `&${col}=gte.${cutoff90}`;
+    } else {
+      dateFilter = `&${col}=gte.${new Date(cutoff90).toISOString()}`;
+    }
+  }
+  
   while (true) {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/${table}?select=*&order=created_at.asc&offset=${offset}&limit=${limit}`,
+      `${SUPABASE_URL}/rest/v1/${table}?select=*&order=created_at.asc${dateFilter}&offset=${offset}&limit=${limit}`,
       { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } }
     );
     if (!res.ok) throw new Error(`Pull ${table}: ${res.status}`);
@@ -319,26 +345,27 @@ async function pullFromSupabase() {
   updateSyncStatus('Pulling...', 'syncing');
 
   try {
+    const recent = true; // Only pull last 90 days for large tables
     const [cRows, tRows, aRows, fRows, mRows, sRows,
            qnRows, intRows, drRows, todoRows, wishRows, medRows, meditRows, fpRows, mqRows, msRows, miRows, ouraRows] = await Promise.all([
-      fetchAllRows('checkins'),
-      fetchAllRows('time_entries'),
-      fetchAllRows('activities'),
-      fetchAllRows('food_entries'),
-      fetchAllRows('medication_logs'),
-      fetchAllRows('stool_entries'),
-      fetchAllRows('quick_notes'),
-      fetchAllRows('intentions'),
-      fetchAllRows('dreams'),
-      fetchAllRows('todos'),
-      fetchAllRows('wishes'),
-      fetchAllRows('medications'),
-      fetchAllRows('meditations'),
-      fetchAllRows('food_presets'),
-      fetchAllRows('media_queue'),
-      fetchAllRows('media_sessions'),
-      fetchAllRows('media_impulse'),
-      fetchAllRows('oura_data')
+      fetchAllRows('checkins', recent),
+      fetchAllRows('time_entries', recent),
+      fetchAllRows('activities'),       // small, always pull all
+      fetchAllRows('food_entries', recent),
+      fetchAllRows('medication_logs', recent),
+      fetchAllRows('stool_entries', recent),
+      fetchAllRows('quick_notes', recent),
+      fetchAllRows('intentions'),       // small
+      fetchAllRows('dreams', recent),
+      fetchAllRows('todos'),            // small
+      fetchAllRows('wishes'),           // small
+      fetchAllRows('medications'),      // small
+      fetchAllRows('meditations'),      // small
+      fetchAllRows('food_presets'),     // small
+      fetchAllRows('media_queue'),     // small
+      fetchAllRows('media_sessions', recent),
+      fetchAllRows('media_impulse'),   // small
+      fetchAllRows('oura_data')        // small (summary)
     ]);
 
     const merges = [
