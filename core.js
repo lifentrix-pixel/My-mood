@@ -194,6 +194,36 @@ const CATS = [
   { id: 'mind',   emoji: '🧠', label: 'Mind',   question: 'How calm/clear is your mind?',      color: '#22d3ee' },
 ];
 
+const OPTIONAL_CATS = [
+  {
+    id: 'direction',
+    emoji: '🧭',
+    label: 'Direction',
+    question: 'How in touch with direction do you feel?',
+    low: 'Drifting',
+    high: 'Clear',
+    color: '#38bdf8'
+  },
+  {
+    id: 'power',
+    emoji: '🔥',
+    label: 'Power',
+    question: 'Powerless to powerful, where are you right now?',
+    low: 'Powerless',
+    high: 'Powerful',
+    color: '#f472b6'
+  },
+  {
+    id: 'darkEnergy',
+    emoji: '🗡️',
+    label: 'Dark energy',
+    question: 'How present is that antihero drive or darker creative fuel?',
+    low: 'Quiet',
+    high: 'Charged',
+    color: '#818cf8'
+  },
+];
+
 // ── Storage Keys ──
 const STORE_KEY = 'innerscape_entries';
 const DREAMS_KEY = 'innerscape_dreams';
@@ -500,8 +530,9 @@ function exitDreamland() {
 function updateSliderFill(input) {
   const pct = ((input.value - 1) / 9) * 100;
   const cat = input.closest('.slider-card').dataset.cat;
-  const catObj = CATS.find(c => c.id === cat);
-  input.style.background = `linear-gradient(to right, ${catObj.color} 0%, ${catObj.color} ${pct}%, #1e1e2a ${pct}%)`;
+  const catObj = [...CATS, ...OPTIONAL_CATS].find(c => c.id === cat);
+  const color = catObj?.color || '#a78bfa';
+  input.style.background = `linear-gradient(to right, ${color} 0%, ${color} ${pct}%, #1e1e2a ${pct}%)`;
 }
 
 // ── Notifications ──

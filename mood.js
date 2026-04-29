@@ -50,6 +50,60 @@ function buildSliders() {
       }
     });
   });
+
+  const optionalSection = document.createElement('section');
+  optionalSection.className = 'optional-checkin-section';
+  optionalSection.innerHTML = `
+    <div class="optional-checkin-header">
+      <div>
+        <h2>Optional deeper reads</h2>
+        <p>Only saved when you move a scale.</p>
+      </div>
+    </div>
+  `;
+  container.appendChild(optionalSection);
+
+  OPTIONAL_CATS.forEach(cat => {
+    const card = document.createElement('div');
+    card.className = 'slider-card optional-slider-card';
+    card.dataset.cat = cat.id;
+    card.innerHTML = `
+      <div class="slider-header">
+        <div class="slider-label"><span class="emoji">${cat.emoji}</span> ${cat.label}</div>
+        <div class="optional-value-wrap">
+          <span class="optional-pill">optional</span>
+          <div class="slider-value optional-value" id="val-${cat.id}">—</div>
+        </div>
+      </div>
+      <div class="slider-question">${cat.question}</div>
+      <div class="slider-track">
+        <input type="range" id="slider-${cat.id}" min="1" max="10" step="0.1" value="5" aria-label="${cat.label}">
+      </div>
+      <div class="optional-scale-labels">
+        <span>${cat.low}</span>
+        <span>${cat.high}</span>
+      </div>
+    `;
+    optionalSection.appendChild(card);
+
+    const slider = card.querySelector('input[type="range"]');
+    const valEl = card.querySelector('.slider-value');
+    updateSliderFill(slider);
+
+    const markTouched = () => {
+      const v = parseFloat(slider.value);
+      slider.dataset.touched = 'true';
+      card.classList.add('touched');
+      valEl.textContent = fmt(v);
+      valEl.style.color = cat.color;
+      updateSliderFill(slider);
+    };
+
+    slider.addEventListener('pointerdown', markTouched);
+    slider.addEventListener('input', () => {
+      markTouched();
+    });
+  });
 }
 
 function handleSubmit() {
@@ -60,6 +114,12 @@ function handleSubmit() {
     entry.scores[cat.id] = parseFloat($(`#slider-${cat.id}`).value);
     const note = $(`#notes-${cat.id}`).value.trim();
     if (note) entry.notes[cat.id] = note;
+  });
+  OPTIONAL_CATS.forEach(cat => {
+    const slider = $(`#slider-${cat.id}`);
+    if (slider?.dataset.touched === 'true') {
+      entry.scores[cat.id] = parseFloat(slider.value);
+    }
   });
   saveEntry(entry);
   
@@ -74,6 +134,17 @@ function handleSubmit() {
       $(`#notes-${cat.id}`).value = '';
       $(`#notes-field-${cat.id}`).classList.remove('open');
       $(`.notes-toggle[data-cat="${cat.id}"]`).classList.remove('open');
+      updateSliderFill(slider);
+    });
+    OPTIONAL_CATS.forEach(cat => {
+      const slider = $(`#slider-${cat.id}`);
+      const card = slider?.closest('.optional-slider-card');
+      if (!slider || !card) return;
+      slider.value = 5;
+      delete slider.dataset.touched;
+      card.classList.remove('touched');
+      $(`#val-${cat.id}`).textContent = '—';
+      $(`#val-${cat.id}`).style.color = '';
       updateSliderFill(slider);
     });
   }, 1500);
@@ -133,6 +204,25 @@ function renderToday() {
         return `<div class="entry-note-item"><span class="note-cat">${cat?.emoji || ''} ${cat?.label || k}:</span> ${entry.notes[k]}</div>`;
       }).join('') + '</div>';
     }
+
+    let optionalHTML = '';
+    const optionalScores = OPTIONAL_CATS.filter(cat => Number.isFinite(entry.scores?.[cat.id]));
+    if (optionalScores.length) {
+      optionalHTML = `
+        <div class="entry-optional-scores">
+          ${optionalScores.map(cat => {
+            const v = entry.scores[cat.id];
+            const pct = ((v - 1) / 9) * 100;
+            return `
+              <div class="entry-optional-score">
+                <span class="score-emoji">${cat.emoji}</span>
+                <span class="entry-optional-label">${cat.label}</span>
+                <div class="entry-bar"><div class="entry-bar-fill" style="width:${pct}%;background:${cat.color}"></div></div>
+                <span class="entry-score-val" style="color:${cat.color}">${fmt(v)}</span>
+              </div>`;
+          }).join('')}
+        </div>`;
+    }
     
     card.innerHTML = `
       <div class="entry-header">
@@ -140,6 +230,7 @@ function renderToday() {
         <button class="entry-delete" data-ts="${entry.ts}" title="Delete">✕</button>
       </div>
       <div class="entry-scores">${scoresHTML}</div>
+      ${optionalHTML}
       ${notesHTML}
     `;
     card.querySelector('.entry-delete').addEventListener('click', (e) => {
