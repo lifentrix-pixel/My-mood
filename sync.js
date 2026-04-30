@@ -17,8 +17,15 @@ function supabaseHeaders() {
   };
 }
 
+// Track deleted IDs so pull doesn't resurrect them
+const _deletedIds = new Set();
+
 async function deleteFromSupabase(table, id) {
-  if (!navigator.onLine || !id) return;
+  if (!id) return;
+  _deletedIds.add(id);
+  // Clean up old tracked deletions after 5 minutes
+  setTimeout(() => _deletedIds.delete(id), 5 * 60 * 1000);
+  if (!navigator.onLine) return;
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}`, {
       method: 'DELETE',
@@ -304,6 +311,8 @@ async function fetchAllRows(table, recentOnly) {
 }
 
 function mergeById(local, remote) {
+  // Filter out recently deleted items from remote
+  remote = remote.filter(e => !_deletedIds.has(e.id));
   const map = new Map();
   const tsByTs = new Map(); // track by timestamp for dedup across ID formats
   // Local first
