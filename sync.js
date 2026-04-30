@@ -31,6 +31,10 @@ window.deleteFromSupabase = deleteFromSupabase;
 
 async function upsertRows(table, rows) {
   if (!rows || rows.length === 0) return { ok: true, count: 0 };
+  // Deduplicate by ID — Supabase can't upsert same row twice in one batch
+  const seen = new Set();
+  rows = rows.filter(r => { if (!r.id || seen.has(r.id)) return false; seen.add(r.id); return true; });
+  if (rows.length === 0) return { ok: true, count: 0 };
   // Batch in chunks of 500
   for (let i = 0; i < rows.length; i += 500) {
     const chunk = rows.slice(i, i + 500);
