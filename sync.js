@@ -23,15 +23,19 @@ const _deletedIds = new Set();
 async function deleteFromSupabase(table, id) {
   if (!id) return;
   _deletedIds.add(id);
-  // Clean up old tracked deletions after 5 minutes
   setTimeout(() => _deletedIds.delete(id), 5 * 60 * 1000);
   if (!navigator.onLine) return;
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}`, {
       method: 'DELETE',
-      headers: supabaseHeaders()
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Content-Type': 'application/json'
+      }
     });
-    if (!res.ok) console.warn(`Delete from ${table} failed:`, res.status);
+    console.log(`deleteFromSupabase(${table}, ${id}):`, res.status);
+    if (!res.ok) console.warn(`Delete from ${table} failed:`, res.status, await res.text());
   } catch (e) { console.warn('Supabase delete error:', e); }
 }
 window.deleteFromSupabase = deleteFromSupabase;
