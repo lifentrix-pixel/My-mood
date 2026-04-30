@@ -284,8 +284,16 @@ function renderTimerGrid() {
       </div>
     `;
     
+    // Long-press to edit, tap to start timer
+    let longPressTimer = null;
+    btn.addEventListener('touchstart', () => {
+      longPressTimer = setTimeout(() => { longPressTimer = 'fired'; openEditActivityModal(act); }, 600);
+    }, { passive: true });
+    btn.addEventListener('touchend', () => { if (longPressTimer !== 'fired') clearTimeout(longPressTimer); longPressTimer = null; });
+    btn.addEventListener('touchmove', () => { if (longPressTimer !== 'fired') clearTimeout(longPressTimer); }, { passive: true });
+    
     btn.addEventListener('click', (e) => {
-      if (e.target.closest('.timer-act-actions')) return;
+      if (e.target.closest('.timer-act-actions') || longPressTimer === 'fired') return;
       startTimer(act);
     });
     
