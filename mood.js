@@ -73,6 +73,7 @@ function buildSliders() {
         <div class="optional-value-wrap">
           <span class="optional-pill">optional</span>
           <div class="slider-value optional-value" id="val-${cat.id}">—</div>
+          <button class="optional-clear" type="button" data-cat="${cat.id}" aria-label="Clear ${cat.label}">Clear</button>
         </div>
       </div>
       <div class="slider-question">${cat.question}</div>
@@ -88,14 +89,26 @@ function buildSliders() {
 
     const slider = card.querySelector('input[type="range"]');
     const valEl = card.querySelector('.slider-value');
+    const clearBtn = card.querySelector('.optional-clear');
     updateSliderFill(slider);
 
     const markTouched = () => {
       const v = parseFloat(slider.value);
       slider.dataset.touched = 'true';
       card.classList.add('touched');
+      clearBtn.classList.add('show');
       valEl.textContent = fmt(v);
       valEl.style.color = cat.color;
+      updateSliderFill(slider);
+    };
+
+    const clearTouched = () => {
+      slider.value = 5;
+      delete slider.dataset.touched;
+      card.classList.remove('touched');
+      clearBtn.classList.remove('show');
+      valEl.textContent = '—';
+      valEl.style.color = '';
       updateSliderFill(slider);
     };
 
@@ -103,6 +116,7 @@ function buildSliders() {
     slider.addEventListener('input', () => {
       markTouched();
     });
+    clearBtn.addEventListener('click', clearTouched);
   });
 }
 
@@ -139,10 +153,12 @@ function handleSubmit() {
     OPTIONAL_CATS.forEach(cat => {
       const slider = $(`#slider-${cat.id}`);
       const card = slider?.closest('.optional-slider-card');
+      const clearBtn = card?.querySelector('.optional-clear');
       if (!slider || !card) return;
       slider.value = 5;
       delete slider.dataset.touched;
       card.classList.remove('touched');
+      clearBtn?.classList.remove('show');
       $(`#val-${cat.id}`).textContent = '—';
       $(`#val-${cat.id}`).style.color = '';
       updateSliderFill(slider);

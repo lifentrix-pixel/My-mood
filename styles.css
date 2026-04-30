@@ -200,6 +200,8 @@ nav {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .optional-pill {
   border: 1px solid var(--border);
@@ -214,6 +216,24 @@ nav {
 .optional-slider-card.touched .optional-pill {
   border-color: rgba(244,114,182,.55);
   color: var(--text);
+}
+.optional-clear {
+  display: none;
+  border: 1px solid rgba(244,114,182,.35);
+  border-radius: 999px;
+  background: rgba(244,114,182,.08);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 9px;
+  -webkit-tap-highlight-color: transparent;
+}
+.optional-clear.show {
+  display: inline-flex;
+}
+.optional-clear:active {
+  transform: scale(.97);
 }
 .optional-value {
   min-width: 28px;
