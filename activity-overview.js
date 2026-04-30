@@ -601,6 +601,7 @@ function deleteActivityEntry(entryId) {
   }
   
   saveTimeEntries(filtered);
+  deleteFromSupabase('time_entries', entryId);
   showToast('Entry deleted');
   showActivityOverview(); // Refresh the view
 }

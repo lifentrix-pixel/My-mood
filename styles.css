@@ -3668,13 +3668,11 @@ body.in-dreamland #sub-nav { display: none !important; }
   display: flex;
   gap: 4px;
   margin-top: 4px;
-  opacity: 0;
-  transition: opacity 0.2s ease;
+  opacity: 0.6;
 }
 
-.ao-block:hover .ao-block-actions,
-.ao-sub-item:hover .ao-sub-actions {
-  opacity: 1;
+.ao-sub-actions {
+  opacity: 0.6;
 }
 
 .ao-edit-btn, .ao-delete-btn {
