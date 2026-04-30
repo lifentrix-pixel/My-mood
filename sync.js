@@ -17,13 +17,20 @@ function supabaseHeaders() {
   };
 }
 
-// Track deleted IDs so pull doesn't resurrect them
-const _deletedIds = new Set();
+// Track deleted IDs so pull doesn't resurrect them — persisted to localStorage
+// Format: [{id, table}]
+const _deletedIdsMap = (() => { try { return JSON.parse(localStorage.getItem('innerscape_deleted_sync') || '[]'); } catch { return []; } })();
+const _deletedIds = new Set(_deletedIdsMap.map(d => typeof d === 'string' ? d : d.id));
+
+function _trackDeletion(table, id) {
+  _deletedIds.add(id);
+  _deletedIdsMap.push({ id, table });
+  try { localStorage.setItem('innerscape_deleted_sync', JSON.stringify(_deletedIdsMap.slice(-200))); } catch {}
+}
 
 async function deleteFromSupabase(table, id) {
   if (!id) return;
-  _deletedIds.add(id);
-  setTimeout(() => _deletedIds.delete(id), 5 * 60 * 1000);
+  _trackDeletion(table, id);
   if (!navigator.onLine) return;
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}`, {
@@ -464,6 +471,16 @@ async function fullSync(force) {
   updateSyncStatus('Syncing...', 'syncing');
 
   try {
+    // 0. Re-delete any tracked deletions from Supabase (in case prior deletes failed)
+    if (_deletedIdsMap.length > 0) {
+      await Promise.allSettled(_deletedIdsMap.map(d => {
+        const t = d.table || 'todos';
+        return fetch(`${SUPABASE_URL}/rest/v1/${t}?id=eq.${encodeURIComponent(d.id || d)}`, {
+          method: 'DELETE',
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+        }).catch(() => {});
+      }));
+    }
     // 1. Pull remote → merge into local
     const pulled = await pullFromSupabase();
     // 2. Push local → remote
