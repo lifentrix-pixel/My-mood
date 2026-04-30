@@ -84,8 +84,25 @@ function buildSliders() {
         <span>${cat.low}</span>
         <span>${cat.high}</span>
       </div>
+      <button class="notes-toggle" data-cat="${cat.id}">
+        <span class="chevron">›</span> Add note
+      </button>
+      <div class="notes-field" id="notes-field-${cat.id}">
+        <textarea id="notes-${cat.id}" placeholder="Optional note..."></textarea>
+      </div>
     `;
     optionalSection.appendChild(card);
+
+    // Notes toggle for optional metrics
+    const toggle = card.querySelector('.notes-toggle');
+    const field = card.querySelector('.notes-field');
+    toggle.addEventListener('click', () => {
+      toggle.classList.toggle('open');
+      field.classList.toggle('open');
+      if (field.classList.contains('open')) {
+        setTimeout(() => field.querySelector('textarea').focus(), 300);
+      }
+    });
 
     const slider = card.querySelector('input[type="range"]');
     const valEl = card.querySelector('.slider-value');
@@ -133,6 +150,8 @@ function handleSubmit() {
     const slider = $(`#slider-${cat.id}`);
     if (slider?.dataset.touched === 'true') {
       entry.scores[cat.id] = parseFloat(slider.value);
+      const note = $(`#notes-${cat.id}`)?.value?.trim();
+      if (note) entry.notes[cat.id] = note;
     }
   });
   saveEntry(entry);
@@ -162,6 +181,11 @@ function handleSubmit() {
       $(`#val-${cat.id}`).textContent = '—';
       $(`#val-${cat.id}`).style.color = '';
       updateSliderFill(slider);
+      // Clear optional notes
+      const noteEl = $(`#notes-${cat.id}`);
+      if (noteEl) noteEl.value = '';
+      $(`#notes-field-${cat.id}`)?.classList.remove('open');
+      $(`.notes-toggle[data-cat="${cat.id}"]`)?.classList.remove('open');
     });
   }, 1500);
   
