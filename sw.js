@@ -1,8 +1,13 @@
-const CACHE = 'innerscape-v194';
-const ASSETS = ['/', '/index.html', '/styles.css', '/core.js', '/mood.js', '/dreams.js', '/timer.js', '/meditation.js', '/food.js', '/insights.js', '/sync.js', '/medication.js', '/todos.js', '/wishlist.js', '/studio.js', '/stool.js', '/forecast.js', '/oura.js', '/activity-overview.js', '/app.js', '/intentions.js', '/media.js', '/manifest.json', '/import-data.html', '/restore.html', '/combined-backup.json'];
+const CACHE = 'innerscape-v195';
+const ASSETS = ['/', '/index.html', '/styles.css', '/core.js', '/mood.js', '/dreams.js', '/timer.js', '/meditation.js', '/food.js', '/insights.js', '/sync.js', '/medication.js', '/todos.js', '/wishlist.js', '/studio.js', '/stool.js', '/forecast.js', '/oura.js', '/activity-overview.js', '/app.js', '/intentions.js', '/media.js', '/manifest.json'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
+  e.waitUntil(
+    caches.open(CACHE).then(c =>
+      // Cache assets individually — don't fail install if one asset has network issues
+      Promise.allSettled(ASSETS.map(url => c.add(url).catch(err => console.warn('Cache miss:', url, err))))
+    )
+  );
   self.skipWaiting();
 });
 
@@ -16,9 +21,21 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request))
-  );
+  // Network-first for API calls, cache-first for app assets
+  if (e.request.url.includes('/api/') || e.request.url.includes('supabase')) {
+    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+  } else {
+    e.respondWith(
+      caches.match(e.request).then(r => r || fetch(e.request).then(res => {
+        // Cache successful fetches for next time
+        if (res.ok) {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+        }
+        return res;
+      }))
+    );
+  }
 });
 
 // Listen for message from app to skip waiting
