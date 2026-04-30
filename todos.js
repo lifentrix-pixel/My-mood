@@ -316,12 +316,24 @@ function deleteTodo(id) {
   if (!deleted) return;
 
   saveTodos(todos.filter(t => t.id !== id));
-  deleteFromSupabase('todos', id);
+  // Delete from Supabase and wait for it
+  deleteFromSupabase('todos', id).then(() => {
+    console.log('Todo deleted from Supabase:', id);
+  });
   renderTodos();
   showToast('Task deleted', () => {
+    // Undo: re-add locally AND remove from deletion tracker, then re-push to Supabase
     const current = loadTodos();
     current.push(deleted);
     saveTodos(current);
+    if (typeof _deletedIds !== 'undefined') _deletedIds.delete(id);
+    if (typeof _deletedIdsMap !== 'undefined') {
+      const idx = _deletedIdsMap.findIndex(d => d.id === id);
+      if (idx >= 0) _deletedIdsMap.splice(idx, 1);
+    }
+    try { localStorage.setItem('innerscape_deleted_sync', JSON.stringify(_deletedIdsMap || [])); } catch {}
+    // Re-push to Supabase
+    upsertRows('todos', mapJsonbTable([deleted], 'todo')).catch(() => {});
     renderTodos();
   });
 }
