@@ -47,6 +47,25 @@ async function deleteFromSupabase(table, id) {
 }
 window.deleteFromSupabase = deleteFromSupabase;
 
+// Replace entire table contents — delete all then insert (for small local-authoritative tables)
+async function replaceTable(table, rows) {
+  if (!rows || rows.length === 0) {
+    // Delete all from table
+    await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=neq.___impossible___`, {
+      method: 'DELETE',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+    }).catch(() => {});
+    return { ok: true, count: 0 };
+  }
+  // Delete all existing rows
+  await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=neq.___impossible___`, {
+    method: 'DELETE',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+  }).catch(() => {});
+  // Insert current local data
+  return upsertRows(table, rows);
+}
+
 async function upsertRows(table, rows) {
   if (!rows || rows.length === 0) return { ok: true, count: 0 };
   // Deduplicate by ID — Supabase can't upsert same row twice in one batch
@@ -404,10 +423,11 @@ async function pullFromSupabase() {
       { key: 'innerscape_quick_notes', remote: unmapQuickNotes(qnRows) },
       { key: 'innerscape_intentions', remote: unmapIntentions(intRows) },
       { key: 'innerscape_dreams', remote: unmapDreams(drRows) },
-      { key: 'innerscape_todos', remote: unmapJsonbTable(todoRows) },
-      { key: 'innerscape_wishes', remote: unmapJsonbTable(wishRows) },
-      { key: 'innerscape_medications', remote: unmapJsonbTable(medRows) },
-      { key: 'innerscape_meditations', remote: unmapJsonbTable(meditRows) },
+      // todos, wishes, medications, meditations: LOCAL-AUTHORITATIVE (skip pull merge, push replaces)
+      // { key: 'innerscape_todos', remote: unmapJsonbTable(todoRows) },
+      // { key: 'innerscape_wishes', remote: unmapJsonbTable(wishRows) },
+      // { key: 'innerscape_medications', remote: unmapJsonbTable(medRows) },
+      // { key: 'innerscape_meditations', remote: unmapJsonbTable(meditRows) },
       // food_presets handled separately (object, not array)
 
       { key: 'innerscape_media_queue', remote: unmapJsonbTable(mqRows) },
@@ -537,10 +557,10 @@ async function syncToSupabase(force, _skipStatusGuard) {
       upsertRows('quick_notes', mapQuickNotes(filterNew(safeLoad('innerscape_quick_notes'), 'ts'))),
       upsertRows('intentions', mapIntentions(safeLoad('innerscape_intentions'))),
       upsertRows('dreams', mapDreams(filterNew(safeLoad('innerscape_dreams'), 'ts'))),
-      upsertRows('todos', mapJsonbTable(safeLoad('innerscape_todos'), 'todo')),
-      upsertRows('wishes', mapJsonbTable(safeLoad('innerscape_wishes'), 'wish')),
-      upsertRows('medications', mapJsonbTable(safeLoad('innerscape_medications'), 'med')),
-      upsertRows('meditations', mapJsonbTable(safeLoad('innerscape_meditations'), 'med')),
+      replaceTable('todos', mapJsonbTable(safeLoad('innerscape_todos'), 'todo')),
+      replaceTable('wishes', mapJsonbTable(safeLoad('innerscape_wishes'), 'wish')),
+      replaceTable('medications', mapJsonbTable(safeLoad('innerscape_medications'), 'med')),
+      replaceTable('meditations', mapJsonbTable(safeLoad('innerscape_meditations'), 'med')),
       upsertRows('food_presets', (() => { try { const fp = JSON.parse(localStorage.getItem('innerscape_food_presets') || 'null'); return fp ? [{ id: 'food_presets', data: fp }] : []; } catch { return []; } })()),
       upsertRows('media_queue', mapJsonbTable(safeLoad('innerscape_media_queue'), 'mq')),
       upsertRows('media_sessions', mapJsonbTable(safeLoad('innerscape_media_sessions'), 'ms')),
