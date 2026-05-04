@@ -34,6 +34,7 @@ function buildSliders() {
     valEl.style.color = gradientColor(initialV);
     
     slider.addEventListener('input', () => {
+      slider.dataset.touched = 'true';
       const v = parseFloat(slider.value);
       valEl.textContent = fmt(v);
       valEl.style.color = gradientColor(v);
@@ -141,11 +142,20 @@ function handleSubmit() {
   const btn = $('#submit-btn');
   const now = Date.now();
   const entry = { id: 'ci-' + now, ts: now, scores: {}, notes: {} };
+  
+  // Primary metrics — include if touched, or all if any primary was touched
+  const anyPrimaryTouched = CATS.some(cat => $(`#slider-${cat.id}`)?.dataset.touched === 'true');
   CATS.forEach(cat => {
-    entry.scores[cat.id] = parseFloat($(`#slider-${cat.id}`).value);
-    const note = $(`#notes-${cat.id}`).value.trim();
+    const slider = $(`#slider-${cat.id}`);
+    const note = $(`#notes-${cat.id}`)?.value?.trim();
+    // If any primary slider was moved, save all primary scores (preserves existing behavior)
+    if (anyPrimaryTouched) {
+      entry.scores[cat.id] = parseFloat(slider.value);
+    }
     if (note) entry.notes[cat.id] = note;
   });
+  
+  // Optional metrics
   OPTIONAL_CATS.forEach(cat => {
     const slider = $(`#slider-${cat.id}`);
     if (slider?.dataset.touched === 'true') {
@@ -154,6 +164,13 @@ function handleSubmit() {
       if (note) entry.notes[cat.id] = note;
     }
   });
+  
+  // Need at least one score to save
+  if (Object.keys(entry.scores).length === 0) {
+    showToast('Move at least one slider to check in');
+    return;
+  }
+  
   saveEntry(entry);
   
   btn.classList.add('saved');
@@ -162,6 +179,7 @@ function handleSubmit() {
     CATS.forEach(cat => {
       const slider = $(`#slider-${cat.id}`);
       slider.value = 5;
+      delete slider.dataset.touched;
       $(`#val-${cat.id}`).textContent = '5';
       $(`#val-${cat.id}`).style.color = CATS.find(c=>c.id===cat.id).color;
       $(`#notes-${cat.id}`).value = '';
