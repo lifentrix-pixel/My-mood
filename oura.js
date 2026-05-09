@@ -156,6 +156,13 @@ async function syncOuraData() {
     }
     
     showToast('🔄 Syncing Oura data...');
+    if (typeof updateIntegrationSyncStatus === 'function') {
+        updateIntegrationSyncStatus('oura', {
+            last_attempt_at: new Date().toISOString(),
+            status: 'syncing',
+            error: null
+        });
+    }
     
     try {
         // Get data for last 30 days (+ 1 extra day to catch timezone delays)
@@ -202,6 +209,13 @@ async function syncOuraData() {
         ouraConfig.lastSync = Date.now();
         saveOuraConfig();
         saveOuraData();
+        if (typeof updateIntegrationSyncStatus === 'function') {
+            updateIntegrationSyncStatus('oura', {
+                last_success_at: new Date().toISOString(),
+                status: 'ok',
+                error: null
+            });
+        }
         
         showToast('✅ Oura data synced');
         
@@ -211,6 +225,12 @@ async function syncOuraData() {
         
     } catch (error) {
         console.error('Sync error:', error);
+        if (typeof updateIntegrationSyncStatus === 'function') {
+            updateIntegrationSyncStatus('oura', {
+                status: 'error',
+                error: error.message || String(error)
+            });
+        }
         showToast('❌ Sync failed: ' + error.message);
     }
 }

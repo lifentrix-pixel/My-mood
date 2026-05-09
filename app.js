@@ -380,6 +380,550 @@ function installActivityTaxonomy() {
 
 installActivityTaxonomy();
 
+const APP_DATA_TIMEZONE = 'Europe/Helsinki';
+const APP_DATA_SOURCE = 'phone_app';
+const APP_DATA_SCHEMA_VERSION = 1;
+
+function appDataLocalDate(ts) {
+  return dayKey(ts || Date.now());
+}
+
+function appDataMeta(ts) {
+  return {
+    local_date: appDataLocalDate(ts),
+    timezone: APP_DATA_TIMEZONE,
+    schema_version: APP_DATA_SCHEMA_VERSION,
+    source: APP_DATA_SOURCE,
+  };
+}
+
+function normalizeCheckinEntry(entry) {
+  if (!entry) return entry;
+  const ts = entry.ts || Date.now();
+  return {
+    ...entry,
+    id: entry.id || ('ci-' + ts),
+    ts,
+    scores: entry.scores || {},
+    notes: entry.notes || {},
+    score_scale: entry.score_scale || { min: 1, max: 10, step: 0.1 },
+    ...appDataMeta(ts),
+  };
+}
+
+function normalizeTimeEntry(entry) {
+  if (!entry) return entry;
+  const startTime = entry.startTime || entry.start_time || Date.now();
+  const hasSubLayer = entry.subActivityId || entry.subSubActivityId || entry.subActivityName || entry.subSubActivityName;
+  const stableId = `te-${startTime}-${entry.activityId || entry.activity_id || 'activity'}-${entry.subActivityId || entry.subSubActivityId || 'main'}`;
+  return {
+    ...entry,
+    id: entry.id || stableId,
+    startTime,
+    endTime: entry.endTime || entry.end_time || null,
+    tracking_mode: entry.tracking_mode || entry.trackingMode || (hasSubLayer ? 'annotation' : 'primary'),
+    parent_entry_id: entry.parent_entry_id || entry.parentEntryId || null,
+    intensity: entry.intensity ?? null,
+    ...appDataMeta(startTime),
+  };
+}
+
+function normalizeJsonDataShape(entry, type) {
+  const now = Date.now();
+  const base = { ...(entry || {}) };
+  const ts = base.ts || base.timestamp || base.createdAt || now;
+  const meta = appDataMeta(ts);
+  if (type === 'todo') {
+    return {
+      text: base.text || base.title || '',
+      category: base.category || 'other',
+      priority: base.priority ?? 3,
+      completed: !!base.completed,
+      createdAt: base.createdAt || ts,
+      completedAt: base.completedAt || null,
+      notes: base.notes || '',
+      ...base,
+      ...meta,
+    };
+  }
+  if (type === 'wish') {
+    return {
+      text: base.text || '',
+      category: base.category || 'general',
+      type: base.type || 'recurring',
+      level: base.level || 'someday',
+      completed: !!base.completed,
+      createdAt: base.createdAt || ts,
+      updatedAt: base.updatedAt || ts,
+      notes: base.notes || '',
+      ...base,
+      ...meta,
+    };
+  }
+  if (type === 'meditation') {
+    return {
+      ts,
+      duration: base.duration || base.durationMs || null,
+      mood: base.mood || null,
+      rounds: base.rounds || base.meditationRounds || null,
+      notes: base.notes || base.note || '',
+      ...base,
+      ...meta,
+    };
+  }
+  if (type === 'stool') {
+    return {
+      bristol: base.bristol || null,
+      amount: base.amount || null,
+      manner: base.manner || null,
+      symptoms: base.symptoms || [],
+      notes: base.notes || '',
+      ...base,
+      ...meta,
+    };
+  }
+  return { ...base, ...meta };
+}
+
+function findPrimaryOverlaps(candidate, entries) {
+  if (!candidate.startTime || !candidate.endTime) return [];
+  return entries.filter(entry => (
+    entry.id !== candidate.id &&
+    (entry.tracking_mode || entry.trackingMode || 'primary') === 'primary' &&
+    entry.startTime < candidate.endTime &&
+    entry.endTime > candidate.startTime
+  ));
+}
+
+function chooseTrackingModeForEntry(candidate, entries) {
+  const normalized = normalizeTimeEntry(candidate);
+  if (normalized.tracking_mode !== 'primary') return normalized;
+  const overlaps = findPrimaryOverlaps(normalized, entries.map(normalizeTimeEntry));
+  if (!overlaps.length) return normalized;
+
+  const message = [
+    'This overlaps another main time entry.',
+    '',
+    'Type p for parallel, a for annotation, or leave blank to keep it as primary.',
+  ].join('\n');
+  const answer = (prompt(message, 'p') || '').trim().toLowerCase();
+  if (answer.startsWith('a')) normalized.tracking_mode = 'annotation';
+  else if (answer.startsWith('p')) normalized.tracking_mode = 'parallel';
+  return normalized;
+}
+
+function installDataHandoffLayer() {
+  const originalSyncMoodEntries = typeof syncMoodEntries === 'function' ? syncMoodEntries : null;
+  const originalSyncTimeEntries = typeof syncTimeEntries === 'function' ? syncTimeEntries : null;
+  const originalSyncActivities = typeof syncActivities === 'function' ? syncActivities : null;
+
+  window.loadEntries = function loadEntries() {
+    try { return (JSON.parse(localStorage.getItem(STORE_KEY)) || []).map(normalizeCheckinEntry); } catch { return []; }
+  };
+
+  window.saveEntry = function saveEntry(entry) {
+    const entries = loadEntries();
+    entries.push(normalizeCheckinEntry(entry));
+    safeSave(STORE_KEY, entries);
+    if (originalSyncMoodEntries) setTimeout(() => originalSyncMoodEntries(), 500);
+  };
+
+  window.loadTimeEntries = function loadTimeEntries() {
+    try { return (JSON.parse(localStorage.getItem(TIME_ENTRIES_KEY)) || []).map(normalizeTimeEntry); } catch { return []; }
+  };
+
+  window.saveTimeEntries = function saveTimeEntries(entries) {
+    safeSave(TIME_ENTRIES_KEY, entries.map(normalizeTimeEntry));
+    if (currentUser && db && originalSyncTimeEntries) setTimeout(() => originalSyncTimeEntries(), 100);
+  };
+
+  const baseSaveActivities = window.saveActivities;
+  window.saveActivities = function saveActivities(acts) {
+    const normalized = acts.map(activity => ({
+      ...normalizeActivity(activity),
+      source: APP_DATA_SOURCE,
+      schema_version: APP_DATA_SCHEMA_VERSION,
+    }));
+    localStorage.setItem(ACTIVITIES_KEY, JSON.stringify(normalized));
+    if (currentUser && db && originalSyncActivities) setTimeout(() => originalSyncActivities(), 100);
+    else if (typeof baseSaveActivities === 'function') return;
+  };
+
+  window.saveSessionDirectly = function saveSessionDirectly() {
+    if (!timerState.activeActivityId || !timerState.startTime) return;
+    clearInterval(timerState.interval);
+
+    try {
+      const entries = loadTimeEntries();
+      const now = Date.now();
+
+      if (timerState.activeSubActivityId && timerState.subStartTime) {
+        entries.push(normalizeTimeEntry({
+          activityId: timerState.activeActivityId,
+          subActivityId: timerState.activeSubActivityId,
+          startTime: timerState.subStartTime,
+          endTime: now,
+          tracking_mode: 'annotation',
+        }));
+      }
+
+      const notesField = $('#timer-session-notes');
+      const note = notesField ? notesField.value.trim() : '';
+      let entry = {
+        activityId: timerState.activeActivityId,
+        startTime: timerState.startTime,
+        endTime: now,
+        tracking_mode: 'primary',
+      };
+      if (note) {
+        entry.note = note;
+        entry.note_type = 'session_reflection';
+        entry.privacy_level = 'normal';
+      }
+      entry = chooseTrackingModeForEntry(entry, entries);
+      entries.push(entry);
+      saveTimeEntries(entries);
+
+      localStorage.removeItem('innerscape_active_timer');
+      localStorage.removeItem('innerscape_active_sub');
+      localStorage.removeItem('innerscape_active_subsub');
+      localStorage.removeItem(`innerscape_timer_notes_${timerState.activeActivityId}`);
+
+      const act = loadActivities().find(a => a.id === timerState.activeActivityId);
+      timerState.activeActivityId = null;
+      timerState.activeSubActivityId = null;
+      timerState.startTime = null;
+      timerState.subStartTime = null;
+
+      $('#timer-sub-display').classList.add('hidden');
+      $('#timer-session-display').classList.remove('hidden');
+      $('#timer-active').classList.add('hidden');
+      $('#timer-main').classList.remove('hidden');
+      renderTimerGrid();
+      renderTimerStats();
+      showToast(`${act ? act.emoji : '⏱'} Session saved ✓`);
+    } catch (err) {
+      console.error('Save session error:', err);
+      showToast('Error saving session');
+    }
+  };
+
+  window.saveManualEntry = function saveManualEntry() {
+    const actId = $('#timer-manual-activity').value;
+    const date = $('#timer-manual-date').value;
+    const startStr = $('#timer-manual-start').value;
+    const endStr = $('#timer-manual-end').value;
+    if (!actId || !date || !startStr || !endStr) { showToast('Fill in all fields'); return; }
+    const startTime = new Date(`${date}T${startStr}`).getTime();
+    const endTime = new Date(`${date}T${endStr}`).getTime();
+    if (endTime <= startTime) { showToast('End time must be after start'); return; }
+    const note = ($('#timer-manual-note') ? $('#timer-manual-note').value : '').trim();
+    const entries = loadTimeEntries();
+    let newEntry = { activityId: actId, startTime, endTime, tracking_mode: 'primary' };
+    if (note) {
+      newEntry.note = note;
+      newEntry.note_type = 'manual_context';
+      newEntry.privacy_level = 'normal';
+    }
+    newEntry = chooseTrackingModeForEntry(newEntry, entries);
+    entries.push(newEntry);
+    saveTimeEntries(entries);
+    closeTimerManualModal();
+    renderTimerStats();
+    showToast('Entry added ✓');
+  };
+
+  window.saveEditEntry = function saveEditEntry() {
+    if (!editingEntryId) return;
+    const btn = $('#entry-edit-save');
+    if (btn.disabled) return;
+    btn.disabled = true;
+
+    try {
+      const date = $('#entry-edit-date').value;
+      const startTime = $('#entry-edit-start').value;
+      const endTime = $('#entry-edit-end').value;
+      const note = $('#entry-edit-note').value.trim();
+      if (!date || !startTime || !endTime) {
+        showToast('Fill in date and times');
+        btn.disabled = false;
+        return;
+      }
+      const startMs = new Date(`${date}T${startTime}`).getTime();
+      let endMs = new Date(`${date}T${endTime}`).getTime();
+      if (endMs <= startMs) endMs += 86400000;
+
+      const entries = loadTimeEntries();
+      const entry = entries.find(e => e.id === editingEntryId);
+      if (entry) {
+        entry.startTime = startMs;
+        entry.endTime = endMs;
+        entry.note = note || undefined;
+        if (note) {
+          entry.note_type = entry.note_type || 'session_reflection';
+          entry.privacy_level = entry.privacy_level || 'normal';
+        }
+        Object.assign(entry, appDataMeta(startMs));
+        saveTimeEntries(entries);
+        closeEditEntryModal();
+        renderTimerStats();
+        showToast('Entry updated ✓');
+      }
+    } finally {
+      btn.disabled = false;
+    }
+  };
+
+  const baseSaveQuickNote = window.saveQuickNote;
+  window.saveQuickNote = function saveQuickNote() {
+    const text = $('#quick-note-text').value.trim();
+    if (!text) { showToast('Write something first'); return; }
+    const ts = Date.now();
+    const notes = JSON.parse(localStorage.getItem('innerscape_quick_notes') || '[]');
+    notes.unshift({
+      id: 'qn-' + ts,
+      ts,
+      text,
+      note_type: 'quick_note',
+      privacy_level: 'normal',
+      ...appDataMeta(ts),
+    });
+    localStorage.setItem('innerscape_quick_notes', JSON.stringify(notes));
+    $('#quick-note-text').value = '';
+    showToast('📝 Note saved');
+    renderQuickNotes();
+    if (typeof syncToSupabase === 'function') setTimeout(() => syncToSupabase(false), 500);
+  };
+  if (!baseSaveQuickNote) window.saveQuickNote = window.saveQuickNote;
+
+  const baseSaveTodos = window.saveTodos;
+  if (typeof baseSaveTodos === 'function') {
+    window.saveTodos = function saveTodos(todos) {
+      baseSaveTodos(todos.map(todo => ({ ...todo, data_shape: 'todo', ...normalizeJsonDataShape(todo, 'todo') })));
+    };
+  }
+
+  const baseSaveWishes = window.saveWishes;
+  if (typeof baseSaveWishes === 'function') {
+    window.saveWishes = function saveWishes(wishes) {
+      baseSaveWishes(wishes.map(wish => ({ ...wish, data_shape: 'wish', ...normalizeJsonDataShape(wish, 'wish') })));
+    };
+  }
+
+  const baseSaveMeditation = window.saveMeditation;
+  if (typeof baseSaveMeditation === 'function') {
+    window.saveMeditation = function saveMeditation(entry) {
+      baseSaveMeditation(normalizeJsonDataShape(entry, 'meditation'));
+    };
+  }
+}
+
+installDataHandoffLayer();
+
+function loadIntegrationSyncStatus() {
+  try { return JSON.parse(localStorage.getItem('innerscape_integration_sync_status') || '{}'); } catch { return {}; }
+}
+
+function saveIntegrationSyncStatus(status) {
+  localStorage.setItem('innerscape_integration_sync_status', JSON.stringify(status));
+}
+
+function updateIntegrationSyncStatus(integration, patch) {
+  const status = loadIntegrationSyncStatus();
+  status[integration] = {
+    ...(status[integration] || {}),
+    ...patch,
+    updated_at: new Date().toISOString(),
+  };
+  saveIntegrationSyncStatus(status);
+}
+
+function installIntegrationStatusTracking() {
+  const originalSyncOuraData = window.syncOuraData;
+  if (typeof originalSyncOuraData === 'function') {
+    window.syncOuraData = async function syncOuraData() {
+      updateIntegrationSyncStatus('oura', {
+        last_attempt_at: new Date().toISOString(),
+        status: 'syncing',
+        error: null,
+      });
+      try {
+        const result = await originalSyncOuraData();
+        const current = loadIntegrationSyncStatus().oura;
+        if (current?.status === 'error') return result;
+        updateIntegrationSyncStatus('oura', {
+          last_success_at: new Date().toISOString(),
+          status: 'ok',
+          error: null,
+        });
+        return result;
+      } catch (error) {
+        updateIntegrationSyncStatus('oura', {
+          status: 'error',
+          error: error.message || String(error),
+        });
+        throw error;
+      }
+    };
+  }
+}
+
+function getLatestOuraDay() {
+  try {
+    const data = JSON.parse(localStorage.getItem('innerscape_oura_data') || '{}');
+    const days = ['sleep', 'readiness', 'activity'].flatMap(key => (data[key] || []).map(row => row.day).filter(Boolean));
+    if (!days.length) return null;
+    return days.sort().at(-1);
+  } catch {
+    return null;
+  }
+}
+
+function getDataQualityWarnings() {
+  const warnings = [];
+  const activities = loadActivities();
+  const timeEntries = loadTimeEntries();
+  const activityById = new Map(activities.map(activity => [activity.id, activity]));
+  const now = Date.now();
+  const savedActive = (() => { try { return JSON.parse(localStorage.getItem('innerscape_active_timer') || 'null'); } catch { return null; } })();
+
+  if (savedActive?.startTime && now - savedActive.startTime > 12 * 60 * 60 * 1000) {
+    warnings.push({ level: 'high', text: 'There is an open timer older than 12 hours.' });
+  }
+
+  const brokenEntries = timeEntries.filter(entry => entry.endTime && entry.startTime && entry.endTime <= entry.startTime);
+  if (brokenEntries.length) {
+    warnings.push({ level: 'high', text: `${brokenEntries.length} time ${brokenEntries.length === 1 ? 'entry has' : 'entries have'} an end before the start.` });
+  }
+
+  const missingCategory = activities.filter(activity => !activity.category);
+  if (missingCategory.length) {
+    warnings.push({ level: 'medium', text: `${missingCategory.length} activities still need a category.` });
+  }
+
+  const names = new Map();
+  activities.forEach(activity => {
+    const key = activityNameKey(activity.name);
+    names.set(key, (names.get(key) || 0) + 1);
+  });
+  const duplicateNames = [...names.values()].filter(count => count > 1).length;
+  if (duplicateNames) {
+    warnings.push({ level: 'medium', text: `${duplicateNames} duplicate-looking activity names need review.` });
+  }
+
+  const uncategorizedEntries = timeEntries.filter(entry => {
+    const activity = activityById.get(entry.activityId);
+    return activity && !activity.category;
+  });
+  if (uncategorizedEntries.length) {
+    warnings.push({ level: 'medium', text: `${uncategorizedEntries.length} time entries are attached to uncategorized activities.` });
+  }
+
+  const latestOuraDay = getLatestOuraDay();
+  if (latestOuraDay) {
+    const ageDays = Math.floor((startOfDay(new Date()).getTime() - new Date(`${latestOuraDay}T00:00`).getTime()) / 86400000);
+    if (ageDays > 7) warnings.push({ level: 'medium', text: `Oura data looks ${ageDays} days stale.` });
+  } else {
+    warnings.push({ level: 'low', text: 'No Oura data found yet.' });
+  }
+
+  return warnings;
+}
+
+function renderDataQualityPanel() {
+  const host = $('#cloud-sync-section') || $('#forecast-content');
+  if (!host) return;
+  let panel = $('#data-quality-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'data-quality-panel';
+    panel.className = 'data-quality-panel';
+    host.prepend(panel);
+  }
+
+  const warnings = getDataQualityWarnings();
+  if (!warnings.length) {
+    panel.innerHTML = `
+      <div class="data-quality-header">
+        <span>Data quality</span>
+        <strong>Looks clean</strong>
+      </div>
+      <p>New entries are being saved with local day, timezone, source, and schema metadata.</p>
+    `;
+    return;
+  }
+
+  panel.innerHTML = `
+    <div class="data-quality-header">
+      <span>Data quality</span>
+      <strong>${warnings.length} thing${warnings.length === 1 ? '' : 's'} to review</strong>
+    </div>
+    <div class="data-quality-list">
+      ${warnings.map(w => `<div class="data-quality-item data-quality-${w.level}">${w.text}</div>`).join('')}
+    </div>
+  `;
+}
+
+installIntegrationStatusTracking();
+
+function installDataQualitySurface() {
+  const originalSwitchView = window.switchView;
+  if (typeof originalSwitchView === 'function') {
+    window.switchView = function switchView(view) {
+      originalSwitchView(view);
+      if (view === 'export' || view === 'forecast') {
+        setTimeout(renderDataQualityPanel, 80);
+      }
+    };
+  }
+
+  const style = document.createElement('style');
+  style.textContent = `
+    .data-quality-panel {
+      background: rgba(20, 20, 30, 0.82);
+      border: 1px solid rgba(167, 139, 250, 0.22);
+      border-radius: 8px;
+      color: var(--text, #e8e4f0);
+      margin: 0 0 16px;
+      padding: 14px;
+    }
+    .data-quality-header {
+      align-items: center;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .data-quality-header span {
+      color: var(--text2, #9892a6);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .data-quality-header strong {
+      color: #a7f3d0;
+      font-size: 13px;
+    }
+    .data-quality-list {
+      display: grid;
+      gap: 8px;
+    }
+    .data-quality-item {
+      border-left: 3px solid #a78bfa;
+      color: var(--text2, #9892a6);
+      font-size: 13px;
+      line-height: 1.35;
+      padding: 6px 0 6px 10px;
+    }
+    .data-quality-high { border-left-color: #f87171; }
+    .data-quality-medium { border-left-color: #fbbf24; }
+    .data-quality-low { border-left-color: #38bdf8; }
+  `;
+  document.head.appendChild(style);
+}
+
+installDataQualitySurface();
+
 document.addEventListener('DOMContentLoaded', () => {
   buildSliders();
   $('#checkin-time').textContent = dateStr(new Date());

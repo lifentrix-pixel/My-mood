@@ -70,9 +70,10 @@ async function replaceTable(table, rows) {
 
 async function upsertRows(table, rows) {
   if (!rows || rows.length === 0) return { ok: true, count: 0 };
-  // Deduplicate by ID — Supabase can't upsert same row twice in one batch
+  // Deduplicate by primary key — Supabase can't upsert same row twice in one batch
+  const keyField = table === 'integration_sync_status' ? 'integration' : 'id';
   const seen = new Set();
-  rows = rows.filter(r => { if (!r.id || seen.has(r.id)) return false; seen.add(r.id); return true; });
+  rows = rows.filter(r => { if (!r[keyField] || seen.has(r[keyField])) return false; seen.add(r[keyField]); return true; });
   if (rows.length === 0) return { ok: true, count: 0 };
   // Batch in chunks of 500
   for (let i = 0; i < rows.length; i += 500) {
@@ -101,7 +102,11 @@ function mapCheckins(entries) {
     id: e.id || ('ci-' + (e.ts || Date.now())),
     ts: e.ts,
     scores: e.scores || null,
-    notes: e.notes || null
+    notes: e.notes || null,
+    local_date: e.local_date || (typeof appDataLocalDate === 'function' ? appDataLocalDate(e.ts) : null),
+    timezone: e.timezone || 'Europe/Helsinki',
+    schema_version: e.schema_version || 1,
+    source: e.source || 'phone_app'
   }));
 }
 
@@ -112,7 +117,14 @@ function mapTimeEntries(entries) {
     start_time: e.startTime || null,
     end_time: e.endTime || null,
     sub_activity: e.subActivityName || e.subActivityId || e.subActivity || null,
-    notes: e.notes || e.note || null
+    notes: e.notes || e.note || null,
+    tracking_mode: e.tracking_mode || e.trackingMode || 'primary',
+    parent_entry_id: e.parent_entry_id || e.parentEntryId || null,
+    intensity: e.intensity ?? null,
+    local_date: e.local_date || (typeof appDataLocalDate === 'function' ? appDataLocalDate(e.startTime) : null),
+    timezone: e.timezone || 'Europe/Helsinki',
+    schema_version: e.schema_version || 1,
+    source: e.source || 'phone_app'
   }));
 }
 
@@ -121,7 +133,9 @@ function mapActivities(entries) {
     id: e.id,
     name: e.name || null,
     emoji: e.emoji || null,
-    category: e.category || null
+    category: e.category || null,
+    schema_version: e.schema_version || 1,
+    source: e.source || 'phone_app'
   }));
 }
 
@@ -131,7 +145,11 @@ function mapFoodEntries(entries) {
     ts: e.timestamp || null,
     description: e.description || null,
     category: e.category || null,
-    photo: e.photo || null
+    photo: e.photo || null,
+    local_date: e.local_date || (typeof appDataLocalDate === 'function' ? appDataLocalDate(e.timestamp) : null),
+    timezone: e.timezone || 'Europe/Helsinki',
+    schema_version: e.schema_version || 1,
+    source: e.source || 'phone_app'
   }));
 }
 
@@ -140,7 +158,11 @@ function mapMedicationLogs(entries) {
     id: e.id,
     medication_id: e.medicationId || null,
     medication_name: e.medicationName || null,
-    ts: e.timestamp || null
+    ts: e.timestamp || null,
+    local_date: e.local_date || (typeof appDataLocalDate === 'function' ? appDataLocalDate(e.timestamp) : null),
+    timezone: e.timezone || 'Europe/Helsinki',
+    schema_version: e.schema_version || 1,
+    source: e.source || 'phone_app'
   }));
 }
 
@@ -148,7 +170,11 @@ function mapStoolEntries(entries) {
   return entries.filter(e => e.id).map(e => ({
     id: e.id,
     ts: e.timestamp || null,
-    data: e
+    data: typeof normalizeJsonDataShape === 'function' ? normalizeJsonDataShape(e, 'stool') : e,
+    local_date: e.local_date || (typeof appDataLocalDate === 'function' ? appDataLocalDate(e.timestamp) : null),
+    timezone: e.timezone || 'Europe/Helsinki',
+    schema_version: e.schema_version || 1,
+    source: e.source || 'phone_app'
   }));
 }
 
@@ -156,7 +182,13 @@ function mapStoolEntries(entries) {
 
 function mapQuickNotes(entries) {
   return entries.filter(e => e && e.id).map(e => ({
-    id: e.id, ts: e.ts || null, text: e.text || null
+    id: e.id, ts: e.ts || null, text: e.text || null,
+    local_date: e.local_date || (typeof appDataLocalDate === 'function' ? appDataLocalDate(e.ts) : null),
+    timezone: e.timezone || 'Europe/Helsinki',
+    schema_version: e.schema_version || 1,
+    source: e.source || 'phone_app',
+    note_type: e.note_type || 'quick_note',
+    privacy_level: e.privacy_level || 'normal'
   }));
 }
 
@@ -171,7 +203,13 @@ function mapDreams(entries) {
   return entries.map(e => ({ ...e, id: e.id || ('dream-' + (e.ts || e.timestamp || Date.now())) }))
     .filter(e => e && e.id).map(e => ({
       id: e.id, ts: e.ts || null, text: e.text || null,
-      tags: e.tags || null, has_audio: e.hasAudio || false, no_recall: e.noRecall || false
+      tags: e.tags || null, has_audio: e.hasAudio || false, no_recall: e.noRecall || false,
+      local_date: e.local_date || (typeof appDataLocalDate === 'function' ? appDataLocalDate(e.ts || e.timestamp) : null),
+      timezone: e.timezone || 'Europe/Helsinki',
+      schema_version: e.schema_version || 1,
+      source: e.source || 'phone_app',
+      note_type: e.note_type || 'dream',
+      privacy_level: e.privacy_level || 'normal'
     }));
 }
 
@@ -179,13 +217,26 @@ function mapJsonbTable(entries, idPrefix) {
   return entries.map((e, i) => ({ ...e, id: e.id || (idPrefix + '-' + (e.startTime || e.ts || i)) }))
     .filter(e => e && e.id).map(e => {
       const { id, ...rest } = e;
-      return { id, data: rest };
+      const type = idPrefix === 'todo' ? 'todo' : idPrefix === 'wish' ? 'wish' : idPrefix === 'meditation' ? 'meditation' : '';
+      return { id, data: type && typeof normalizeJsonDataShape === 'function' ? normalizeJsonDataShape(rest, type) : rest };
     });
 }
 
 function mapOuraData(obj) {
   if (!obj || typeof obj !== 'object') return [];
   return Object.keys(obj).map(key => ({ id: key, data: obj[key] }));
+}
+
+function mapIntegrationSyncStatus(obj) {
+  if (!obj || typeof obj !== 'object') return [];
+  return Object.keys(obj).map(integration => ({
+    integration,
+    last_success_at: obj[integration].last_success_at || null,
+    last_attempt_at: obj[integration].last_attempt_at || null,
+    status: obj[integration].status || null,
+    error: obj[integration].error || null,
+    updated_at: obj[integration].updated_at || new Date().toISOString()
+  }));
 }
 
 /* ── Sync Status UI ── */
@@ -211,7 +262,11 @@ function unmapCheckins(rows) {
     id: r.id,
     ts: r.ts,
     scores: r.scores || {},
-    notes: r.notes || {}
+    notes: r.notes || {},
+    local_date: r.local_date || null,
+    timezone: r.timezone || 'Europe/Helsinki',
+    schema_version: r.schema_version || 1,
+    source: r.source || 'phone_app'
   }));
 }
 
@@ -223,7 +278,14 @@ function unmapTimeEntries(rows) {
     endTime: r.end_time || null,
     subActivityName: r.sub_activity || null,
     subActivityId: r.sub_activity || null,
-    note: r.notes || null
+    note: r.notes || null,
+    tracking_mode: r.tracking_mode || 'primary',
+    parent_entry_id: r.parent_entry_id || null,
+    intensity: r.intensity ?? null,
+    local_date: r.local_date || null,
+    timezone: r.timezone || 'Europe/Helsinki',
+    schema_version: r.schema_version || 1,
+    source: r.source || 'phone_app'
   }));
 }
 
@@ -232,7 +294,9 @@ function unmapActivities(rows) {
     id: r.id,
     name: r.name || null,
     emoji: r.emoji || null,
-    category: r.category || null
+    category: r.category || null,
+    schema_version: r.schema_version || 1,
+    source: r.source || 'phone_app'
   }));
 }
 
@@ -560,13 +624,14 @@ async function syncToSupabase(force, _skipStatusGuard) {
       upsertRows('dreams', mapDreams(filterNew(safeLoad('innerscape_dreams'), 'ts'))),
       upsertRows('todos', mapJsonbTable(safeLoad('innerscape_todos'), 'todo')),
       upsertRows('wishes', mapJsonbTable(safeLoad('innerscape_wishes'), 'wish')),
-      upsertRows('medications', mapJsonbTable(safeLoad('innerscape_medications'), 'med')),
-      upsertRows('meditations', mapJsonbTable(safeLoad('innerscape_meditations'), 'med')),
+      upsertRows('medications', mapJsonbTable(safeLoad('innerscape_medications'), 'medication')),
+      upsertRows('meditations', mapJsonbTable(safeLoad('innerscape_meditations'), 'meditation')),
       upsertRows('food_presets', (() => { try { const fp = JSON.parse(localStorage.getItem('innerscape_food_presets') || 'null'); return fp ? [{ id: 'food_presets', data: fp }] : []; } catch { return []; } })()),
       upsertRows('media_queue', mapJsonbTable(safeLoad('innerscape_media_queue'), 'mq')),
       upsertRows('media_sessions', mapJsonbTable(safeLoad('innerscape_media_sessions'), 'ms')),
       upsertRows('media_impulse', mapJsonbTable(safeLoad('innerscape_media_impulse'), 'mi')),
-      upsertRows('oura_data', mapOuraData((() => { try { return JSON.parse(localStorage.getItem('innerscape_oura_data') || '{}'); } catch { return {}; } })()))
+      upsertRows('oura_data', mapOuraData((() => { try { return JSON.parse(localStorage.getItem('innerscape_oura_data') || '{}'); } catch { return {}; } })())),
+      upsertRows('integration_sync_status', mapIntegrationSyncStatus((() => { try { return JSON.parse(localStorage.getItem('innerscape_integration_sync_status') || '{}'); } catch { return {}; } })()))
     ]);
 
     const failed = results.filter(r => r.status === 'rejected');
