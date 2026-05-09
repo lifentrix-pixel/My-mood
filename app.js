@@ -1,5 +1,385 @@
 /* ── Innerscape — App Init ── */
 
+const APP_ACTIVITY_CATEGORIES = [
+  { id: 'sleep_recovery', name: 'Sleep / Recovery', emoji: '🌙', color: '#818cf8', description: 'Sleep, rest, decompression' },
+  { id: 'creative_practice', name: 'Creative Practice', emoji: '🎨', color: '#f472b6', description: 'Art, writing, music, output' },
+  { id: 'work_building', name: 'Work / Building', emoji: '🛠️', color: '#38bdf8', description: 'Work, code, business, projects' },
+  { id: 'food_nourishment', name: 'Food / Nourishment', emoji: '🍲', color: '#fbbf24', description: 'Eating, groceries, cooking' },
+  { id: 'body_health', name: 'Body / Health', emoji: '🫀', color: '#34d399', description: 'Body care, hygiene, medical, movement' },
+  { id: 'home_care', name: 'Home / Care', emoji: '🏡', color: '#4ade80', description: 'Cleaning, chores, domestic care' },
+  { id: 'relationships', name: 'Relationships', emoji: '👥', color: '#fb923c', description: 'Friends, family, calls, social time' },
+  { id: 'reflection_coaching', name: 'Reflection / Coaching', emoji: '🧭', color: '#a78bfa', description: 'Coaching, therapy, integration' },
+  { id: 'learning', name: 'Learning', emoji: '📚', color: '#22d3ee', description: 'Reading, courses, study' },
+  { id: 'media_leisure', name: 'Media / Leisure', emoji: '🎧', color: '#e879f9', description: 'Watching, hobbies, playful leisure' },
+  { id: 'mobility_outside', name: 'Mobility / Outside', emoji: '🚶', color: '#2dd4bf', description: 'Travel, going out, transitions' },
+  { id: 'admin_finance', name: 'Admin / Finance', emoji: '🧾', color: '#f97316', description: 'Money, logistics, life admin' },
+];
+
+const APP_LEGACY_CATEGORY_MAP = {
+  'cat-work': 'work_building',
+  'cat-health': 'body_health',
+  'cat-creative': 'creative_practice',
+  'cat-social': 'relationships',
+  'cat-selfcare': 'body_health',
+  'cat-learning': 'learning',
+};
+
+const APP_ACTIVITY_NAME_CATEGORY_MAP = {
+  'art making': 'creative_practice',
+  'art practice': 'creative_practice',
+  'breakfast': 'food_nourishment',
+  'chores': 'home_care',
+  'cleaning': 'home_care',
+  'coaching': 'reflection_coaching',
+  'code building': 'work_building',
+  'cold shower': 'body_health',
+  'creating social media content': 'creative_practice',
+  'dating': 'relationships',
+  'emotional processing and integrating': 'reflection_coaching',
+  'entrepreneurship': 'work_building',
+  'finances': 'admin_finance',
+  'food': 'food_nourishment',
+  'food related': 'food_nourishment',
+  'friends': 'relationships',
+  'friends time': 'relationships',
+  'getting ready': 'body_health',
+  'going out': 'mobility_outside',
+  'groceries': 'food_nourishment',
+  'hobbies': 'media_leisure',
+  'hospital visits': 'body_health',
+  'medical': 'body_health',
+  'meditations': 'reflection_coaching',
+  'meditative cleaning': 'home_care',
+  'messaging': 'relationships',
+  'mom home visit': 'relationships',
+  'music': 'creative_practice',
+  'night time routine': 'sleep_recovery',
+  'night time routine ( getting ready for bed)': 'sleep_recovery',
+  'partying': 'relationships',
+  'photography course': 'learning',
+  'physical...': 'body_health',
+  'physical…': 'body_health',
+  'playing with a cat ( mini  )': 'relationships',
+  'reading': 'learning',
+  'resting': 'sleep_recovery',
+  'self care': 'body_health',
+  'shower': 'body_health',
+  'sleeping': 'sleep_recovery',
+  'slow time': 'sleep_recovery',
+  'social': 'relationships',
+  'special time': 'relationships',
+  'spending time at my moms': 'relationships',
+  'spending time with mom': 'relationships',
+  'talking on the phone': 'relationships',
+  'therapy': 'reflection_coaching',
+  'travelling': 'mobility_outside',
+  'watching series': 'media_leisure',
+  'watching youtubs': 'media_leisure',
+  'watching youtube': 'media_leisure',
+  'website creation': 'work_building',
+  'website making': 'work_building',
+  'work': 'work_building',
+  'writing': 'creative_practice',
+};
+
+function installActivityTaxonomy() {
+  const activityCategoryIds = new Set(APP_ACTIVITY_CATEGORIES.map(cat => cat.id));
+  const originalSyncActivities = typeof syncActivities === 'function' ? syncActivities : null;
+
+  window.normalizeActivityName = function normalizeActivityName(name = '') {
+    return String(name).trim().replace(/\s+/g, ' ');
+  };
+
+  window.activityNameKey = function activityNameKey(name = '') {
+    return normalizeActivityName(name).toLowerCase();
+  };
+
+  window.inferActivityCategory = function inferActivityCategory(activity) {
+    const category = APP_LEGACY_CATEGORY_MAP[activity.category] || activity.category;
+    if (activityCategoryIds.has(category)) return category;
+    return APP_ACTIVITY_NAME_CATEGORY_MAP[activityNameKey(activity.name)] || '';
+  };
+
+  window.normalizeActivity = function normalizeActivity(activity) {
+    const normalized = { ...activity };
+    normalized.name = normalizeActivityName(normalized.name || '');
+    normalized.category = inferActivityCategory(normalized);
+    if (!normalized.schema_version) normalized.schema_version = 1;
+    return normalized;
+  };
+
+  window.hasDuplicateActivityName = function hasDuplicateActivityName(activities, name, exceptId = null) {
+    const key = activityNameKey(name);
+    return activities.some(activity => activity.id !== exceptId && activityNameKey(activity.name) === key);
+  };
+
+  window.loadCategories = function loadCategories() {
+    localStorage.setItem(CATEGORIES_KEY, JSON.stringify(APP_ACTIVITY_CATEGORIES));
+    return [...APP_ACTIVITY_CATEGORIES];
+  };
+
+  window.saveCategories = function saveCategories() {
+    localStorage.setItem(CATEGORIES_KEY, JSON.stringify(APP_ACTIVITY_CATEGORIES));
+  };
+
+  window.loadActivities = function loadActivities() {
+    try { return (JSON.parse(localStorage.getItem(ACTIVITIES_KEY)) || []).map(normalizeActivity); } catch { return []; }
+  };
+
+  window.saveActivities = function saveActivities(acts) {
+    localStorage.setItem(ACTIVITIES_KEY, JSON.stringify(acts.map(normalizeActivity)));
+    if (currentUser && db && originalSyncActivities) setTimeout(() => originalSyncActivities(), 100);
+  };
+
+  window.createCategory = function createCategory() {
+    showToast('Activity categories are fixed for cleaner reports');
+  };
+
+  window.openTimerCreateModal = function openTimerCreateModal() {
+    $('#timer-create-modal').classList.remove('hidden');
+    $('#timer-new-emoji').value = '';
+    $('#timer-new-name').value = '';
+    timerState.selectedColor = TIMER_COLORS[0];
+    $('#timer-color-picks').querySelectorAll('.timer-color-pick').forEach((b, i) => {
+      b.classList.toggle('selected', i === 0);
+    });
+    const catSelect = $('#timer-new-category');
+    catSelect.innerHTML = '<option value="">Choose a category</option>';
+    loadCategories().forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat.id;
+      opt.textContent = `${cat.emoji} ${cat.name}`;
+      catSelect.appendChild(opt);
+    });
+    const newCategoryBtn = $('#timer-new-category-btn');
+    if (newCategoryBtn) newCategoryBtn.style.display = 'none';
+    setTimeout(() => $('#timer-new-emoji').focus(), 100);
+  };
+
+  window.createActivity = function createActivity() {
+    const createBtn = $('#timer-create-save');
+    if (createBtn.disabled) return;
+    createBtn.disabled = true;
+
+    try {
+      const emoji = firstEmoji($('#timer-new-emoji').value.trim()) || '⏱';
+      const name = normalizeActivityName($('#timer-new-name').value);
+      if (!name) {
+        showToast('Enter an activity name');
+        $('#timer-new-name').focus();
+        createBtn.disabled = false;
+        return;
+      }
+
+      const acts = loadActivities();
+      if (hasDuplicateActivityName(acts, name)) {
+        showToast('That activity already exists');
+        $('#timer-new-name').focus();
+        createBtn.disabled = false;
+        return;
+      }
+
+      const category = $('#timer-new-category').value || '';
+      if (!category) {
+        showToast('Choose a category');
+        $('#timer-new-category').focus();
+        createBtn.disabled = false;
+        return;
+      }
+
+      acts.push({
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        name,
+        emoji,
+        color: timerState.selectedColor,
+        category,
+        usageCount: 0,
+        lastUsed: null,
+        createdAt: Date.now(),
+        schema_version: 1,
+      });
+      saveActivities(acts);
+      closeTimerCreateModal();
+      renderTimerGrid();
+      showToast('Activity created ✓');
+    } catch (error) {
+      console.error('Error creating activity:', error);
+      showToast('Error creating activity');
+    } finally {
+      setTimeout(() => { createBtn.disabled = false; }, 1000);
+    }
+  };
+
+  window.openEditActivityModal = function openEditActivityModal(activity) {
+    editingActivityId = activity.id;
+    $('#timer-edit-modal').classList.remove('hidden');
+    $('#timer-edit-emoji').value = activity.emoji;
+    $('#timer-edit-name').value = activity.name;
+
+    const nameField = $('#timer-edit-name').closest('.timer-modal-field');
+    let categoryField = $('#timer-edit-category');
+    if (!categoryField && nameField) {
+      const wrap = document.createElement('div');
+      wrap.className = 'timer-modal-field';
+      wrap.innerHTML = `
+        <label>Category</label>
+        <select id="timer-edit-category" class="timer-modal-input" required>
+          <option value="">Choose a category</option>
+        </select>
+      `;
+      nameField.insertAdjacentElement('afterend', wrap);
+      categoryField = $('#timer-edit-category');
+    }
+    if (categoryField) {
+      categoryField.innerHTML = '<option value="">Choose a category</option>';
+      loadCategories().forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat.id;
+        opt.textContent = `${cat.emoji} ${cat.name}`;
+        opt.selected = cat.id === activity.category;
+        categoryField.appendChild(opt);
+      });
+    }
+
+    const picksEl = $('#timer-edit-color-picks');
+    picksEl.innerHTML = '';
+    TIMER_COLORS.forEach(c => {
+      const btn = document.createElement('div');
+      btn.className = 'timer-color-pick' + (c === activity.color ? ' selected' : '');
+      btn.style.background = c;
+      btn.addEventListener('click', () => {
+        picksEl.querySelectorAll('.timer-color-pick').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+      });
+      picksEl.appendChild(btn);
+    });
+
+    setTimeout(() => $('#timer-edit-name').focus(), 100);
+  };
+
+  window.updateActivity = function updateActivity() {
+    if (!editingActivityId) return;
+    const saveBtn = $('#timer-edit-save');
+    if (saveBtn.disabled) return;
+    saveBtn.disabled = true;
+
+    try {
+      const emoji = firstEmoji($('#timer-edit-emoji').value.trim()) || '⏱';
+      const name = normalizeActivityName($('#timer-edit-name').value);
+      if (!name) {
+        showToast('Enter an activity name');
+        $('#timer-edit-name').focus();
+        saveBtn.disabled = false;
+        return;
+      }
+
+      const category = $('#timer-edit-category')?.value || '';
+      if (!category) {
+        showToast('Choose a category');
+        $('#timer-edit-category')?.focus();
+        saveBtn.disabled = false;
+        return;
+      }
+
+      const acts = loadActivities();
+      if (hasDuplicateActivityName(acts, name, editingActivityId)) {
+        showToast('That activity already exists');
+        $('#timer-edit-name').focus();
+        saveBtn.disabled = false;
+        return;
+      }
+
+      const selectedColorEl = $('#timer-edit-color-picks .timer-color-pick.selected');
+      const newColor = selectedColorEl ? selectedColorEl.style.background : '#4CAF50';
+      const activity = acts.find(a => a.id === editingActivityId);
+      if (activity) {
+        activity.emoji = emoji;
+        activity.name = name;
+        activity.color = newColor;
+        activity.category = category;
+        activity.schema_version = 1;
+        saveActivities(acts);
+        closeEditActivityModal();
+        renderTimerGrid();
+        showToast('Activity updated ✓');
+      }
+    } catch (error) {
+      console.error('Error updating activity:', error);
+      showToast('Error updating activity');
+    } finally {
+      setTimeout(() => { saveBtn.disabled = false; }, 1000);
+    }
+  };
+
+  window.renderTimerGrid = function renderTimerGrid() {
+    renderCategoryFilters();
+    const search = ($('#timer-search').value || '').toLowerCase();
+    const categories = loadCategories();
+    let activities = loadActivities();
+    if (search) activities = activities.filter(a => a.name.toLowerCase().includes(search) || a.emoji.includes(search));
+    if (timerCategoryFilter) activities = activities.filter(a => a.category === timerCategoryFilter);
+    activities = smartSortActivities(activities);
+
+    const grid = $('#timer-grid');
+    const empty = $('#timer-empty-activities');
+    grid.innerHTML = '';
+    if (!activities.length) { empty.classList.add('show'); return; }
+    empty.classList.remove('show');
+
+    activities.slice(0, 9).forEach(act => {
+      const category = categories.find(cat => cat.id === act.category);
+      const btn = document.createElement('div');
+      btn.className = 'timer-activity-btn';
+      btn.style.borderColor = act.color + '44';
+      btn.innerHTML = `
+        <span class="timer-act-emoji">${act.emoji}</span>
+        <span class="timer-act-name">${act.name}</span>
+        ${category ? `<span class="timer-act-category" style="border-color:${category.color};color:${category.color}">${category.emoji} ${category.name}</span>` : ''}
+        <div class="timer-act-actions">
+          <button class="timer-act-delete" title="Delete activity">✕</button>
+        </div>
+      `;
+
+      let longPressTimer = null;
+      btn.addEventListener('touchstart', () => {
+        longPressTimer = setTimeout(() => { longPressTimer = 'fired'; openEditActivityModal(act); }, 600);
+      }, { passive: true });
+      btn.addEventListener('touchend', () => { if (longPressTimer !== 'fired') clearTimeout(longPressTimer); longPressTimer = null; });
+      btn.addEventListener('touchmove', () => { if (longPressTimer !== 'fired') clearTimeout(longPressTimer); }, { passive: true });
+      btn.addEventListener('click', (e) => {
+        if (e.target.closest('.timer-act-actions') || longPressTimer === 'fired') return;
+        startTimer(act);
+      });
+      btn.querySelector('.timer-act-delete').addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteActivity(act.id);
+      });
+      grid.appendChild(btn);
+    });
+  };
+
+  const style = document.createElement('style');
+  style.textContent = `
+    .timer-act-category {
+      border: 1px solid;
+      border-radius: 999px;
+      display: inline-flex;
+      font-size: 10px;
+      font-weight: 700;
+      gap: 4px;
+      line-height: 1.2;
+      max-width: 100%;
+      overflow: hidden;
+      padding: 3px 7px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+installActivityTaxonomy();
+
 document.addEventListener('DOMContentLoaded', () => {
   buildSliders();
   $('#checkin-time').textContent = dateStr(new Date());
