@@ -123,8 +123,18 @@ function openPresetEditor() {
 
 function saveFoodEntry(entry) {
   const entries = loadFoodEntries();
-  entries.push(entry);
+  const ts = entry.timestamp || Date.now();
+  entries.push({
+    ...entry,
+    timestamp: ts,
+    category: entry.category || entry.mealType || 'meal',
+    local_date: typeof appDataLocalDate === 'function' ? appDataLocalDate(ts) : undefined,
+    timezone: 'Europe/Helsinki',
+    schema_version: 1,
+    source: 'phone_app'
+  });
   localStorage.setItem(FOOD_STORE_KEY, JSON.stringify(entries));
+  if (typeof syncToSupabase === 'function') setTimeout(() => syncToSupabase(false), 500);
 }
 function deleteFoodEntry(id) {
   const entries = loadFoodEntries().filter(e => e.id !== id);
@@ -150,31 +160,58 @@ function deleteFoodEntryWithUndo(id) {
 
 let foodState = {
   selectedTags: [],
-  currentPhoto: null
+  selectedContexts: [],
+  currentPhoto: null,
+  initialized: false
 };
 
 function initFood() {
-  $('#food-camera-area').addEventListener('click', () => $('#food-camera').click());
-  $('#food-camera').addEventListener('change', handleFoodPhoto);
-  
+  if (!foodState.initialized) {
+    $('#food-camera-area').addEventListener('click', () => $('#food-camera').click());
+    $('#food-camera').addEventListener('change', handleFoodPhoto);
+
+    $$('.food-meal-chip').forEach(btn => {
+      btn.addEventListener('click', () => selectMealType(btn.dataset.meal));
+    });
+    $('#food-meal-type').addEventListener('change', () => selectMealType($('#food-meal-type').value));
+
+    $$('.food-tag-btn').forEach(btn => {
+      btn.addEventListener('click', () => toggleFoodTag(btn.dataset.tag, btn));
+    });
+    $$('.food-context-btn').forEach(btn => {
+      btn.addEventListener('click', () => toggleFoodContext(btn.dataset.context, btn));
+    });
+
+    $('#food-quick-save').addEventListener('click', saveQuickFood);
+    $('#food-save').addEventListener('click', saveDetailedFood);
+
+    const presetEditBtn = $('#food-preset-edit');
+    if (presetEditBtn) presetEditBtn.addEventListener('click', openPresetEditor);
+    foodState.initialized = true;
+  }
+
   const slider = $('#food-satisfaction');
   const val = $('#food-satisfaction-val');
-  slider.addEventListener('input', () => {
-    val.textContent = slider.value;
-  });
-  
-  $$('.food-tag-btn').forEach(btn => {
-    btn.addEventListener('click', () => toggleFoodTag(btn.dataset.tag, btn));
-  });
-  
-  $('#food-quick-save').addEventListener('click', saveQuickFood);
-  $('#food-save').addEventListener('click', saveDetailedFood);
-  
+  slider.oninput = () => { val.textContent = slider.value; };
+
+  selectMealType($('#food-meal-type').value || inferMealType());
   renderFoodHistory();
   updateQuickSaveButton();
   renderFoodPresets();
-  const presetEditBtn = $('#food-preset-edit');
-  if (presetEditBtn) presetEditBtn.addEventListener('click', openPresetEditor);
+}
+
+function inferMealType() {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 11) return 'breakfast';
+  if (hour >= 11 && hour < 16) return 'lunch';
+  if (hour >= 16 && hour < 22) return 'dinner';
+  return 'snack';
+}
+
+function selectMealType(mealType) {
+  const value = mealType || inferMealType();
+  $('#food-meal-type').value = value;
+  $$('.food-meal-chip').forEach(btn => btn.classList.toggle('selected', btn.dataset.meal === value));
 }
 
 function handleFoodPhoto(e) {
@@ -223,28 +260,37 @@ function toggleFoodTag(tag, btn) {
   }
 }
 
+function toggleFoodContext(context, btn) {
+  const index = foodState.selectedContexts.indexOf(context);
+  if (index > -1) {
+    foodState.selectedContexts.splice(index, 1);
+    btn.classList.remove('selected');
+  } else {
+    foodState.selectedContexts.push(context);
+    btn.classList.add('selected');
+  }
+}
+
 function updateQuickSaveButton() {
   const btn = $('#food-quick-save');
   btn.disabled = !foodState.currentPhoto;
-  btn.textContent = foodState.currentPhoto ? '✓ Quick Save' : '📸 Add Photo First';
+  btn.textContent = foodState.currentPhoto ? 'Photo only' : 'Add photo first';
 }
 
 function saveQuickFood() {
   if (!foodState.currentPhoto) return;
-  
-  const hour = new Date().getHours();
-  let mealType = 'snack';
-  if (hour >= 5 && hour < 11) mealType = 'breakfast';
-  else if (hour >= 11 && hour < 16) mealType = 'lunch';
-  else if (hour >= 16 && hour < 22) mealType = 'dinner';
+  const mealType = $('#food-meal-type').value || inferMealType();
   
   const entry = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     timestamp: Date.now(),
     mealType,
+    category: mealType,
     description: mealType === 'drink' ? 'Photo drink' : 'Photo meal',
     satisfaction: 7,
     tags: [],
+    contexts: [],
+    captureMode: 'photo_quick',
     photo: foodState.currentPhoto
   };
   
@@ -266,9 +312,12 @@ function saveDetailedFood() {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     timestamp: Date.now(),
     mealType,
+    category: mealType,
     description: description || (mealType === 'drink' ? 'Photo drink' : 'Photo meal'),
     satisfaction: parseInt($('#food-satisfaction').value),
     tags: [...foodState.selectedTags],
+    contexts: [...foodState.selectedContexts],
+    captureMode: foodState.currentPhoto ? 'photo_and_note' : 'note',
     photo: foodState.currentPhoto
   };
   
@@ -301,9 +350,12 @@ function resetFoodForm() {
   $('#food-description').value = '';
   $('#food-satisfaction').value = '5';
   $('#food-satisfaction-val').textContent = '5';
+  selectMealType(inferMealType());
   
   foodState.selectedTags = [];
   $$('.food-tag-btn').forEach(btn => btn.classList.remove('selected'));
+  foodState.selectedContexts = [];
+  $$('.food-context-btn').forEach(btn => btn.classList.remove('selected'));
   
   updateQuickSaveButton();
 }
@@ -344,6 +396,7 @@ function renderFoodHistory() {
       <div class="food-entry-footer">
         <div class="food-entry-tags">
           ${entry.tags.map(tag => `<span class="food-entry-tag">${tag}</span>`).join('')}
+          ${(entry.contexts || []).map(context => `<span class="food-entry-tag food-entry-context">${context.replace(/_/g, ' ')}</span>`).join('')}
         </div>
         <div class="food-entry-actions">
           <span class="food-entry-rating">😋 ${entry.satisfaction}/10</span>

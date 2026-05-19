@@ -174,7 +174,7 @@ function mapFoodEntries(entries) {
     id: e.id,
     ts: e.timestamp || null,
     description: e.description || null,
-    category: e.category || null,
+    category: e.category || e.mealType || null,
     photo: e.photo || null,
     local_date: e.local_date || (typeof appDataLocalDate === 'function' ? appDataLocalDate(e.timestamp) : null),
     timezone: e.timezone || 'Europe/Helsinki',

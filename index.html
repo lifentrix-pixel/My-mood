@@ -772,76 +772,84 @@
 
     <!-- Food diary view -->
     <section id="view-food" class="view">
-      <h2>🍎 Food Diary</h2>
-      
-      <!-- Quick Add -->
-      <div class="food-quick-add">
+      <div class="food-page-header">
+        <div>
+          <h2>Food</h2>
+          <p>Quickly capture what happened around eating.</p>
+        </div>
+        <button id="food-quick-save" class="food-ghost-save-btn">Photo only</button>
+      </div>
+
+      <div class="food-capture-card">
+        <div class="food-meal-chips" id="food-meal-chips">
+          <button class="food-meal-chip" data-meal="breakfast">🌅 Breakfast</button>
+          <button class="food-meal-chip" data-meal="lunch">☀️ Lunch</button>
+          <button class="food-meal-chip" data-meal="dinner">🌆 Dinner</button>
+          <button class="food-meal-chip" data-meal="snack">🍪 Snack</button>
+          <button class="food-meal-chip" data-meal="drink">🥤 Drink</button>
+        </div>
+        <select id="food-meal-type" class="food-select food-meal-select">
+          <option value="breakfast">Breakfast</option>
+          <option value="lunch">Lunch</option>
+          <option value="dinner">Dinner</option>
+          <option value="snack">Snack</option>
+          <option value="drink">Drink</option>
+        </select>
+
         <div class="food-camera-area" id="food-camera-area">
           <div class="food-camera-placeholder">
             <span class="camera-icon">📸</span>
-            <p>Tap to capture your food or drink</p>
+            <p>Add photo</p>
           </div>
           <img id="food-preview" class="food-preview hidden" alt="Food photo">
           <input type="file" id="food-camera" accept="image/*" capture="camera" class="hidden">
         </div>
-        <button id="food-quick-save" class="food-quick-save-btn">✓ Quick Save</button>
-      </div>
 
-      <!-- Detailed Entry -->
-      <div class="food-detailed">
-        <div class="food-section">
-          <h3>Meal Details</h3>
-          <div class="food-row">
-            <label>Meal Type</label>
-            <select id="food-meal-type" class="food-select">
-              <option value="breakfast">🌅 Breakfast</option>
-              <option value="lunch">☀️ Lunch</option>
-              <option value="dinner">🌆 Dinner</option>
-              <option value="snack">🍪 Snack</option>
-              <option value="drink">🥤 Drink</option>
-            </select>
+        <textarea id="food-description" class="food-input food-description-box" rows="3" placeholder="What did you eat or drink?"></textarea>
+
+        <div class="food-presets">
+          <div class="food-preset-row">
+            <span class="food-preset-label">Foods</span>
+            <div class="food-preset-pills" id="food-preset-foods"></div>
           </div>
-          <div class="food-row">
-            <label>Description</label>
-            <textarea id="food-description" class="food-input food-description-box" rows="3" placeholder="What did you eat or drink?"></textarea>
+          <div class="food-preset-row">
+            <span class="food-preset-label">Drinks</span>
+            <div class="food-preset-pills" id="food-preset-drinks"></div>
           </div>
-          <!-- Quick-fill presets -->
-          <div class="food-presets">
-            <div class="food-preset-group">
-              <span class="food-preset-label">🍽 Foods</span>
-              <div class="food-preset-pills" id="food-preset-foods"></div>
-            </div>
-            <div class="food-preset-group">
-              <span class="food-preset-label">🥤 Drinks</span>
-              <div class="food-preset-pills" id="food-preset-drinks"></div>
-            </div>
-            <button class="food-preset-edit-btn" id="food-preset-edit">✏️ Edit presets</button>
+          <button class="food-preset-edit-btn" id="food-preset-edit">Edit presets</button>
+        </div>
+
+        <div class="food-rating-card">
+          <div class="food-rating-head">
+            <span>Satisfaction</span>
+            <strong><span id="food-satisfaction-val" class="food-rating-val">5</span>/10</strong>
           </div>
-          <div class="food-row">
-            <label>Satisfaction</label>
-            <div class="food-rating">
-              <input type="range" id="food-satisfaction" class="food-slider" min="1" max="10" value="5">
-              <span id="food-satisfaction-val" class="food-rating-val">5</span>/10
-            </div>
+          <input type="range" id="food-satisfaction" class="food-slider" min="1" max="10" value="5">
+          <div class="food-rating-scale">
+            <span>Meh</span>
+            <span>Great</span>
           </div>
         </div>
 
-        <!-- Tags -->
-        <div class="food-section">
-          <h3>Tags</h3>
-          <div class="food-tags" id="food-tags">
-            <button class="food-tag-btn" data-tag="healthy">🥗 Healthy</button>
-            <button class="food-tag-btn" data-tag="comfort">🍲 Comfort</button>
-            <button class="food-tag-btn" data-tag="restaurant">🏪 Restaurant</button>
-            <button class="food-tag-btn" data-tag="homemade">🏠 Homemade</button>
-            <button class="food-tag-btn" data-tag="social">👥 Social</button>
-            <button class="food-tag-btn" data-tag="indulgent">🍰 Indulgent</button>
-            <button class="food-tag-btn" data-tag="fresh">🌱 Fresh</button>
-            <button class="food-tag-btn" data-tag="processed">📦 Processed</button>
-          </div>
+        <div class="food-tags" id="food-tags">
+          <button class="food-tag-btn" data-tag="healthy">🥗 Healthy</button>
+          <button class="food-tag-btn" data-tag="comfort">🍲 Comfort</button>
+          <button class="food-tag-btn" data-tag="restaurant">🏪 Restaurant</button>
+          <button class="food-tag-btn" data-tag="homemade">🏠 Homemade</button>
+          <button class="food-tag-btn" data-tag="social">👥 Social</button>
+          <button class="food-tag-btn" data-tag="indulgent">🍰 Indulgent</button>
+          <button class="food-tag-btn" data-tag="fresh">🌱 Fresh</button>
+          <button class="food-tag-btn" data-tag="processed">📦 Processed</button>
         </div>
 
-        <button id="food-save" class="food-save-btn">Save Food Entry</button>
+        <div class="food-contexts" id="food-contexts">
+          <button class="food-context-btn" data-context="mindful">Mindful</button>
+          <button class="food-context-btn" data-context="rushed">Rushed</button>
+          <button class="food-context-btn" data-context="with_media">With media</button>
+          <button class="food-context-btn" data-context="social">With someone</button>
+        </div>
+
+        <button id="food-save" class="food-save-btn">Save food</button>
       </div>
 
       <!-- Food History -->
