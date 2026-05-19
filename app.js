@@ -387,6 +387,26 @@ const APP_SESSION_MARKS = {
   distracted: { label: 'Got distracted', quality: 'distracted' },
   improperly_logged: { label: 'Improperly logged', logging_issue: 'improperly_logged' },
 };
+const APP_SESSION_SCOPES = {
+  main: {
+    storageKey: 'innerscape_active_timer',
+    startField: 'startTime',
+    slider: '#timer-quality-slider',
+    value: '#timer-quality-value',
+  },
+  sub: {
+    storageKey: 'innerscape_active_sub',
+    startField: 'subStartTime',
+    slider: '#timer-sub-quality-slider',
+    value: '#timer-sub-quality-value',
+  },
+  subsub: {
+    storageKey: 'innerscape_active_subsub',
+    startField: 'subSubStartTime',
+    slider: '#timer-subsub-quality-slider',
+    value: '#timer-subsub-quality-value',
+  },
+};
 
 function sessionQualityLabel(score) {
   if (!score) return 'Not rated';
@@ -444,35 +464,44 @@ function normalizeTimeEntry(entry) {
   };
 }
 
-function loadActiveTimerRecord() {
-  try { return JSON.parse(localStorage.getItem('innerscape_active_timer') || 'null'); } catch { return null; }
+function loadActiveTimerRecord(scope = 'main') {
+  const config = APP_SESSION_SCOPES[scope] || APP_SESSION_SCOPES.main;
+  try { return JSON.parse(localStorage.getItem(config.storageKey) || 'null'); } catch { return null; }
 }
 
-function saveActiveTimerRecord(record) {
+function saveActiveTimerRecord(record, scope = 'main') {
+  const config = APP_SESSION_SCOPES[scope] || APP_SESSION_SCOPES.main;
   if (!record) return;
-  localStorage.setItem('innerscape_active_timer', JSON.stringify(record));
+  localStorage.setItem(config.storageKey, JSON.stringify(record));
 }
 
-function renderSessionMarkButtons(record = loadActiveTimerRecord()) {
-  const quality = record?.sessionQuality || null;
-  const issue = record?.loggingIssue || null;
-  $$('.timer-session-tag').forEach(btn => {
+function renderSessionMarkButtons(record = null, scope = 'main') {
+  const config = APP_SESSION_SCOPES[scope] || APP_SESSION_SCOPES.main;
+  const activeRecord = record || loadActiveTimerRecord(scope);
+  if (!record && scope === 'main') {
+    renderSessionMarkButtons(null, 'sub');
+    renderSessionMarkButtons(null, 'subsub');
+  }
+  const quality = activeRecord?.sessionQuality || null;
+  const issue = activeRecord?.loggingIssue || null;
+  $$(`.timer-session-tag[data-session-scope="${scope}"]`).forEach(btn => {
     const tag = btn.dataset.sessionTag;
     btn.classList.toggle('active', (tag === quality) || (tag === issue));
   });
-  const slider = $('#timer-quality-slider');
-  const value = $('#timer-quality-value');
-  const score = record?.sessionQualityScore || null;
+  const slider = $(config.slider);
+  const value = $(config.value);
+  const score = activeRecord?.sessionQualityScore || null;
   if (slider) slider.value = score || 5;
   if (value) value.textContent = sessionQualityLabel(score);
 }
 
-function setSessionQualityScore(score, recordMark = true) {
-  const record = loadActiveTimerRecord();
-  if (!record || !record.startTime) return;
+function setSessionQualityScore(score, recordMark = true, scope = 'main') {
+  const config = APP_SESSION_SCOPES[scope] || APP_SESSION_SCOPES.main;
+  const record = loadActiveTimerRecord(scope);
+  if (!record || !record[config.startField]) return;
   const normalizedScore = Math.max(1, Math.min(10, parseInt(score, 10) || 5));
   const next = { ...record };
-  const elapsedMs = Math.max(0, Date.now() - record.startTime);
+  const elapsedMs = Math.max(0, Date.now() - record[config.startField]);
   next.sessionQualityScore = normalizedScore;
   next.sessionQuality = normalizedScore >= 7 ? 'focused' : normalizedScore <= 4 ? 'distracted' : 'mixed';
   next.sessionMarks = Array.isArray(record.sessionMarks) ? [...record.sessionMarks] : [];
@@ -485,17 +514,18 @@ function setSessionQualityScore(score, recordMark = true) {
       elapsed_ms: elapsedMs,
     });
   }
-  saveActiveTimerRecord(next);
-  renderSessionMarkButtons(next);
+  saveActiveTimerRecord(next, scope);
+  renderSessionMarkButtons(next, scope);
 }
 
-function toggleSessionMark(tag) {
+function toggleSessionMark(tag, scope = 'main') {
   const config = APP_SESSION_MARKS[tag];
-  const record = loadActiveTimerRecord();
-  if (!config || !record || !record.startTime) return;
+  const scopeConfig = APP_SESSION_SCOPES[scope] || APP_SESSION_SCOPES.main;
+  const record = loadActiveTimerRecord(scope);
+  if (!config || !record || !record[scopeConfig.startField]) return;
 
   const next = { ...record };
-  const elapsedMs = Math.max(0, Date.now() - record.startTime);
+  const elapsedMs = Math.max(0, Date.now() - record[scopeConfig.startField]);
   next.sessionMarks = Array.isArray(record.sessionMarks) ? [...record.sessionMarks] : [];
 
   if (config.quality) {
@@ -512,9 +542,19 @@ function toggleSessionMark(tag) {
     ts: Date.now(),
     elapsed_ms: elapsedMs,
   });
-  saveActiveTimerRecord(next);
-  renderSessionMarkButtons(next);
+  saveActiveTimerRecord(next, scope);
+  renderSessionMarkButtons(next, scope);
   showToast(`${config.label} noted`);
+}
+
+function collectSessionMeta(scope = 'main') {
+  const record = loadActiveTimerRecord(scope) || {};
+  return {
+    session_quality: record.sessionQuality || null,
+    session_quality_score: record.sessionQualityScore ?? null,
+    logging_issue: record.loggingIssue || null,
+    session_marks: Array.isArray(record.sessionMarks) ? record.sessionMarks : [],
+  };
 }
 
 function normalizeJsonDataShape(entry, type) {
@@ -610,15 +650,15 @@ function installDataHandoffLayer() {
   document.addEventListener('click', (event) => {
     const btn = event.target.closest('.timer-session-tag');
     if (!btn) return;
-    toggleSessionMark(btn.dataset.sessionTag);
+    toggleSessionMark(btn.dataset.sessionTag, btn.dataset.sessionScope || 'main');
   });
   document.addEventListener('input', (event) => {
-    if (event.target?.id !== 'timer-quality-slider') return;
-    setSessionQualityScore(event.target.value, false);
+    if (!event.target?.classList?.contains('timer-quality-slider')) return;
+    setSessionQualityScore(event.target.value, false, event.target.dataset.sessionScope || 'main');
   });
   document.addEventListener('change', (event) => {
-    if (event.target?.id !== 'timer-quality-slider') return;
-    setSessionQualityScore(event.target.value, true);
+    if (!event.target?.classList?.contains('timer-quality-slider')) return;
+    setSessionQualityScore(event.target.value, true, event.target.dataset.sessionScope || 'main');
   });
 
   if (originalShowActiveTimer) {
@@ -675,21 +715,19 @@ function installDataHandoffLayer() {
           startTime: timerState.subStartTime,
           endTime: now,
           tracking_mode: 'annotation',
+          ...collectSessionMeta('sub'),
         }));
       }
 
       const notesField = $('#timer-session-notes');
       const note = notesField ? notesField.value.trim() : '';
-      const activeRecord = loadActiveTimerRecord() || {};
+      const activeRecord = collectSessionMeta('main');
       let entry = {
         activityId: timerState.activeActivityId,
         startTime: timerState.startTime,
         endTime: now,
         tracking_mode: 'primary',
-        session_quality: activeRecord.sessionQuality || null,
-        session_quality_score: activeRecord.sessionQualityScore ?? null,
-        logging_issue: activeRecord.loggingIssue || null,
-        session_marks: Array.isArray(activeRecord.sessionMarks) ? activeRecord.sessionMarks : [],
+        ...activeRecord,
       };
       if (note) {
         entry.note = note;

@@ -160,6 +160,7 @@ function initTimer() {
               const savedSubNotes = localStorage.getItem(`innerscape_sub_notes_${s.activityId}_${sub.id}`);
               const subNotesField = $('#timer-sub-notes');
               if (subNotesField) subNotesField.value = savedSubNotes || '';
+              if (typeof renderSessionMarkButtons === 'function') renderSessionMarkButtons(null, 'sub');
             }
           } catch {}
         }
@@ -563,6 +564,7 @@ function enterSubActivity(sub) {
   if (subNotesField) {
     subNotesField.value = savedSubNotes || '';
   }
+  if (typeof renderSessionMarkButtons === 'function') renderSessionMarkButtons(null, 'sub');
 }
 
 function saveSubActivity() {
@@ -583,7 +585,8 @@ function saveSubActivity() {
       subActivityId: timerState.activeSubActivityId,
       subActivityName: sub ? sub.name : '',
       startTime: timerState.subStartTime,
-      endTime: Date.now()
+      endTime: Date.now(),
+      ...(typeof collectSessionMeta === 'function' ? collectSessionMeta('sub') : {})
     };
     if (subNote) entry.note = subNote;
     
@@ -602,6 +605,7 @@ function saveSubActivity() {
 
   $('#timer-sub-display').classList.add('hidden');
   $('#timer-session-display').classList.remove('hidden');
+  if (typeof renderSessionMarkButtons === 'function') renderSessionMarkButtons(null, 'sub');
 }
 
 function cancelSubActivity() {
@@ -617,6 +621,7 @@ function cancelSubActivity() {
 
   $('#timer-sub-display').classList.add('hidden');
   $('#timer-session-display').classList.remove('hidden');
+  if (typeof renderSessionMarkButtons === 'function') renderSessionMarkButtons(null, 'sub');
 }
 
 function updateTimerClock() {
@@ -1240,6 +1245,7 @@ function enterSubSubActivity(subsub) {
   if (subSubNotesField) {
     subSubNotesField.value = savedSubSubNotes || '';
   }
+  if (typeof renderSessionMarkButtons === 'function') renderSessionMarkButtons(null, 'subsub');
 }
 
 function saveSubSubActivity() {
@@ -1264,7 +1270,8 @@ function saveSubSubActivity() {
       subSubActivityId: timerState.activeSubSubActivityId,
       subSubActivityName: subSubActivity ? subSubActivity.name : '',
       startTime: timerState.subSubStartTime,
-      endTime: Date.now()
+      endTime: Date.now(),
+      ...(typeof collectSessionMeta === 'function' ? collectSessionMeta('subsub') : {})
     };
     if (subSubNote) entry.note = subSubNote;
     
@@ -1282,6 +1289,7 @@ function saveSubSubActivity() {
 
   $('#timer-subsub-display').classList.add('hidden');
   $('#timer-sub-display').classList.remove('hidden');
+  if (typeof renderSessionMarkButtons === 'function') renderSessionMarkButtons(null, 'subsub');
 }
 
 function cancelSubSubActivity() {
@@ -1296,4 +1304,5 @@ function cancelSubSubActivity() {
 
   $('#timer-subsub-display').classList.add('hidden');
   $('#timer-sub-display').classList.remove('hidden');
+  if (typeof renderSessionMarkButtons === 'function') renderSessionMarkButtons(null, 'subsub');
 }
