@@ -410,10 +410,20 @@ const APP_SESSION_SCOPES = {
 
 function sessionQualityLabel(score) {
   if (!score) return 'Not rated';
-  if (score <= 3) return `${score}/10 scattered`;
-  if (score <= 6) return `${score}/10 mixed`;
-  if (score <= 8) return `${score}/10 steady`;
-  return `${score}/10 focused`;
+  const shown = Number(score).toFixed(1);
+  if (score <= 3) return `${shown}/10 scattered`;
+  if (score <= 6) return `${shown}/10 mixed`;
+  if (score <= 8) return `${shown}/10 steady`;
+  return `${shown}/10 focused`;
+}
+
+function updateSessionQualitySlider(slider, score = 5) {
+  if (!slider) return;
+  const numeric = Math.max(1, Math.min(10, parseFloat(score) || 5));
+  const pct = ((numeric - 1) / 9) * 100;
+  const color = typeof gradientColor === 'function' ? gradientColor(numeric) : '#a78bfa';
+  slider.style.setProperty('--timer-quality-color', color);
+  slider.style.background = `linear-gradient(to right, ${color} 0%, ${color} ${pct}%, #1e1e2a ${pct}%)`;
 }
 
 function appDataLocalDate(ts) {
@@ -491,7 +501,10 @@ function renderSessionMarkButtons(record = null, scope = 'main') {
   const slider = $(config.slider);
   const value = $(config.value);
   const score = activeRecord?.sessionQualityScore || null;
-  if (slider) slider.value = score || 5;
+  if (slider) {
+    slider.value = score || 5;
+    updateSessionQualitySlider(slider, slider.value);
+  }
   if (value) value.textContent = sessionQualityLabel(score);
 }
 
@@ -499,7 +512,7 @@ function setSessionQualityScore(score, recordMark = true, scope = 'main') {
   const config = APP_SESSION_SCOPES[scope] || APP_SESSION_SCOPES.main;
   const record = loadActiveTimerRecord(scope);
   if (!record || !record[config.startField]) return;
-  const normalizedScore = Math.max(1, Math.min(10, parseInt(score, 10) || 5));
+  const normalizedScore = Math.round(Math.max(1, Math.min(10, parseFloat(score) || 5)) * 10) / 10;
   const next = { ...record };
   const elapsedMs = Math.max(0, Date.now() - record[config.startField]);
   next.sessionQualityScore = normalizedScore;
