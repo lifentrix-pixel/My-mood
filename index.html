@@ -490,6 +490,23 @@
           <div class="timer-notes-section">
             <textarea id="timer-session-notes" class="timer-session-notes" placeholder="Add notes for this session..." rows="2"></textarea>
           </div>
+
+          <div class="timer-quality-field" id="timer-quality-field">
+            <div class="timer-quality-header">
+              <span>Session quality</span>
+              <strong id="timer-quality-value">Not rated</strong>
+            </div>
+            <input id="timer-quality-slider" class="timer-quality-slider" type="range" min="1" max="10" step="1" value="5">
+            <div class="timer-quality-scale">
+              <span>Scattered</span>
+              <span>Focused</span>
+            </div>
+          </div>
+
+          <div class="timer-session-tags" id="timer-session-tags" aria-label="Session markers">
+            <button class="timer-session-tag" type="button" data-session-tag="distracted">Got distracted</button>
+            <button class="timer-session-tag" type="button" data-session-tag="improperly_logged">Improperly logged</button>
+          </div>
           
           <div class="timer-control-buttons">
             <button id="timer-cancel-btn" class="timer-cancel-btn">Cancel</button>

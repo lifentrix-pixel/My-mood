@@ -95,6 +95,36 @@ function safeLoad(key) {
   try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; }
 }
 
+function encodeTimeEntryNotes(entry) {
+  const text = entry.notes || entry.note || null;
+  const hasSessionData = entry.session_quality || entry.session_quality_score || entry.logging_issue || (Array.isArray(entry.session_marks) && entry.session_marks.length);
+  if (!hasSessionData) return text;
+  return JSON.stringify({
+    text,
+    session_quality: entry.session_quality || null,
+    session_quality_score: entry.session_quality_score ?? null,
+    logging_issue: entry.logging_issue || null,
+    session_marks: entry.session_marks || [],
+  });
+}
+
+function decodeTimeEntryNotes(notes) {
+  if (!notes || typeof notes !== 'string') return { note: notes || null };
+  try {
+    const parsed = JSON.parse(notes);
+    if (!parsed || typeof parsed !== 'object') return { note: notes };
+    return {
+      note: parsed.text || null,
+      session_quality: parsed.session_quality || null,
+      session_quality_score: parsed.session_quality_score ?? null,
+      logging_issue: parsed.logging_issue || null,
+      session_marks: Array.isArray(parsed.session_marks) ? parsed.session_marks : [],
+    };
+  } catch {
+    return { note: notes };
+  }
+}
+
 /* ── Data Mappers ── */
 
 function mapCheckins(entries) {
@@ -117,7 +147,7 @@ function mapTimeEntries(entries) {
     start_time: e.startTime || null,
     end_time: e.endTime || null,
     sub_activity: e.subActivityName || e.subActivityId || e.subActivity || null,
-    notes: e.notes || e.note || null,
+    notes: encodeTimeEntryNotes(e),
     tracking_mode: e.tracking_mode || e.trackingMode || 'primary',
     parent_entry_id: e.parent_entry_id || e.parentEntryId || null,
     intensity: e.intensity ?? null,
@@ -271,22 +301,29 @@ function unmapCheckins(rows) {
 }
 
 function unmapTimeEntries(rows) {
-  return rows.map(r => ({
-    id: r.id,
-    activityId: r.activity_id || null,
-    startTime: r.start_time || null,
-    endTime: r.end_time || null,
-    subActivityName: r.sub_activity || null,
-    subActivityId: r.sub_activity || null,
-    note: r.notes || null,
-    tracking_mode: r.tracking_mode || 'primary',
-    parent_entry_id: r.parent_entry_id || null,
-    intensity: r.intensity ?? null,
-    local_date: r.local_date || null,
-    timezone: r.timezone || 'Europe/Helsinki',
-    schema_version: r.schema_version || 1,
-    source: r.source || 'phone_app'
-  }));
+  return rows.map(r => {
+    const decodedNotes = decodeTimeEntryNotes(r.notes);
+    return {
+      id: r.id,
+      activityId: r.activity_id || null,
+      startTime: r.start_time || null,
+      endTime: r.end_time || null,
+      subActivityName: r.sub_activity || null,
+      subActivityId: r.sub_activity || null,
+      note: decodedNotes.note || null,
+      session_quality: decodedNotes.session_quality || null,
+      session_quality_score: decodedNotes.session_quality_score ?? null,
+      logging_issue: decodedNotes.logging_issue || null,
+      session_marks: decodedNotes.session_marks || [],
+      tracking_mode: r.tracking_mode || 'primary',
+      parent_entry_id: r.parent_entry_id || null,
+      intensity: r.intensity ?? null,
+      local_date: r.local_date || null,
+      timezone: r.timezone || 'Europe/Helsinki',
+      schema_version: r.schema_version || 1,
+      source: r.source || 'phone_app'
+    };
+  });
 }
 
 function unmapActivities(rows) {

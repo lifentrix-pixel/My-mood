@@ -1409,6 +1409,108 @@ input[type="range"]::-moz-range-thumb {
   background: rgba(255,255,255,0.08);
 }
 .timer-session-notes::placeholder { color: var(--text2); opacity: 0.7; }
+.timer-quality-field {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  margin: 12px 0;
+  padding: 12px;
+}
+.timer-quality-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.timer-quality-header span {
+  color: var(--text2);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.timer-quality-header strong {
+  color: var(--text);
+  font-size: 13px;
+}
+.timer-quality-slider {
+  accent-color: var(--accent);
+  width: 100%;
+}
+.timer-quality-scale {
+  color: var(--text2);
+  display: flex;
+  font-size: 11px;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+.timer-session-tags {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 12px 0 18px;
+}
+.timer-session-tag {
+  background: rgba(255,255,255,0.055);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  color: var(--text2);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 42px;
+  padding: 8px 10px;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+.timer-session-tag:active { transform: scale(0.97); }
+.timer-session-tag.active {
+  background: rgba(167,139,250,0.16);
+  border-color: rgba(167,139,250,0.48);
+  color: var(--text);
+}
+.timer-session-tag[data-session-tag="distracted"].active {
+  background: rgba(251,191,36,0.14);
+  border-color: rgba(251,191,36,0.45);
+}
+.timer-session-tag[data-session-tag="improperly_logged"].active {
+  background: rgba(248,113,113,0.14);
+  border-color: rgba(248,113,113,0.45);
+}
+.timer-entry-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 5px;
+}
+.timer-entry-badge {
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 999px;
+  color: var(--text2);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 5px 7px;
+}
+.badge-focused {
+  background: rgba(52,211,153,0.12);
+  border-color: rgba(52,211,153,0.35);
+  color: #a7f3d0;
+}
+.badge-quality {
+  background: rgba(167,139,250,0.12);
+  border-color: rgba(167,139,250,0.35);
+  color: #ddd6fe;
+}
+.badge-distracted {
+  background: rgba(251,191,36,0.12);
+  border-color: rgba(251,191,36,0.35);
+  color: #fde68a;
+}
+.badge-improper {
+  background: rgba(248,113,113,0.12);
+  border-color: rgba(248,113,113,0.35);
+  color: #fecaca;
+}
 .timer-control-buttons {
   display: flex;
   gap: 12px;
@@ -3878,6 +3980,7 @@ body.in-dreamland #sub-nav { display: none !important; }
   .export-timeframe { grid-template-columns: 1fr; }
   .export-datatypes { grid-template-columns: 1fr; }
   .export-formats { grid-template-columns: 1fr; }
+  .timer-session-tags { grid-template-columns: 1fr; }
 }
 
 /* Bristol grid */

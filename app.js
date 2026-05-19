@@ -383,6 +383,18 @@ installActivityTaxonomy();
 const APP_DATA_TIMEZONE = 'Europe/Helsinki';
 const APP_DATA_SOURCE = 'phone_app';
 const APP_DATA_SCHEMA_VERSION = 1;
+const APP_SESSION_MARKS = {
+  distracted: { label: 'Got distracted', quality: 'distracted' },
+  improperly_logged: { label: 'Improperly logged', logging_issue: 'improperly_logged' },
+};
+
+function sessionQualityLabel(score) {
+  if (!score) return 'Not rated';
+  if (score <= 3) return `${score}/10 scattered`;
+  if (score <= 6) return `${score}/10 mixed`;
+  if (score <= 8) return `${score}/10 steady`;
+  return `${score}/10 focused`;
+}
 
 function appDataLocalDate(ts) {
   return dayKey(ts || Date.now());
@@ -424,8 +436,85 @@ function normalizeTimeEntry(entry) {
     tracking_mode: entry.tracking_mode || entry.trackingMode || (hasSubLayer ? 'annotation' : 'primary'),
     parent_entry_id: entry.parent_entry_id || entry.parentEntryId || null,
     intensity: entry.intensity ?? null,
+    session_quality: entry.session_quality || entry.sessionQuality || null,
+    session_quality_score: entry.session_quality_score ?? entry.sessionQualityScore ?? null,
+    logging_issue: entry.logging_issue || entry.loggingIssue || null,
+    session_marks: Array.isArray(entry.session_marks) ? entry.session_marks : (Array.isArray(entry.sessionMarks) ? entry.sessionMarks : []),
     ...appDataMeta(startTime),
   };
+}
+
+function loadActiveTimerRecord() {
+  try { return JSON.parse(localStorage.getItem('innerscape_active_timer') || 'null'); } catch { return null; }
+}
+
+function saveActiveTimerRecord(record) {
+  if (!record) return;
+  localStorage.setItem('innerscape_active_timer', JSON.stringify(record));
+}
+
+function renderSessionMarkButtons(record = loadActiveTimerRecord()) {
+  const quality = record?.sessionQuality || null;
+  const issue = record?.loggingIssue || null;
+  $$('.timer-session-tag').forEach(btn => {
+    const tag = btn.dataset.sessionTag;
+    btn.classList.toggle('active', (tag === quality) || (tag === issue));
+  });
+  const slider = $('#timer-quality-slider');
+  const value = $('#timer-quality-value');
+  const score = record?.sessionQualityScore || null;
+  if (slider) slider.value = score || 5;
+  if (value) value.textContent = sessionQualityLabel(score);
+}
+
+function setSessionQualityScore(score, recordMark = true) {
+  const record = loadActiveTimerRecord();
+  if (!record || !record.startTime) return;
+  const normalizedScore = Math.max(1, Math.min(10, parseInt(score, 10) || 5));
+  const next = { ...record };
+  const elapsedMs = Math.max(0, Date.now() - record.startTime);
+  next.sessionQualityScore = normalizedScore;
+  next.sessionQuality = normalizedScore >= 7 ? 'focused' : normalizedScore <= 4 ? 'distracted' : 'mixed';
+  next.sessionMarks = Array.isArray(record.sessionMarks) ? [...record.sessionMarks] : [];
+  if (recordMark) {
+    next.sessionMarks.push({
+      type: 'quality_score',
+      label: sessionQualityLabel(normalizedScore),
+      score: normalizedScore,
+      ts: Date.now(),
+      elapsed_ms: elapsedMs,
+    });
+  }
+  saveActiveTimerRecord(next);
+  renderSessionMarkButtons(next);
+}
+
+function toggleSessionMark(tag) {
+  const config = APP_SESSION_MARKS[tag];
+  const record = loadActiveTimerRecord();
+  if (!config || !record || !record.startTime) return;
+
+  const next = { ...record };
+  const elapsedMs = Math.max(0, Date.now() - record.startTime);
+  next.sessionMarks = Array.isArray(record.sessionMarks) ? [...record.sessionMarks] : [];
+
+  if (config.quality) {
+    next.sessionQuality = record.sessionQuality === tag ? null : tag;
+  }
+  if (config.logging_issue) {
+    next.loggingIssue = record.loggingIssue === tag ? null : tag;
+  }
+
+  next.sessionMarks.push({
+    type: tag,
+    label: config.label,
+    active: (config.quality && next.sessionQuality === tag) || (config.logging_issue && next.loggingIssue === tag),
+    ts: Date.now(),
+    elapsed_ms: elapsedMs,
+  });
+  saveActiveTimerRecord(next);
+  renderSessionMarkButtons(next);
+  showToast(`${config.label} noted`);
 }
 
 function normalizeJsonDataShape(entry, type) {
@@ -516,6 +605,28 @@ function installDataHandoffLayer() {
   const originalSyncMoodEntries = typeof syncMoodEntries === 'function' ? syncMoodEntries : null;
   const originalSyncTimeEntries = typeof syncTimeEntries === 'function' ? syncTimeEntries : null;
   const originalSyncActivities = typeof syncActivities === 'function' ? syncActivities : null;
+  const originalShowActiveTimer = typeof showActiveTimer === 'function' ? showActiveTimer : null;
+
+  document.addEventListener('click', (event) => {
+    const btn = event.target.closest('.timer-session-tag');
+    if (!btn) return;
+    toggleSessionMark(btn.dataset.sessionTag);
+  });
+  document.addEventListener('input', (event) => {
+    if (event.target?.id !== 'timer-quality-slider') return;
+    setSessionQualityScore(event.target.value, false);
+  });
+  document.addEventListener('change', (event) => {
+    if (event.target?.id !== 'timer-quality-slider') return;
+    setSessionQualityScore(event.target.value, true);
+  });
+
+  if (originalShowActiveTimer) {
+    window.showActiveTimer = function showActiveTimer(activity) {
+      originalShowActiveTimer(activity);
+      renderSessionMarkButtons();
+    };
+  }
 
   window.loadEntries = function loadEntries() {
     try { return (JSON.parse(localStorage.getItem(STORE_KEY)) || []).map(normalizeCheckinEntry); } catch { return []; }
@@ -569,11 +680,16 @@ function installDataHandoffLayer() {
 
       const notesField = $('#timer-session-notes');
       const note = notesField ? notesField.value.trim() : '';
+      const activeRecord = loadActiveTimerRecord() || {};
       let entry = {
         activityId: timerState.activeActivityId,
         startTime: timerState.startTime,
         endTime: now,
         tracking_mode: 'primary',
+        session_quality: activeRecord.sessionQuality || null,
+        session_quality_score: activeRecord.sessionQualityScore ?? null,
+        logging_issue: activeRecord.loggingIssue || null,
+        session_marks: Array.isArray(activeRecord.sessionMarks) ? activeRecord.sessionMarks : [],
       };
       if (note) {
         entry.note = note;
@@ -599,6 +715,7 @@ function installDataHandoffLayer() {
       $('#timer-session-display').classList.remove('hidden');
       $('#timer-active').classList.add('hidden');
       $('#timer-main').classList.remove('hidden');
+      renderSessionMarkButtons(null);
       renderTimerGrid();
       renderTimerStats();
       showToast(`${act ? act.emoji : '⏱'} Session saved ✓`);

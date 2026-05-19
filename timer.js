@@ -890,11 +890,17 @@ function renderTimerStats() {
       }
       const row = document.createElement('div');
       row.className = 'timer-timeline-row';
+      const sessionBadges = [];
+      if (e.session_quality_score) sessionBadges.push(`<span class="timer-entry-badge badge-quality">Quality ${e.session_quality_score}/10</span>`);
+      if (e.session_quality === 'focused') sessionBadges.push('<span class="timer-entry-badge badge-focused">Focused</span>');
+      if (e.session_quality === 'distracted') sessionBadges.push('<span class="timer-entry-badge badge-distracted">Distracted</span>');
+      if (e.logging_issue === 'improperly_logged') sessionBadges.push('<span class="timer-entry-badge badge-improper">Improperly logged</span>');
       row.innerHTML = `
         <span class="timer-timeline-emoji">${act.emoji}</span>
         <div class="timer-entry-info">
           <span class="timer-entry-name">${act.name}${e.meditationRounds ? ` · ${e.meditationRounds} rounds` : ''}</span>
           <span class="timer-entry-times">${timeStr(e.startTime)} – ${timeStr(e.endTime)}  ·  ${formatDuration(dur)}</span>
+          ${sessionBadges.length ? `<div class="timer-entry-badges">${sessionBadges.join('')}</div>` : ''}
           ${e.note ? `<span class="timer-entry-note">📝 ${e.note}</span>` : ''}
         </div>
         <div class="timer-entry-actions">
