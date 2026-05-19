@@ -1516,6 +1516,88 @@ input[type="range"]::-moz-range-thumb {
   gap: 12px;
   align-items: center;
 }
+.timer-food-panel {
+  background: rgba(251,191,36,0.08);
+  border: 1px solid rgba(251,191,36,0.22);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  margin: 0 20px 20px;
+  padding: 12px;
+}
+.timer-food-panel.hidden { display: none; }
+.timer-food-head {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+.timer-food-head span {
+  color: var(--text2);
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.timer-food-head strong {
+  color: var(--text);
+  display: block;
+  font-size: 14px;
+}
+.timer-food-select {
+  background: rgba(0,0,0,0.18);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 12px;
+  padding: 8px 10px;
+}
+.timer-food-contexts {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.timer-food-context-btn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  color: var(--text2);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 38px;
+  padding: 7px;
+}
+.timer-food-context-btn.selected {
+  background: rgba(251,191,36,0.18);
+  border-color: rgba(251,191,36,0.48);
+  color: var(--text);
+}
+.timer-food-rating {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto 1fr auto;
+}
+.timer-food-rating span {
+  color: var(--text2);
+  font-size: 12px;
+  font-weight: 800;
+}
+.timer-food-rating strong {
+  color: var(--text);
+  font-size: 12px;
+}
+.timer-food-save {
+  background: #fbbf24;
+  border: none;
+  border-radius: 8px;
+  color: #1c1300;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 11px 12px;
+}
 .timer-stop-btn {
   padding: 18px 45px;
   border: none;
@@ -4103,6 +4185,9 @@ body.in-dreamland #sub-nav { display: none !important; }
   .export-datatypes { grid-template-columns: 1fr; }
   .export-formats { grid-template-columns: 1fr; }
   .timer-session-tags { grid-template-columns: 1fr; }
+  .timer-food-head { align-items: stretch; flex-direction: column; }
+  .timer-food-contexts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .timer-food-rating { grid-template-columns: 1fr; }
 }
 
 /* Bristol grid */

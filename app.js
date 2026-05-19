@@ -557,6 +557,83 @@ function collectSessionMeta(scope = 'main') {
   };
 }
 
+function isFoodTimerActivity(activity) {
+  if (!activity) return false;
+  if (activity.category === 'food_nourishment') return true;
+  const name = activityNameKey(activity.name || '');
+  return /\b(food|eat|eating|meal|breakfast|lunch|dinner|snack|drink|cook|cooking|groceries)\b/.test(name);
+}
+
+function inferTimerMealType() {
+  if (typeof inferMealType === 'function') return inferMealType();
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 11) return 'breakfast';
+  if (hour >= 11 && hour < 16) return 'lunch';
+  if (hour >= 16 && hour < 22) return 'dinner';
+  return 'snack';
+}
+
+function renderTimerFoodPanel(activity) {
+  const panel = $('#timer-food-panel');
+  if (!panel) return;
+  const shouldShow = isFoodTimerActivity(activity);
+  panel.classList.toggle('hidden', !shouldShow);
+  if (!shouldShow) return;
+  const mealType = $('#timer-food-meal-type');
+  if (mealType && !mealType.value) mealType.value = inferTimerMealType();
+  const val = $('#timer-food-satisfaction-val');
+  const slider = $('#timer-food-satisfaction');
+  if (val && slider) val.textContent = slider.value;
+}
+
+function resetTimerFoodPanel() {
+  $('#timer-food-description').value = '';
+  $('#timer-food-satisfaction').value = '5';
+  $('#timer-food-satisfaction-val').textContent = '5';
+  $('#timer-food-meal-type').value = inferTimerMealType();
+  $$('.timer-food-context-btn').forEach(btn => btn.classList.remove('selected'));
+}
+
+function saveTimerFoodEntry() {
+  const panel = $('#timer-food-panel');
+  if (!panel || panel.classList.contains('hidden')) return;
+  const activity = loadActivities().find(a => a.id === timerState.activeActivityId);
+  if (!activity) return;
+  const description = $('#timer-food-description').value.trim();
+  if (!description) {
+    showToast('Write what you ate or drank');
+    $('#timer-food-description').focus();
+    return;
+  }
+  const mealType = $('#timer-food-meal-type').value || inferTimerMealType();
+  const contexts = $$('.timer-food-context-btn.selected').map(btn => btn.dataset.foodContext);
+  const entry = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    timestamp: Date.now(),
+    mealType,
+    category: mealType,
+    description,
+    satisfaction: parseInt($('#timer-food-satisfaction').value, 10) || 5,
+    tags: ['timer-linked'],
+    contexts,
+    captureMode: 'timer_food_log',
+    linkedActivityId: activity.id,
+    linkedActivityName: activity.name,
+    linkedTimerStartTime: timerState.startTime,
+    linkedSubActivityId: timerState.activeSubActivityId || null,
+    linkedSubSubActivityId: timerState.activeSubSubActivityId || null,
+  };
+  if (typeof saveFoodEntry === 'function') saveFoodEntry(entry);
+  else {
+    const entries = loadFoodEntries();
+    entries.push(entry);
+    safeSave(FOOD_STORE_KEY, entries);
+  }
+  resetTimerFoodPanel();
+  if (typeof renderFoodHistory === 'function') renderFoodHistory();
+  showToast('Food logged while timer keeps running');
+}
+
 function normalizeJsonDataShape(entry, type) {
   const now = Date.now();
   const base = { ...(entry || {}) };
@@ -660,11 +737,25 @@ function installDataHandoffLayer() {
     if (!event.target?.classList?.contains('timer-quality-slider')) return;
     setSessionQualityScore(event.target.value, true, event.target.dataset.sessionScope || 'main');
   });
+  document.addEventListener('click', (event) => {
+    const btn = event.target.closest('.timer-food-context-btn');
+    if (!btn) return;
+    btn.classList.toggle('selected');
+  });
+  const timerFoodSlider = $('#timer-food-satisfaction');
+  if (timerFoodSlider) {
+    timerFoodSlider.addEventListener('input', () => {
+      $('#timer-food-satisfaction-val').textContent = timerFoodSlider.value;
+    });
+  }
+  const timerFoodSave = $('#timer-food-save');
+  if (timerFoodSave) timerFoodSave.addEventListener('click', saveTimerFoodEntry);
 
   if (originalShowActiveTimer) {
     window.showActiveTimer = function showActiveTimer(activity) {
       originalShowActiveTimer(activity);
       renderSessionMarkButtons();
+      renderTimerFoodPanel(activity);
     };
   }
 
@@ -754,6 +845,7 @@ function installDataHandoffLayer() {
       $('#timer-active').classList.add('hidden');
       $('#timer-main').classList.remove('hidden');
       renderSessionMarkButtons(null);
+      $('#timer-food-panel')?.classList.add('hidden');
       renderTimerGrid();
       renderTimerStats();
       showToast(`${act ? act.emoji : '⏱'} Session saved ✓`);

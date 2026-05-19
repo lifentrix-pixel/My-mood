@@ -565,6 +565,10 @@ function enterSubActivity(sub) {
     subNotesField.value = savedSubNotes || '';
   }
   if (typeof renderSessionMarkButtons === 'function') renderSessionMarkButtons(null, 'sub');
+  if (typeof renderTimerFoodPanel === 'function') {
+    const activity = loadActivities().find(a => a.id === timerState.activeActivityId);
+    renderTimerFoodPanel(activity);
+  }
 }
 
 function saveSubActivity() {
@@ -606,6 +610,10 @@ function saveSubActivity() {
   $('#timer-sub-display').classList.add('hidden');
   $('#timer-session-display').classList.remove('hidden');
   if (typeof renderSessionMarkButtons === 'function') renderSessionMarkButtons(null, 'sub');
+  if (typeof renderTimerFoodPanel === 'function') {
+    const activity = loadActivities().find(a => a.id === timerState.activeActivityId);
+    renderTimerFoodPanel(activity);
+  }
 }
 
 function cancelSubActivity() {
@@ -622,6 +630,10 @@ function cancelSubActivity() {
   $('#timer-sub-display').classList.add('hidden');
   $('#timer-session-display').classList.remove('hidden');
   if (typeof renderSessionMarkButtons === 'function') renderSessionMarkButtons(null, 'sub');
+  if (typeof renderTimerFoodPanel === 'function') {
+    const activity = loadActivities().find(a => a.id === timerState.activeActivityId);
+    renderTimerFoodPanel(activity);
+  }
 }
 
 function updateTimerClock() {
@@ -823,6 +835,7 @@ function saveStoppedTimer() {
   $('#timer-session-display').classList.remove('hidden');
   $('#timer-active').classList.add('hidden');
   $('#timer-main').classList.remove('hidden');
+  $('#timer-food-panel')?.classList.add('hidden');
   renderTimerGrid();
   showToast(`${ps.act ? ps.act.emoji : '⏱'} Session logged ✓`);
 }
@@ -846,6 +859,7 @@ function cancelTimer() {
     $('#timer-sub-display').classList.add('hidden'); 
     $('#timer-session-display').classList.remove('hidden');
     $('#timer-main').classList.remove('hidden');
+    $('#timer-food-panel')?.classList.add('hidden');
     renderTimerGrid();
     
     showToast('Timer cancelled');
@@ -1246,6 +1260,10 @@ function enterSubSubActivity(subsub) {
     subSubNotesField.value = savedSubSubNotes || '';
   }
   if (typeof renderSessionMarkButtons === 'function') renderSessionMarkButtons(null, 'subsub');
+  if (typeof renderTimerFoodPanel === 'function') {
+    const activity = loadActivities().find(a => a.id === timerState.activeActivityId);
+    renderTimerFoodPanel(activity);
+  }
 }
 
 function saveSubSubActivity() {
@@ -1290,6 +1308,10 @@ function saveSubSubActivity() {
   $('#timer-subsub-display').classList.add('hidden');
   $('#timer-sub-display').classList.remove('hidden');
   if (typeof renderSessionMarkButtons === 'function') renderSessionMarkButtons(null, 'subsub');
+  if (typeof renderTimerFoodPanel === 'function') {
+    const activity = loadActivities().find(a => a.id === timerState.activeActivityId);
+    renderTimerFoodPanel(activity);
+  }
 }
 
 function cancelSubSubActivity() {
@@ -1305,4 +1327,8 @@ function cancelSubSubActivity() {
   $('#timer-subsub-display').classList.add('hidden');
   $('#timer-sub-display').classList.remove('hidden');
   if (typeof renderSessionMarkButtons === 'function') renderSessionMarkButtons(null, 'subsub');
+  if (typeof renderTimerFoodPanel === 'function') {
+    const activity = loadActivities().find(a => a.id === timerState.activeActivityId);
+    renderTimerFoodPanel(activity);
+  }
 }

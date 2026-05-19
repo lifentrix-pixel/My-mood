@@ -583,6 +583,35 @@
             <button id="timer-subsub-done" class="timer-sub-done-btn">Save & Back</button>
           </div>
         </div>
+
+        <div id="timer-food-panel" class="timer-food-panel hidden">
+          <div class="timer-food-head">
+            <div>
+              <span>Food log</span>
+              <strong>What are you eating?</strong>
+            </div>
+            <select id="timer-food-meal-type" class="timer-food-select">
+              <option value="breakfast">Breakfast</option>
+              <option value="lunch">Lunch</option>
+              <option value="dinner">Dinner</option>
+              <option value="snack">Snack</option>
+              <option value="drink">Drink</option>
+            </select>
+          </div>
+          <textarea id="timer-food-description" class="timer-session-notes" rows="2" placeholder="Meal, drink, ingredients, cravings, context..."></textarea>
+          <div class="timer-food-contexts">
+            <button type="button" class="timer-food-context-btn" data-food-context="cooking">Cooking</button>
+            <button type="button" class="timer-food-context-btn" data-food-context="eating">Eating</button>
+            <button type="button" class="timer-food-context-btn" data-food-context="cleaning_up">Cleaning up</button>
+            <button type="button" class="timer-food-context-btn" data-food-context="with_media">With media</button>
+          </div>
+          <div class="timer-food-rating">
+            <span>Satisfaction</span>
+            <input id="timer-food-satisfaction" type="range" min="1" max="10" value="5">
+            <strong><span id="timer-food-satisfaction-val">5</span>/10</strong>
+          </div>
+          <button id="timer-food-save" type="button" class="timer-food-save">Log food while timer runs</button>
+        </div>
       </div>
 
       <!-- Create activity modal -->
