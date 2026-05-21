@@ -97,12 +97,17 @@ function safeLoad(key) {
 
 function encodeTimeEntryNotes(entry) {
   const text = entry.notes || entry.note || null;
-  const hasSessionData = entry.session_quality || entry.session_quality_score || entry.logging_issue || (Array.isArray(entry.session_marks) && entry.session_marks.length);
+  const hasSessionData = entry.session_quality ||
+    entry.session_quality_score ||
+    entry.logging_issue ||
+    (Array.isArray(entry.session_marks) && entry.session_marks.length) ||
+    (Array.isArray(entry.session_quality_segments) && entry.session_quality_segments.length);
   if (!hasSessionData) return text;
   return JSON.stringify({
     text,
     session_quality: entry.session_quality || null,
     session_quality_score: entry.session_quality_score ?? null,
+    session_quality_segments: entry.session_quality_segments || [],
     logging_issue: entry.logging_issue || null,
     session_marks: entry.session_marks || [],
   });
@@ -117,6 +122,7 @@ function decodeTimeEntryNotes(notes) {
       note: parsed.text || null,
       session_quality: parsed.session_quality || null,
       session_quality_score: parsed.session_quality_score ?? null,
+      session_quality_segments: Array.isArray(parsed.session_quality_segments) ? parsed.session_quality_segments : [],
       logging_issue: parsed.logging_issue || null,
       session_marks: Array.isArray(parsed.session_marks) ? parsed.session_marks : [],
     };
@@ -271,12 +277,23 @@ function mapIntegrationSyncStatus(obj) {
 
 /* ── Sync Status UI ── */
 
+let syncStatusHideTimer = null;
+
 function updateSyncStatus(status, icon) {
   _syncState.status = status;
   const el = document.getElementById('sync-status');
   if (el) {
     const icons = { syncing: '🔄', synced: '✅', error: '⚠️', idle: '☁️' };
+    const isPersistent = icon === 'syncing' || icon === 'error' || status === 'Offline';
+    clearTimeout(syncStatusHideTimer);
     el.textContent = (icons[icon] || icon || '') + ' ' + status;
+    el.classList.remove('hidden');
+    el.classList.toggle('persistent', isPersistent);
+    if (!isPersistent) {
+      syncStatusHideTimer = setTimeout(() => {
+        el.classList.add('hidden');
+      }, 2600);
+    }
   }
   // Update cloud sync section if it exists
   const lastEl = document.getElementById('sync-last-time');
@@ -313,6 +330,7 @@ function unmapTimeEntries(rows) {
       note: decodedNotes.note || null,
       session_quality: decodedNotes.session_quality || null,
       session_quality_score: decodedNotes.session_quality_score ?? null,
+      session_quality_segments: decodedNotes.session_quality_segments || [],
       logging_issue: decodedNotes.logging_issue || null,
       session_marks: decodedNotes.session_marks || [],
       tracking_mode: r.tracking_mode || 'primary',

@@ -393,37 +393,234 @@ const APP_SESSION_SCOPES = {
     startField: 'startTime',
     slider: '#timer-quality-slider',
     value: '#timer-quality-value',
+    segmentList: '[data-session-segment-list="main"]',
   },
   sub: {
     storageKey: 'innerscape_active_sub',
     startField: 'subStartTime',
     slider: '#timer-sub-quality-slider',
     value: '#timer-sub-quality-value',
+    segmentList: '[data-session-segment-list="sub"]',
   },
   subsub: {
     storageKey: 'innerscape_active_subsub',
     startField: 'subSubStartTime',
     slider: '#timer-subsub-quality-slider',
     value: '#timer-subsub-quality-value',
+    segmentList: '[data-session-segment-list="subsub"]',
   },
 };
 
+function normalizeSessionQualityScore(score, fallback = null) {
+  const parsed = parseFloat(score);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.round(Math.max(1, Math.min(10, parsed)) * 10) / 10;
+}
+
+function sessionQualityFromScore(score) {
+  const numeric = normalizeSessionQualityScore(score, null);
+  if (numeric === null) return null;
+  if (numeric >= 7) return 'focused';
+  if (numeric <= 4) return 'distracted';
+  return 'mixed';
+}
+
 function sessionQualityLabel(score) {
-  if (!score) return 'Not rated';
-  const shown = Number(score).toFixed(1);
-  if (score <= 3) return `${shown}/10 scattered`;
-  if (score <= 6) return `${shown}/10 mixed`;
-  if (score <= 8) return `${shown}/10 steady`;
+  const numeric = normalizeSessionQualityScore(score, null);
+  if (numeric === null) return 'Not rated';
+  const shown = numeric.toFixed(1);
+  if (numeric <= 3) return `${shown}/10 scattered`;
+  if (numeric <= 6) return `${shown}/10 mixed`;
+  if (numeric <= 8) return `${shown}/10 steady`;
   return `${shown}/10 focused`;
 }
 
 function updateSessionQualitySlider(slider, score = 5) {
   if (!slider) return;
-  const numeric = Math.max(1, Math.min(10, parseFloat(score) || 5));
+  const numeric = normalizeSessionQualityScore(score, 5);
   const pct = ((numeric - 1) / 9) * 100;
   const color = typeof gradientColor === 'function' ? gradientColor(numeric) : '#a78bfa';
   slider.style.setProperty('--timer-quality-color', color);
   slider.style.background = `linear-gradient(to right, ${color} 0%, ${color} ${pct}%, #1e1e2a ${pct}%)`;
+}
+
+function compactMinuteLabel(value) {
+  const numeric = parseFloat(value);
+  if (!Number.isFinite(numeric)) return '0';
+  return Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(1).replace(/\.0$/, '');
+}
+
+function escapeTimerHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[char]));
+}
+
+function roundSessionMinute(value) {
+  const parsed = parseFloat(value);
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.round(Math.max(0, parsed) * 10) / 10;
+}
+
+function getSessionQualitySegments(record, durationMs = null) {
+  const rawSegments = record?.sessionQualitySegments || record?.session_quality_segments || [];
+  if (!Array.isArray(rawSegments)) return [];
+  const maxMinutes = Number.isFinite(durationMs) && durationMs > 0
+    ? Math.round((durationMs / 60000) * 10) / 10
+    : null;
+
+  return rawSegments.map((segment, index) => {
+    let startMin = roundSessionMinute(segment.start_min ?? segment.startMin ?? segment.start_minutes ?? segment.start ?? 0);
+    let endMin = roundSessionMinute(segment.end_min ?? segment.endMin ?? segment.end_minutes ?? segment.end ?? startMin + 15);
+    if (maxMinutes !== null) {
+      startMin = Math.min(startMin, maxMinutes);
+      endMin = Math.min(endMin, maxMinutes);
+    }
+    if (endMin <= startMin) {
+      endMin = maxMinutes !== null ? Math.min(maxMinutes, startMin + 0.1) : startMin + 1;
+    }
+    if (endMin <= startMin && maxMinutes !== null) {
+      startMin = Math.max(0, endMin - 0.1);
+    }
+    const score = normalizeSessionQualityScore(segment.quality_score ?? segment.score ?? segment.session_quality_score, 5);
+    return {
+      id: segment.id || `quality-segment-${index}`,
+      start_min: roundSessionMinute(startMin),
+      end_min: roundSessionMinute(endMin),
+      quality_score: score,
+      label: sessionQualityLabel(score),
+      note: String(segment.note ?? segment.notes ?? '').trim(),
+    };
+  }).filter(segment => segment.end_min > segment.start_min)
+    .sort((a, b) => a.start_min - b.start_min || a.end_min - b.end_min);
+}
+
+function averageSessionQualitySegments(segments) {
+  if (!Array.isArray(segments) || !segments.length) return null;
+  let weightedTotal = 0;
+  let totalMinutes = 0;
+  segments.forEach(segment => {
+    const minutes = Math.max(0, segment.end_min - segment.start_min);
+    if (!minutes) return;
+    weightedTotal += minutes * segment.quality_score;
+    totalMinutes += minutes;
+  });
+  if (!totalMinutes) return null;
+  return normalizeSessionQualityScore(weightedTotal / totalMinutes, null);
+}
+
+function activeSessionElapsedMinutes(scope = 'main') {
+  const config = APP_SESSION_SCOPES[scope] || APP_SESSION_SCOPES.main;
+  const record = loadActiveTimerRecord(scope);
+  const start = record?.[config.startField];
+  if (!start) return 0;
+  return Math.max(1, Math.ceil((Date.now() - start) / 60000));
+}
+
+function saveSessionQualitySegments(scope, segments, shouldRender = true) {
+  const record = loadActiveTimerRecord(scope);
+  const config = APP_SESSION_SCOPES[scope] || APP_SESSION_SCOPES.main;
+  if (!record || !record[config.startField]) return;
+  const normalized = getSessionQualitySegments({ sessionQualitySegments: segments });
+  const next = { ...record, sessionQualitySegments: normalized };
+  saveActiveTimerRecord(next, scope);
+  if (shouldRender) renderSessionQualitySegments(next, scope);
+}
+
+function addSessionQualitySegment(scope = 'main') {
+  const record = loadActiveTimerRecord(scope);
+  const config = APP_SESSION_SCOPES[scope] || APP_SESSION_SCOPES.main;
+  if (!record || !record[config.startField]) return;
+  const segments = getSessionQualitySegments(record);
+  const lastEnd = segments.length ? Math.max(...segments.map(segment => segment.end_min)) : 0;
+  const elapsedMinutes = activeSessionElapsedMinutes(scope);
+  const startMin = roundSessionMinute(lastEnd);
+  const endMin = roundSessionMinute(Math.max(startMin + 1, Math.min(startMin + 15, Math.max(elapsedMinutes, startMin + 15))));
+  const previousScore = segments.length ? segments[segments.length - 1].quality_score : 5;
+  const score = normalizeSessionQualityScore(record.sessionQualityScore, previousScore);
+  segments.push({
+    id: `quality-segment-${Date.now().toString(36)}`,
+    start_min: startMin,
+    end_min: endMin,
+    quality_score: score,
+    label: sessionQualityLabel(score),
+    note: '',
+  });
+  saveSessionQualitySegments(scope, segments);
+  showToast('Quality segment added');
+}
+
+function removeSessionQualitySegment(scope, index) {
+  const record = loadActiveTimerRecord(scope);
+  if (!record) return;
+  const segments = getSessionQualitySegments(record);
+  segments.splice(index, 1);
+  saveSessionQualitySegments(scope, segments);
+}
+
+function updateSessionQualitySegment(scope, index, patch, shouldRender = true) {
+  const record = loadActiveTimerRecord(scope);
+  if (!record) return;
+  const segments = getSessionQualitySegments(record);
+  if (!segments[index]) return;
+  segments[index] = { ...segments[index], ...patch };
+  saveSessionQualitySegments(scope, segments, shouldRender);
+}
+
+function renderSessionQualitySegments(record = null, scope = 'main') {
+  const config = APP_SESSION_SCOPES[scope] || APP_SESSION_SCOPES.main;
+  const list = $(config.segmentList);
+  const activeRecord = record || loadActiveTimerRecord(scope);
+  if (!record && scope === 'main') {
+    renderSessionQualitySegments(null, 'sub');
+    renderSessionQualitySegments(null, 'subsub');
+  }
+  if (!list) return;
+  const segments = getSessionQualitySegments(activeRecord);
+  list.innerHTML = '';
+  if (!activeRecord?.[config.startField]) {
+    list.innerHTML = '<div class="timer-quality-empty">No active session</div>';
+    return;
+  }
+  if (!segments.length) {
+    list.innerHTML = '<div class="timer-quality-empty">No quality segments yet</div>';
+    return;
+  }
+
+  segments.forEach((segment, index) => {
+    const row = document.createElement('div');
+    row.className = 'timer-quality-segment-row';
+    row.dataset.segmentIndex = String(index);
+    row.dataset.sessionScope = scope;
+    row.innerHTML = `
+      <div class="timer-quality-segment-times">
+        <label>From <input class="timer-quality-segment-time" data-time-field="start_min" type="number" min="0" step="0.5" value="${compactMinuteLabel(segment.start_min)}"> min</label>
+        <label>To <input class="timer-quality-segment-time" data-time-field="end_min" type="number" min="0" step="0.5" value="${compactMinuteLabel(segment.end_min)}"> min</label>
+        <button class="timer-quality-remove" type="button" title="Remove segment">×</button>
+      </div>
+      <div class="timer-quality-segment-score">
+        <input class="timer-quality-slider timer-quality-segment-slider" type="range" min="1" max="10" step="0.1" value="${segment.quality_score}" data-session-scope="${scope}" data-segment-index="${index}">
+        <strong class="timer-quality-segment-value">${sessionQualityLabel(segment.quality_score)}</strong>
+      </div>
+      <input class="timer-quality-segment-note" type="text" value="${escapeTimerHtml(segment.note)}" placeholder="Note for this slice">
+    `;
+    list.appendChild(row);
+    updateSessionQualitySlider(row.querySelector('.timer-quality-segment-slider'), segment.quality_score);
+  });
+}
+
+function renderTimeEntryQualitySegments(segments) {
+  const normalized = getSessionQualitySegments({ sessionQualitySegments: segments });
+  if (!normalized.length) return '';
+  const shown = normalized.slice(0, 4).map(segment => (
+    `<span class="timer-quality-segment-chip">${compactMinuteLabel(segment.start_min)}-${compactMinuteLabel(segment.end_min)}m: ${segment.quality_score.toFixed(1)}${segment.note ? ` · ${escapeTimerHtml(segment.note.slice(0, 42))}` : ''}</span>`
+  )).join('');
+  const extra = normalized.length > 4 ? `<span class="timer-quality-segment-chip">+${normalized.length - 4}</span>` : '';
+  return `<div class="timer-quality-segment-summary">${shown}${extra}</div>`;
 }
 
 function appDataLocalDate(ts) {
@@ -468,6 +665,9 @@ function normalizeTimeEntry(entry) {
     intensity: entry.intensity ?? null,
     session_quality: entry.session_quality || entry.sessionQuality || null,
     session_quality_score: entry.session_quality_score ?? entry.sessionQualityScore ?? null,
+    session_quality_segments: getSessionQualitySegments({
+      sessionQualitySegments: entry.session_quality_segments || entry.sessionQualitySegments || [],
+    }),
     logging_issue: entry.logging_issue || entry.loggingIssue || null,
     session_marks: Array.isArray(entry.session_marks) ? entry.session_marks : (Array.isArray(entry.sessionMarks) ? entry.sessionMarks : []),
     ...appDataMeta(startTime),
@@ -506,17 +706,18 @@ function renderSessionMarkButtons(record = null, scope = 'main') {
     updateSessionQualitySlider(slider, slider.value);
   }
   if (value) value.textContent = sessionQualityLabel(score);
+  renderSessionQualitySegments(activeRecord, scope);
 }
 
 function setSessionQualityScore(score, recordMark = true, scope = 'main') {
   const config = APP_SESSION_SCOPES[scope] || APP_SESSION_SCOPES.main;
   const record = loadActiveTimerRecord(scope);
   if (!record || !record[config.startField]) return;
-  const normalizedScore = Math.round(Math.max(1, Math.min(10, parseFloat(score) || 5)) * 10) / 10;
+  const normalizedScore = normalizeSessionQualityScore(score, 5);
   const next = { ...record };
   const elapsedMs = Math.max(0, Date.now() - record[config.startField]);
   next.sessionQualityScore = normalizedScore;
-  next.sessionQuality = normalizedScore >= 7 ? 'focused' : normalizedScore <= 4 ? 'distracted' : 'mixed';
+  next.sessionQuality = sessionQualityFromScore(normalizedScore);
   next.sessionMarks = Array.isArray(record.sessionMarks) ? [...record.sessionMarks] : [];
   if (recordMark) {
     next.sessionMarks.push({
@@ -560,11 +761,17 @@ function toggleSessionMark(tag, scope = 'main') {
   showToast(`${config.label} noted`);
 }
 
-function collectSessionMeta(scope = 'main') {
+function collectSessionMeta(scope = 'main', endTime = Date.now()) {
+  const config = APP_SESSION_SCOPES[scope] || APP_SESSION_SCOPES.main;
   const record = loadActiveTimerRecord(scope) || {};
+  const durationMs = record[config.startField] ? Math.max(0, endTime - record[config.startField]) : null;
+  const segments = getSessionQualitySegments(record, durationMs);
+  const segmentAverage = averageSessionQualitySegments(segments);
+  const qualityScore = record.sessionQualityScore ?? segmentAverage;
   return {
-    session_quality: record.sessionQuality || null,
-    session_quality_score: record.sessionQualityScore ?? null,
+    session_quality: record.sessionQuality || sessionQualityFromScore(segmentAverage),
+    session_quality_score: qualityScore ?? null,
+    session_quality_segments: segments,
     logging_issue: record.loggingIssue || null,
     session_marks: Array.isArray(record.sessionMarks) ? record.sessionMarks : [],
   };
@@ -742,13 +949,59 @@ function installDataHandoffLayer() {
     if (!btn) return;
     toggleSessionMark(btn.dataset.sessionTag, btn.dataset.sessionScope || 'main');
   });
+  document.addEventListener('click', (event) => {
+    const addBtn = event.target.closest('.timer-quality-add');
+    if (addBtn) {
+      addSessionQualitySegment(addBtn.dataset.sessionScope || 'main');
+      return;
+    }
+
+    const removeBtn = event.target.closest('.timer-quality-remove');
+    if (!removeBtn) return;
+    const row = removeBtn.closest('.timer-quality-segment-row');
+    if (!row) return;
+    removeSessionQualitySegment(row.dataset.sessionScope || 'main', parseInt(row.dataset.segmentIndex, 10));
+  });
   document.addEventListener('input', (event) => {
-    if (!event.target?.classList?.contains('timer-quality-slider')) return;
+    if (!event.target?.classList?.contains('timer-quality-slider') || event.target.classList.contains('timer-quality-segment-slider')) return;
     setSessionQualityScore(event.target.value, false, event.target.dataset.sessionScope || 'main');
   });
   document.addEventListener('change', (event) => {
-    if (!event.target?.classList?.contains('timer-quality-slider')) return;
+    if (!event.target?.classList?.contains('timer-quality-slider') || event.target.classList.contains('timer-quality-segment-slider')) return;
     setSessionQualityScore(event.target.value, true, event.target.dataset.sessionScope || 'main');
+  });
+  document.addEventListener('input', (event) => {
+    const slider = event.target.closest('.timer-quality-segment-slider');
+    if (!slider) {
+      const noteInput = event.target.closest('.timer-quality-segment-note');
+      if (!noteInput) return;
+      const row = noteInput.closest('.timer-quality-segment-row');
+      if (!row) return;
+      updateSessionQualitySegment(row.dataset.sessionScope || 'main', parseInt(row.dataset.segmentIndex, 10), {
+        note: noteInput.value,
+      }, false);
+      return;
+    }
+    const scope = slider.dataset.sessionScope || 'main';
+    const index = parseInt(slider.dataset.segmentIndex, 10);
+    const score = normalizeSessionQualityScore(slider.value, 5);
+    updateSessionQualitySlider(slider, score);
+    const row = slider.closest('.timer-quality-segment-row');
+    const value = row?.querySelector('.timer-quality-segment-value');
+    if (value) value.textContent = sessionQualityLabel(score);
+    updateSessionQualitySegment(scope, index, {
+      quality_score: score,
+      label: sessionQualityLabel(score),
+    }, false);
+  });
+  document.addEventListener('change', (event) => {
+    const input = event.target.closest('.timer-quality-segment-time');
+    if (!input) return;
+    const row = input.closest('.timer-quality-segment-row');
+    if (!row) return;
+    updateSessionQualitySegment(row.dataset.sessionScope || 'main', parseInt(row.dataset.segmentIndex, 10), {
+      [input.dataset.timeField]: roundSessionMinute(input.value),
+    });
   });
   document.addEventListener('click', (event) => {
     const btn = event.target.closest('.timer-food-context-btn');
@@ -819,13 +1072,13 @@ function installDataHandoffLayer() {
           startTime: timerState.subStartTime,
           endTime: now,
           tracking_mode: 'annotation',
-          ...collectSessionMeta('sub'),
+          ...collectSessionMeta('sub', now),
         }));
       }
 
       const notesField = $('#timer-session-notes');
       const note = notesField ? notesField.value.trim() : '';
-      const activeRecord = collectSessionMeta('main');
+      const activeRecord = collectSessionMeta('main', now);
       let entry = {
         activityId: timerState.activeActivityId,
         startTime: timerState.startTime,

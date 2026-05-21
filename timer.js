@@ -583,14 +583,15 @@ function saveSubActivity() {
       ? activity.subActivities.find(s => s.id === timerState.activeSubActivityId)
       : null;
     
+    const now = Date.now();
     const entry = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       activityId: timerState.activeActivityId,
       subActivityId: timerState.activeSubActivityId,
       subActivityName: sub ? sub.name : '',
       startTime: timerState.subStartTime,
-      endTime: Date.now(),
-      ...(typeof collectSessionMeta === 'function' ? collectSessionMeta('sub') : {})
+      endTime: now,
+      ...(typeof collectSessionMeta === 'function' ? collectSessionMeta('sub', now) : {})
     };
     if (subNote) entry.note = subNote;
     
@@ -911,15 +912,22 @@ function renderTimerStats() {
       row.className = 'timer-timeline-row';
       const sessionBadges = [];
       if (e.session_quality_score) sessionBadges.push(`<span class="timer-entry-badge badge-quality">Quality ${e.session_quality_score}/10</span>`);
+      if (Array.isArray(e.session_quality_segments) && e.session_quality_segments.length) {
+        sessionBadges.push(`<span class="timer-entry-badge badge-quality-timeline">${e.session_quality_segments.length} quality ${e.session_quality_segments.length === 1 ? 'segment' : 'segments'}</span>`);
+      }
       if (e.session_quality === 'focused') sessionBadges.push('<span class="timer-entry-badge badge-focused">Focused</span>');
       if (e.session_quality === 'distracted') sessionBadges.push('<span class="timer-entry-badge badge-distracted">Distracted</span>');
       if (e.logging_issue === 'improperly_logged') sessionBadges.push('<span class="timer-entry-badge badge-improper">Improperly logged</span>');
+      const qualitySegments = typeof renderTimeEntryQualitySegments === 'function'
+        ? renderTimeEntryQualitySegments(e.session_quality_segments)
+        : '';
       row.innerHTML = `
         <span class="timer-timeline-emoji">${act.emoji}</span>
         <div class="timer-entry-info">
           <span class="timer-entry-name">${act.name}${e.meditationRounds ? ` · ${e.meditationRounds} rounds` : ''}</span>
           <span class="timer-entry-times">${timeStr(e.startTime)} – ${timeStr(e.endTime)}  ·  ${formatDuration(dur)}</span>
           ${sessionBadges.length ? `<div class="timer-entry-badges">${sessionBadges.join('')}</div>` : ''}
+          ${qualitySegments}
           ${e.note ? `<span class="timer-entry-note">📝 ${e.note}</span>` : ''}
         </div>
         <div class="timer-entry-actions">
@@ -1281,6 +1289,7 @@ function saveSubSubActivity() {
       ? subActivity.subSubActivities.find(ss => ss.id === timerState.activeSubSubActivityId)
       : null;
     
+    const now = Date.now();
     const entry = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       activityId: timerState.activeActivityId,
@@ -1288,8 +1297,8 @@ function saveSubSubActivity() {
       subSubActivityId: timerState.activeSubSubActivityId,
       subSubActivityName: subSubActivity ? subSubActivity.name : '',
       startTime: timerState.subSubStartTime,
-      endTime: Date.now(),
-      ...(typeof collectSessionMeta === 'function' ? collectSessionMeta('subsub') : {})
+      endTime: now,
+      ...(typeof collectSessionMeta === 'function' ? collectSessionMeta('subsub', now) : {})
     };
     if (subSubNote) entry.note = subSubNote;
     
