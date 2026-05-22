@@ -7,6 +7,38 @@ let trendsVisible = { overall: true, body: true, energy: true, mood: true, mind:
 let trendsZoom = 90;
 let todayVisible = { body: true, energy: true, mood: true, mind: true };
 
+function moodEntryIdRank(entry) {
+  const id = String(entry?.id || '');
+  if (id.startsWith('ci-')) return 3;
+  if (id.startsWith('entry-')) return 1;
+  return 2;
+}
+
+function prepareMoodEntriesForCharts(entries) {
+  const byTimestamp = new Map();
+  (entries || []).forEach(entry => {
+    if (!entry || !entry.ts || !entry.scores) return;
+    const key = String(entry.ts);
+    const existing = byTimestamp.get(key);
+    if (!existing || moodEntryIdRank(entry) >= moodEntryIdRank(existing)) {
+      byTimestamp.set(key, {
+        ...existing,
+        ...entry,
+        scores: { ...(existing?.scores || {}), ...(entry.scores || {}) },
+        notes: { ...(existing?.notes || {}), ...(entry.notes || {}) },
+      });
+    }
+  });
+  return Array.from(byTimestamp.values()).sort((a, b) => a.ts - b.ts);
+}
+
+async function loadTrendEntries() {
+  const entries = typeof loadAllEntries === 'function'
+    ? await loadAllEntries()
+    : loadEntries();
+  return prepareMoodEntriesForCharts(entries);
+}
+
 function renderTodayChart(todayEntries) {
   const chronological = [...todayEntries].sort((a,b) => a.ts - b.ts);
   const data = makeIntradayData(chronological, todayVisible);
@@ -245,8 +277,8 @@ function renderMonthly() {
   monthlyChart = new Chart($('#monthly-chart'), { type: 'line', data, options: chartOpts });
 }
 
-function renderTrends() {
-  const entries = loadEntries();
+async function renderTrends() {
+  const entries = await loadTrendEntries();
   const totalDays = entries.length ? Math.ceil((Date.now() - entries[0].ts) / 86400000) : 0;
   const days = trendsZoom === 'all' ? Math.max(totalDays, 90) : trendsZoom;
   const agg = aggregateByDay(entries, days);

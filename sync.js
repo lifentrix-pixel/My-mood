@@ -432,7 +432,8 @@ async function fetchAllRows(table, recentOnly) {
   let offset = 0;
   const limit = 1000;
   
-  // For large tables, only pull last 90 days to avoid filling localStorage
+  // For large high-volume tables, only pull a recent window to avoid filling localStorage.
+  // Checkins stay full-history because Trends needs the complete mood timeline.
   let dateFilter = '';
   if (recentOnly && RECENT_PULL_TABLES[table]) {
     const col = RECENT_PULL_TABLES[table];
@@ -446,10 +447,11 @@ async function fetchAllRows(table, recentOnly) {
       dateFilter = `&${col}=gte.${new Date(cutoff).toISOString()}`;
     }
   }
+  const orderColumn = table === 'checkins' ? 'ts' : 'created_at';
   
   while (true) {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/${table}?select=*&order=created_at.asc${dateFilter}&offset=${offset}&limit=${limit}`,
+      `${SUPABASE_URL}/rest/v1/${table}?select=*&order=${orderColumn}.asc${dateFilter}&offset=${offset}&limit=${limit}`,
       { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } }
     );
     if (!res.ok) throw new Error(`Pull ${table}: ${res.status}`);
@@ -511,10 +513,10 @@ async function pullFromSupabase() {
   updateSyncStatus('Pulling...', 'syncing');
 
   try {
-    const recent = true; // Only pull last 90 days for large tables
+    const recent = true; // Only pull recent rows for selected high-volume tables
     const [cRows, tRows, aRows, fRows, mRows, sRows,
            qnRows, intRows, drRows, todoRows, wishRows, medRows, meditRows, fpRows, mqRows, msRows, miRows, ouraRows] = await Promise.all([
-      fetchAllRows('checkins', recent),
+      fetchAllRows('checkins', false),
       fetchAllRows('time_entries', recent),
       fetchAllRows('activities'),       // small, always pull all
       fetchAllRows('food_entries', recent),
