@@ -640,6 +640,47 @@ async function fullSync(force) {
 
 /* ── Core Sync (Push) ── */
 
+const CHECKIN_SYNC_RETRY_DAYS = 7;
+const CHECKIN_SYNC_RETRY_MS = CHECKIN_SYNC_RETRY_DAYS * 24 * 60 * 60 * 1000;
+
+function dedupeSyncRows(rows) {
+  const map = new Map();
+  (rows || []).forEach(row => {
+    if (!row) return;
+    const key = row.id || row.ts;
+    if (!key) return;
+    const existing = map.get(key);
+    map.set(key, { ...(existing || {}), ...row });
+  });
+  return Array.from(map.values());
+}
+
+async function loadCheckinsForSync(force, lastSync) {
+  const local = safeLoad('innerscape_entries');
+  let pending = [];
+  let archivedRecent = [];
+  try {
+    pending = await idbGet('innerscape_entries_pending') || [];
+    const archive = await idbGet('innerscape_entries_archive') || [];
+    const retryCutoff = Date.now() - CHECKIN_SYNC_RETRY_MS;
+    archivedRecent = archive.filter(entry => (entry.ts || 0) >= retryCutoff);
+  } catch (error) {
+    console.warn('Unable to read check-in backup store:', error);
+  }
+
+  const pendingKeys = new Set(pending.map(entry => entry.id || entry.ts));
+  const retryCutoff = Date.now() - CHECKIN_SYNC_RETRY_MS;
+  return dedupeSyncRows([...local, ...archivedRecent, ...pending]).filter(entry => {
+    const t = entry.ts || 0;
+    return force || !lastSync || t > lastSync || t >= retryCutoff || pendingKeys.has(entry.id || entry.ts);
+  });
+}
+
+async function clearPendingCheckins() {
+  try { await idbSet('innerscape_entries_pending', []); }
+  catch (error) { console.warn('Unable to clear pending check-ins:', error); }
+}
+
 async function syncToSupabase(force, _skipStatusGuard) {
   if (!_skipStatusGuard && _syncState.status === 'syncing') return;
   if (!navigator.onLine) { updateSyncStatus('Offline', '🔴'); return; }
@@ -652,7 +693,7 @@ async function syncToSupabase(force, _skipStatusGuard) {
   const lastSync = force ? 0 : parseInt(localStorage.getItem(SYNC_TS_KEY) || '0');
 
   try {
-    const checkins = safeLoad('innerscape_entries');
+    const checkins = await loadCheckinsForSync(force, lastSync);
     const timeEntries = safeLoad('innerscape_time_entries');
     const activities = safeLoad('innerscape_activities');
     const food = safeLoad('innerscape_food_entries');
@@ -692,6 +733,9 @@ async function syncToSupabase(force, _skipStatusGuard) {
     ]);
 
     const failed = results.filter(r => r.status === 'rejected');
+    if (results[0]?.status === 'fulfilled') {
+      await clearPendingCheckins();
+    }
     const now = Date.now();
     localStorage.setItem(SYNC_TS_KEY, String(now));
     _syncState.lastSync = now;

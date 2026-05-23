@@ -171,7 +171,7 @@ function handleSubmit() {
     return;
   }
   
-  saveEntry(entry);
+  const saved = saveEntry(entry);
   
   btn.classList.add('saved');
   setTimeout(() => {
@@ -207,7 +207,7 @@ function handleSubmit() {
     });
   }, 1500);
   
-  showToast('Check-in saved ✓');
+  showToast(saved === false ? 'Check-in saved to backup storage ✓' : 'Check-in saved ✓');
 }
 
 function renderTodayStats() {

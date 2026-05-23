@@ -1029,11 +1029,35 @@ function installDataHandoffLayer() {
     try { return (JSON.parse(localStorage.getItem(STORE_KEY)) || []).map(normalizeCheckinEntry); } catch { return []; }
   };
 
+  async function appendCheckinToBackup(entry, key = STORE_KEY + '_pending') {
+    const existing = await idbGet(key) || [];
+    const entryKey = entry.id || entry.ts;
+    if (!existing.some(e => (e.id || e.ts) === entryKey)) {
+      existing.push(entry);
+      await idbSet(key, existing);
+    }
+  }
+
+  function syncCheckinsSoon() {
+    if (typeof syncToSupabase === 'function') {
+      setTimeout(() => syncToSupabase(false), 500);
+    } else if (originalSyncMoodEntries) {
+      setTimeout(() => originalSyncMoodEntries(), 500);
+    }
+  }
+
   window.saveEntry = function saveEntry(entry) {
+    const normalized = normalizeCheckinEntry(entry);
     const entries = loadEntries();
-    entries.push(normalizeCheckinEntry(entry));
-    safeSave(STORE_KEY, entries);
-    if (originalSyncMoodEntries) setTimeout(() => originalSyncMoodEntries(), 500);
+    entries.push(normalized);
+    const saved = safeSave(STORE_KEY, entries);
+    if (!saved) {
+      appendCheckinToBackup(normalized, STORE_KEY + '_pending')
+        .then(() => appendCheckinToBackup(normalized, STORE_KEY + '_archive'))
+        .catch(error => console.warn('Check-in backup save failed:', error));
+    }
+    syncCheckinsSoon();
+    return saved;
   };
 
   window.loadTimeEntries = function loadTimeEntries() {
