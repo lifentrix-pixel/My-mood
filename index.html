@@ -635,6 +635,17 @@
         </div>
       </div>
 
+      <div id="timer-environment-dock" class="timer-environment-dock">
+        <div class="timer-environment-head">
+          <div>
+            <span>Environment</span>
+            <strong id="timer-env-active-label">Home</strong>
+          </div>
+          <button id="timer-env-add" class="timer-env-add" type="button" title="Add environment">+</button>
+        </div>
+        <div id="timer-env-list" class="timer-env-list" aria-label="Environment shortcuts"></div>
+      </div>
+
       <!-- Create activity modal -->
       <div id="timer-create-modal" class="timer-modal hidden">
         <div class="timer-modal-card">
@@ -732,6 +743,30 @@
           <div class="timer-modal-actions">
             <button id="timer-cat-cancel" class="dream-btn-secondary">Cancel</button>
             <button id="timer-cat-save" class="dream-btn-primary">Create</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Environment modal -->
+      <div id="timer-env-modal" class="timer-modal hidden">
+        <div class="timer-modal-card">
+          <h3 id="timer-env-modal-title">New Environment</h3>
+          <div class="timer-modal-field">
+            <label>Emoji</label>
+            <input type="text" id="timer-env-emoji" class="timer-modal-input" placeholder="🏠" maxlength="10">
+          </div>
+          <div class="timer-modal-field">
+            <label>Name</label>
+            <input type="text" id="timer-env-name" class="timer-modal-input" placeholder="Home">
+          </div>
+          <div class="timer-modal-field">
+            <label>Color</label>
+            <div class="timer-color-picks" id="timer-env-color-picks"></div>
+          </div>
+          <div class="timer-modal-actions timer-env-modal-actions">
+            <button id="timer-env-delete" class="dream-btn-secondary timer-env-delete" type="button">Delete</button>
+            <button id="timer-env-cancel" class="dream-btn-secondary" type="button">Cancel</button>
+            <button id="timer-env-save" class="dream-btn-primary" type="button">Save</button>
           </div>
         </div>
       </div>

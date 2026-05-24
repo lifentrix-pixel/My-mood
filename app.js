@@ -636,6 +636,21 @@ function appDataMeta(ts) {
   };
 }
 
+function normalizeEntryEnvironment(entry) {
+  if (!entry) return null;
+  const raw = entry.environment && typeof entry.environment === 'object' ? entry.environment : {};
+  const id = raw.id || entry.environment_id || null;
+  const name = raw.name || entry.environment_name || null;
+  if (!id && !name) return null;
+  return {
+    id,
+    name,
+    emoji: raw.emoji || entry.environment_emoji || null,
+    color: raw.color || entry.environment_color || null,
+    activated_at: raw.activated_at || entry.environment_started_at || null,
+  };
+}
+
 function normalizeCheckinEntry(entry) {
   if (!entry) return entry;
   const ts = entry.ts || Date.now();
@@ -655,6 +670,7 @@ function normalizeTimeEntry(entry) {
   const startTime = entry.startTime || entry.start_time || Date.now();
   const hasSubLayer = entry.subActivityId || entry.subSubActivityId || entry.subActivityName || entry.subSubActivityName;
   const stableId = `te-${startTime}-${entry.activityId || entry.activity_id || 'activity'}-${entry.subActivityId || entry.subSubActivityId || 'main'}`;
+  const environment = normalizeEntryEnvironment(entry);
   return {
     ...entry,
     id: entry.id || stableId,
@@ -670,6 +686,12 @@ function normalizeTimeEntry(entry) {
     }),
     logging_issue: entry.logging_issue || entry.loggingIssue || null,
     session_marks: Array.isArray(entry.session_marks) ? entry.session_marks : (Array.isArray(entry.sessionMarks) ? entry.sessionMarks : []),
+    environment,
+    environment_id: environment?.id || null,
+    environment_name: environment?.name || null,
+    environment_emoji: environment?.emoji || null,
+    environment_color: environment?.color || null,
+    environment_started_at: environment?.activated_at || null,
     ...appDataMeta(startTime),
   };
 }
@@ -768,12 +790,16 @@ function collectSessionMeta(scope = 'main', endTime = Date.now()) {
   const segments = getSessionQualitySegments(record, durationMs);
   const segmentAverage = averageSessionQualitySegments(segments);
   const qualityScore = record.sessionQualityScore ?? segmentAverage;
+  const environmentContext = typeof getTimerEnvironmentContext === 'function'
+    ? getTimerEnvironmentContext(scope)
+    : {};
   return {
     session_quality: record.sessionQuality || sessionQualityFromScore(segmentAverage),
     session_quality_score: qualityScore ?? null,
     session_quality_segments: segments,
     logging_issue: record.loggingIssue || null,
     session_marks: Array.isArray(record.sessionMarks) ? record.sessionMarks : [],
+    ...environmentContext,
   };
 }
 
@@ -842,6 +868,7 @@ function saveTimerFoodEntry() {
     linkedTimerStartTime: timerState.startTime,
     linkedSubActivityId: timerState.activeSubActivityId || null,
     linkedSubSubActivityId: timerState.activeSubSubActivityId || null,
+    ...(typeof getTimerEnvironmentContext === 'function' ? getTimerEnvironmentContext('current') : {}),
   };
   if (typeof saveFoodEntry === 'function') saveFoodEntry(entry);
   else {
@@ -1156,7 +1183,13 @@ function installDataHandoffLayer() {
     if (endTime <= startTime) { showToast('End time must be after start'); return; }
     const note = ($('#timer-manual-note') ? $('#timer-manual-note').value : '').trim();
     const entries = loadTimeEntries();
-    let newEntry = { activityId: actId, startTime, endTime, tracking_mode: 'primary' };
+    let newEntry = {
+      activityId: actId,
+      startTime,
+      endTime,
+      tracking_mode: 'primary',
+      ...(typeof getTimerEnvironmentContext === 'function' ? getTimerEnvironmentContext('current') : {}),
+    };
     if (note) {
       newEntry.note = note;
       newEntry.note_type = 'manual_context';

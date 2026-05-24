@@ -97,12 +97,22 @@ function safeLoad(key) {
 
 function encodeTimeEntryNotes(entry) {
   const text = entry.notes || entry.note || null;
+  const rawEnvironment = entry.environment && typeof entry.environment === 'object' ? entry.environment : {};
+  const environment = (rawEnvironment.id || rawEnvironment.name || entry.environment_id || entry.environment_name)
+    ? {
+        id: rawEnvironment.id || entry.environment_id || null,
+        name: rawEnvironment.name || entry.environment_name || null,
+        emoji: rawEnvironment.emoji || entry.environment_emoji || null,
+        color: rawEnvironment.color || entry.environment_color || null,
+        activated_at: rawEnvironment.activated_at || entry.environment_started_at || null,
+      }
+    : null;
   const hasSessionData = entry.session_quality ||
     entry.session_quality_score ||
     entry.logging_issue ||
     (Array.isArray(entry.session_marks) && entry.session_marks.length) ||
     (Array.isArray(entry.session_quality_segments) && entry.session_quality_segments.length);
-  if (!hasSessionData) return text;
+  if (!hasSessionData && !environment) return text;
   return JSON.stringify({
     text,
     session_quality: entry.session_quality || null,
@@ -110,6 +120,12 @@ function encodeTimeEntryNotes(entry) {
     session_quality_segments: entry.session_quality_segments || [],
     logging_issue: entry.logging_issue || null,
     session_marks: entry.session_marks || [],
+    environment,
+    environment_id: environment?.id || null,
+    environment_name: environment?.name || null,
+    environment_emoji: environment?.emoji || null,
+    environment_color: environment?.color || null,
+    environment_started_at: environment?.activated_at || null,
   });
 }
 
@@ -118,6 +134,15 @@ function decodeTimeEntryNotes(notes) {
   try {
     const parsed = JSON.parse(notes);
     if (!parsed || typeof parsed !== 'object') return { note: notes };
+    const environment = parsed.environment && typeof parsed.environment === 'object'
+      ? parsed.environment
+      : ((parsed.environment_id || parsed.environment_name) ? {
+          id: parsed.environment_id || null,
+          name: parsed.environment_name || null,
+          emoji: parsed.environment_emoji || null,
+          color: parsed.environment_color || null,
+          activated_at: parsed.environment_started_at || null,
+        } : null);
     return {
       note: parsed.text || null,
       session_quality: parsed.session_quality || null,
@@ -125,6 +150,12 @@ function decodeTimeEntryNotes(notes) {
       session_quality_segments: Array.isArray(parsed.session_quality_segments) ? parsed.session_quality_segments : [],
       logging_issue: parsed.logging_issue || null,
       session_marks: Array.isArray(parsed.session_marks) ? parsed.session_marks : [],
+      environment,
+      environment_id: environment?.id || null,
+      environment_name: environment?.name || null,
+      environment_emoji: environment?.emoji || null,
+      environment_color: environment?.color || null,
+      environment_started_at: environment?.activated_at || null,
     };
   } catch {
     return { note: notes };
@@ -333,6 +364,12 @@ function unmapTimeEntries(rows) {
       session_quality_segments: decodedNotes.session_quality_segments || [],
       logging_issue: decodedNotes.logging_issue || null,
       session_marks: decodedNotes.session_marks || [],
+      environment: decodedNotes.environment || null,
+      environment_id: decodedNotes.environment_id || null,
+      environment_name: decodedNotes.environment_name || null,
+      environment_emoji: decodedNotes.environment_emoji || null,
+      environment_color: decodedNotes.environment_color || null,
+      environment_started_at: decodedNotes.environment_started_at || null,
       tracking_mode: r.tracking_mode || 'primary',
       parent_entry_id: r.parent_entry_id || null,
       intensity: r.intensity ?? null,

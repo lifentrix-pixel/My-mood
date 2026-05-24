@@ -481,9 +481,13 @@ function performExport(format) {
   if (selectedTypes.includes('activities')) {
     const timeEntries = filterDataByTimeframe(loadTimeEntries(), timeframe, 'startTime');
     const activities = loadActivities();
+    const environments = JSON.parse(localStorage.getItem('innerscape_timer_environments') || '[]');
+    const environmentLogs = filterDataByTimeframe(JSON.parse(localStorage.getItem('innerscape_environment_logs') || '[]'), timeframe, 'ts');
     exportData.time_entries = timeEntries;
     exportData.activities = activities;
-    totalEntries += timeEntries.length;
+    exportData.timer_environments = environments;
+    exportData.environment_logs = environmentLogs;
+    totalEntries += timeEntries.length + environmentLogs.length;
   }
   
   if (selectedTypes.includes('meditation')) {
@@ -694,6 +698,8 @@ function importBackup(data) {
   mergeKey('innerscape_dreams', data.dreams, 'Dreams');
   mergeKey('innerscape_activities', data.activities, 'Activities');
   mergeKey('innerscape_time_entries', data.time_entries, 'Time entries');
+  mergeKey('innerscape_timer_environments', data.timer_environments, 'Environments');
+  mergeKey('innerscape_environment_logs', data.environment_logs, 'Environment logs');
   mergeKey('innerscape_meditations', data.meditation_sessions, 'Meditations');
   mergeKey('innerscape_food_entries', data.food_entries, 'Food');
   mergeKey('innerscape_medications', data.medications, 'Medications');
@@ -862,6 +868,8 @@ function exportAllJSON() {
     dreams: loadDreams(),
     activities: loadActivities(),
     time_entries: loadTimeEntries(),
+    timer_environments: JSON.parse(localStorage.getItem('innerscape_timer_environments') || '[]'),
+    environment_logs: JSON.parse(localStorage.getItem('innerscape_environment_logs') || '[]'),
     meditation_sessions: loadMeditations(),
     food_entries: JSON.parse(localStorage.getItem('innerscape_food_entries') || '[]'),
     medications: JSON.parse(localStorage.getItem('innerscape_medications') || '[]'),
@@ -880,6 +888,7 @@ function exportAllJSON() {
   if (data.mood_entries.length) counts.push(`${data.mood_entries.length} mood`);
   if (data.dreams.length) counts.push(`${data.dreams.length} dreams`);
   if (data.time_entries.length) counts.push(`${data.time_entries.length} time`);
+  if (data.environment_logs.length) counts.push(`${data.environment_logs.length} environment`);
   if (data.meditation_sessions.length) counts.push(`${data.meditation_sessions.length} meditation`);
   if (data.food_entries.length) counts.push(`${data.food_entries.length} food`);
   if (data.medication_logs.length) counts.push(`${data.medication_logs.length} med logs`);

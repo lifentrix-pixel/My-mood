@@ -17,6 +17,319 @@ let timerState = {
 };
 let timerWeeklyChart = null;
 
+const TIMER_ENVIRONMENTS_KEY = 'innerscape_timer_environments';
+const TIMER_ENVIRONMENT_LOGS_KEY = 'innerscape_environment_logs';
+const TIMER_ACTIVE_ENVIRONMENT_KEY = 'innerscape_active_environment';
+const TIMER_ACTIVE_ENVIRONMENT_SET_AT_KEY = 'innerscape_active_environment_set_at';
+const TIMER_DEFAULT_ENVIRONMENTS = [
+  { id: 'env-home', name: 'Home', emoji: '🏠', color: '#a78bfa' },
+  { id: 'env-mom', name: "Mom's", emoji: '🌷', color: '#f472b6' },
+  { id: 'env-outside', name: 'Out', emoji: '🚶', color: '#34d399' },
+  { id: 'env-studio', name: 'Studio', emoji: '🎨', color: '#38bdf8' },
+];
+let timerEnvironmentState = {
+  editingId: null,
+  selectedColor: TIMER_COLORS[2],
+};
+
+function escapeTimerEnvText(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[char]));
+}
+
+function normalizeTimerEnvironment(env, index = 0) {
+  const fallback = TIMER_DEFAULT_ENVIRONMENTS[index % TIMER_DEFAULT_ENVIRONMENTS.length] || TIMER_DEFAULT_ENVIRONMENTS[0];
+  const name = String(env?.name || fallback.name || 'Place').trim().slice(0, 40) || 'Place';
+  const emoji = (typeof firstEmoji === 'function' ? firstEmoji(String(env?.emoji || '')) : '') || fallback.emoji || '📍';
+  return {
+    id: String(env?.id || `env-${Date.now().toString(36)}-${index}`),
+    name,
+    emoji,
+    color: String(env?.color || fallback.color || TIMER_COLORS[index % TIMER_COLORS.length] || '#a78bfa'),
+    createdAt: env?.createdAt || Date.now(),
+    updatedAt: env?.updatedAt || env?.createdAt || Date.now(),
+  };
+}
+
+function loadTimerEnvironments() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TIMER_ENVIRONMENTS_KEY) || '[]');
+    if (Array.isArray(saved) && saved.length) {
+      return saved.map(normalizeTimerEnvironment).filter(env => env.id && env.name);
+    }
+  } catch {}
+  const defaults = TIMER_DEFAULT_ENVIRONMENTS.map(normalizeTimerEnvironment);
+  saveTimerEnvironments(defaults);
+  return defaults;
+}
+
+function saveTimerEnvironments(envs) {
+  localStorage.setItem(TIMER_ENVIRONMENTS_KEY, JSON.stringify(envs.map(normalizeTimerEnvironment)));
+}
+
+function loadTimerEnvironmentLogs() {
+  try { return JSON.parse(localStorage.getItem(TIMER_ENVIRONMENT_LOGS_KEY) || '[]'); } catch { return []; }
+}
+
+function saveTimerEnvironmentLogs(logs) {
+  localStorage.setItem(TIMER_ENVIRONMENT_LOGS_KEY, JSON.stringify(logs.slice(-1000)));
+}
+
+function getActiveTimerEnvironment() {
+  const envs = loadTimerEnvironments();
+  if (!envs.length) return null;
+  const activeId = localStorage.getItem(TIMER_ACTIVE_ENVIRONMENT_KEY) || envs[0].id;
+  const active = envs.find(env => env.id === activeId) || envs[0];
+  if (!localStorage.getItem(TIMER_ACTIVE_ENVIRONMENT_KEY)) {
+    localStorage.setItem(TIMER_ACTIVE_ENVIRONMENT_KEY, active.id);
+    localStorage.setItem(TIMER_ACTIVE_ENVIRONMENT_SET_AT_KEY, String(Date.now()));
+  }
+  return active;
+}
+
+function getCurrentTimerEnvironmentSnapshot() {
+  const env = getActiveTimerEnvironment();
+  if (!env) return null;
+  const activatedAt = parseInt(localStorage.getItem(TIMER_ACTIVE_ENVIRONMENT_SET_AT_KEY) || '0', 10) || null;
+  return {
+    id: env.id,
+    name: env.name,
+    emoji: env.emoji,
+    color: env.color,
+    activated_at: activatedAt,
+  };
+}
+
+function readTimerEnvironmentRecord(scope) {
+  const key = scope === 'sub' ? 'innerscape_active_sub'
+    : scope === 'subsub' ? 'innerscape_active_subsub'
+      : scope === 'main' ? 'innerscape_active_timer'
+        : null;
+  if (!key) return null;
+  try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; }
+}
+
+function getTimerEnvironmentContext(scope = 'current') {
+  const record = typeof scope === 'object' ? scope : readTimerEnvironmentRecord(scope);
+  const env = record?.environment || getCurrentTimerEnvironmentSnapshot();
+  if (!env) return {};
+  return {
+    environment: {
+      id: env.id || null,
+      name: env.name || null,
+      emoji: env.emoji || null,
+      color: env.color || null,
+      activated_at: env.activated_at || record?.environment_started_at || null,
+    },
+    environment_id: env.id || null,
+    environment_name: env.name || null,
+    environment_emoji: env.emoji || null,
+    environment_color: env.color || null,
+    environment_started_at: env.activated_at || record?.environment_started_at || null,
+  };
+}
+
+function recordTimerEnvironmentChange(env) {
+  if (!env) return;
+  const ts = Date.now();
+  const entry = {
+    id: `env-${ts.toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    ts,
+    environment_id: env.id,
+    environment_name: env.name,
+    environment_emoji: env.emoji,
+    environment_color: env.color,
+    local_date: typeof appDataLocalDate === 'function' ? appDataLocalDate(ts) : dayKey(ts),
+    timezone: 'Europe/Helsinki',
+    schema_version: 1,
+    source: 'phone_app',
+  };
+  const logs = loadTimerEnvironmentLogs();
+  logs.push(entry);
+  saveTimerEnvironmentLogs(logs);
+}
+
+function setTimerEnvironment(environmentId, options = {}) {
+  const envs = loadTimerEnvironments();
+  const env = envs.find(item => item.id === environmentId);
+  if (!env) return;
+  const previousId = localStorage.getItem(TIMER_ACTIVE_ENVIRONMENT_KEY);
+  const changed = previousId !== env.id;
+  localStorage.setItem(TIMER_ACTIVE_ENVIRONMENT_KEY, env.id);
+  localStorage.setItem(TIMER_ACTIVE_ENVIRONMENT_SET_AT_KEY, String(Date.now()));
+  if (changed) recordTimerEnvironmentChange(env);
+  renderTimerEnvironmentDock();
+  if (!options.quiet) showToast(`${env.emoji} ${env.name} noted`);
+}
+
+function getTimeEntryEnvironment(entry) {
+  if (!entry) return null;
+  if (entry.environment && typeof entry.environment === 'object') {
+    return {
+      id: entry.environment.id || entry.environment_id || null,
+      name: entry.environment.name || entry.environment_name || null,
+      emoji: entry.environment.emoji || entry.environment_emoji || null,
+      color: entry.environment.color || entry.environment_color || null,
+    };
+  }
+  if (entry.environment_id || entry.environment_name) {
+    return {
+      id: entry.environment_id || null,
+      name: entry.environment_name || null,
+      emoji: entry.environment_emoji || null,
+      color: entry.environment_color || null,
+    };
+  }
+  return null;
+}
+
+function renderTimerEnvironmentDock() {
+  const dock = $('#timer-environment-dock');
+  const list = $('#timer-env-list');
+  if (!dock || !list) return;
+  const statsVisible = $('#timer-stats') && !$('#timer-stats').classList.contains('hidden');
+  dock.classList.toggle('hidden', Boolean(statsVisible));
+
+  const envs = loadTimerEnvironments();
+  const active = getActiveTimerEnvironment();
+  const activeLabel = $('#timer-env-active-label');
+  if (activeLabel && active) activeLabel.textContent = `${active.emoji} ${active.name}`;
+
+  list.innerHTML = '';
+  envs.forEach(env => {
+    const item = document.createElement('div');
+    item.className = 'timer-env-item';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'timer-env-circle' + (active && active.id === env.id ? ' active' : '');
+    btn.style.setProperty('--env-color', env.color);
+    btn.title = `Switch environment to ${env.name}`;
+    btn.innerHTML = `
+      <span class="timer-env-emoji">${escapeTimerEnvText(env.emoji)}</span>
+      <span class="timer-env-name">${escapeTimerEnvText(env.name)}</span>
+    `;
+    btn.addEventListener('click', () => setTimerEnvironment(env.id));
+
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'timer-env-edit';
+    edit.title = `Edit ${env.name}`;
+    edit.textContent = '✎';
+    edit.addEventListener('click', (event) => {
+      event.stopPropagation();
+      openTimerEnvironmentModal(env);
+    });
+
+    item.appendChild(btn);
+    item.appendChild(edit);
+    list.appendChild(item);
+  });
+}
+
+function renderTimerEnvironmentColorPicks() {
+  const picks = $('#timer-env-color-picks');
+  if (!picks) return;
+  picks.innerHTML = '';
+  TIMER_COLORS.forEach(color => {
+    const btn = document.createElement('div');
+    btn.className = 'timer-color-pick' + (color === timerEnvironmentState.selectedColor ? ' selected' : '');
+    btn.style.background = color;
+    btn.addEventListener('click', () => {
+      picks.querySelectorAll('.timer-color-pick').forEach(pick => pick.classList.remove('selected'));
+      btn.classList.add('selected');
+      timerEnvironmentState.selectedColor = color;
+    });
+    picks.appendChild(btn);
+  });
+}
+
+function openTimerEnvironmentModal(env = null) {
+  timerEnvironmentState.editingId = env?.id || null;
+  timerEnvironmentState.selectedColor = env?.color || TIMER_COLORS[2];
+  const modal = $('#timer-env-modal');
+  if (!modal) return;
+  $('#timer-env-modal-title').textContent = env ? 'Edit Environment' : 'New Environment';
+  $('#timer-env-emoji').value = env?.emoji || '';
+  $('#timer-env-name').value = env?.name || '';
+  const deleteBtn = $('#timer-env-delete');
+  if (deleteBtn) deleteBtn.style.display = env ? 'inline-flex' : 'none';
+  renderTimerEnvironmentColorPicks();
+  modal.classList.remove('hidden');
+  setTimeout(() => (env ? $('#timer-env-name') : $('#timer-env-emoji'))?.focus(), 100);
+}
+
+function closeTimerEnvironmentModal() {
+  $('#timer-env-modal')?.classList.add('hidden');
+  timerEnvironmentState.editingId = null;
+}
+
+function saveTimerEnvironmentFromModal() {
+  const name = ($('#timer-env-name')?.value || '').trim();
+  const emoji = (typeof firstEmoji === 'function' ? firstEmoji(($('#timer-env-emoji')?.value || '').trim()) : '') || '📍';
+  if (!name) {
+    $('#timer-env-name')?.focus();
+    showToast('Name the environment');
+    return;
+  }
+
+  const envs = loadTimerEnvironments();
+  const now = Date.now();
+  let savedId = timerEnvironmentState.editingId;
+  if (savedId) {
+    const idx = envs.findIndex(env => env.id === savedId);
+    if (idx >= 0) {
+      envs[idx] = normalizeTimerEnvironment({
+        ...envs[idx],
+        name,
+        emoji,
+        color: timerEnvironmentState.selectedColor,
+        updatedAt: now,
+      }, idx);
+    }
+  } else {
+    savedId = `env-${now.toString(36)}`;
+    envs.push(normalizeTimerEnvironment({
+      id: savedId,
+      name,
+      emoji,
+      color: timerEnvironmentState.selectedColor,
+      createdAt: now,
+      updatedAt: now,
+    }, envs.length));
+  }
+
+  saveTimerEnvironments(envs);
+  closeTimerEnvironmentModal();
+  setTimerEnvironment(savedId, { quiet: true });
+  showToast('Environment saved');
+}
+
+function deleteTimerEnvironmentFromModal() {
+  const id = timerEnvironmentState.editingId;
+  if (!id) return;
+  const envs = loadTimerEnvironments();
+  if (envs.length <= 1) {
+    showToast('Keep at least one environment');
+    return;
+  }
+  if (!confirm('Delete this environment shortcut?')) return;
+  const next = envs.filter(env => env.id !== id);
+  saveTimerEnvironments(next);
+  closeTimerEnvironmentModal();
+  if (localStorage.getItem(TIMER_ACTIVE_ENVIRONMENT_KEY) === id) {
+    setTimerEnvironment(next[0].id, { quiet: true });
+  } else {
+    renderTimerEnvironmentDock();
+  }
+  showToast('Environment deleted');
+}
+
 function initTimer() {
   function bind(sel, event, fn) {
     const el = $(sel);
@@ -66,6 +379,10 @@ function initTimer() {
   bind('#timer-manual-add-btn', 'click', openTimerManualModal);
   bind('#timer-manual-cancel', 'click', closeTimerManualModal);
   bind('#timer-manual-save', 'click', saveManualEntry);
+  bind('#timer-env-add', 'click', () => openTimerEnvironmentModal());
+  bind('#timer-env-cancel', 'click', closeTimerEnvironmentModal);
+  bind('#timer-env-save', 'click', saveTimerEnvironmentFromModal);
+  bind('#timer-env-delete', 'click', deleteTimerEnvironmentFromModal);
   bind('#timer-new-category-btn', 'click', openCategoryModal);
   bind('#timer-cat-cancel', 'click', closeCategoryModal);
   bind('#timer-cat-save', 'click', createCategory);
@@ -167,9 +484,11 @@ function initTimer() {
       }
     } catch {}
   }
+  renderTimerEnvironmentDock();
 }
 
 function renderTimerView() {
+  renderTimerEnvironmentDock();
   // Check for active timer in memory
   if (timerState.activeActivityId) {
     const act = loadActivities().find(a => a.id === timerState.activeActivityId);
@@ -259,6 +578,7 @@ function renderCategoryFilters() {
 }
 
 function renderTimerGrid() {
+  renderTimerEnvironmentDock();
   renderCategoryFilters();
   const search = ($('#timer-search').value || '').toLowerCase();
   let activities = loadActivities();
@@ -465,10 +785,12 @@ function startTimer(activity) {
   
   timerState.activeActivityId = activity.id;
   timerState.startTime = Date.now();
+  const environmentContext = getTimerEnvironmentContext('current');
   
   localStorage.setItem('innerscape_active_timer', JSON.stringify({ 
     activityId: activity.id, 
-    startTime: timerState.startTime
+    startTime: timerState.startTime,
+    ...environmentContext
   }));
 
   const acts = loadActivities();
@@ -504,6 +826,7 @@ function showActiveTimer(activity) {
   if (notesField) {
     notesField.value = savedNotes || '';
   }
+  renderTimerEnvironmentDock();
   
 }
 
@@ -542,11 +865,13 @@ function renderSubActivityGrid(activity) {
 function enterSubActivity(sub) {
   timerState.activeSubActivityId = sub.id;
   timerState.subStartTime = Date.now();
+  const environmentContext = getTimerEnvironmentContext('current');
 
   // Save sub-activity state for persistence
   localStorage.setItem('innerscape_active_sub', JSON.stringify({
     subActivityId: sub.id,
-    subStartTime: timerState.subStartTime
+    subStartTime: timerState.subStartTime,
+    ...environmentContext
   }));
 
   $('#timer-session-display').classList.add('hidden');
@@ -591,6 +916,7 @@ function saveSubActivity() {
       subActivityName: sub ? sub.name : '',
       startTime: timerState.subStartTime,
       endTime: now,
+      ...getTimerEnvironmentContext('sub'),
       ...(typeof collectSessionMeta === 'function' ? collectSessionMeta('sub', now) : {})
     };
     if (subNote) entry.note = subNote;
@@ -749,7 +1075,8 @@ function saveSessionDirectly() {
         activityId: timerState.activeActivityId,
         subActivityId: timerState.activeSubActivityId,
         startTime: timerState.subStartTime,
-        endTime: Date.now()
+        endTime: Date.now(),
+        ...getTimerEnvironmentContext('sub')
       });
       saveTimeEntries(entries);
     }
@@ -765,6 +1092,7 @@ function saveSessionDirectly() {
       activityId: timerState.activeActivityId,
       startTime: timerState.startTime,
       endTime: Date.now(),
+      ...getTimerEnvironmentContext('main')
     };
     if (note) entry.note = note;
     
@@ -817,6 +1145,7 @@ function saveStoppedTimer() {
     activityId: ps.activityId,
     startTime: ps.startTime,
     endTime: ps.endTime,
+    ...getTimerEnvironmentContext('main')
   };
   if (note) entry.note = note;
   entries.push(entry);
@@ -870,12 +1199,14 @@ function cancelTimer() {
 function showTimerStats() {
   $('#timer-main').classList.add('hidden');
   $('#timer-stats').classList.remove('hidden');
+  renderTimerEnvironmentDock();
   renderTimerStats();
 }
 
 function hideTimerStats() {
   $('#timer-stats').classList.add('hidden');
   $('#timer-main').classList.remove('hidden');
+  renderTimerEnvironmentDock();
 }
 
 function renderTimerStats() {
@@ -918,6 +1249,11 @@ function renderTimerStats() {
       if (e.session_quality === 'focused') sessionBadges.push('<span class="timer-entry-badge badge-focused">Focused</span>');
       if (e.session_quality === 'distracted') sessionBadges.push('<span class="timer-entry-badge badge-distracted">Distracted</span>');
       if (e.logging_issue === 'improperly_logged') sessionBadges.push('<span class="timer-entry-badge badge-improper">Improperly logged</span>');
+      const environment = getTimeEntryEnvironment(e);
+      if (environment?.name) {
+        const envLabel = `${environment.emoji || '📍'} ${environment.name}`;
+        sessionBadges.push(`<span class="timer-entry-badge badge-environment">${escapeTimerEnvText(envLabel)}</span>`);
+      }
       const qualitySegments = typeof renderTimeEntryQualitySegments === 'function'
         ? renderTimeEntryQualitySegments(e.session_quality_segments)
         : '';
@@ -1114,6 +1450,7 @@ function saveManualEntry() {
     activityId: actId,
     startTime,
     endTime,
+    ...getTimerEnvironmentContext('current')
   };
   if (note) newEntry.note = note;
   entries.push(newEntry);
@@ -1248,11 +1585,13 @@ function createSubSubActivity() {
 function enterSubSubActivity(subsub) {
   timerState.activeSubSubActivityId = subsub.id;
   timerState.subSubStartTime = Date.now();
+  const environmentContext = getTimerEnvironmentContext('current');
 
   // Save sub-sub activity state for persistence
   localStorage.setItem('innerscape_active_subsub', JSON.stringify({
     subSubActivityId: subsub.id,
-    subSubStartTime: timerState.subSubStartTime
+    subSubStartTime: timerState.subSubStartTime,
+    ...environmentContext
   }));
 
   $('#timer-sub-display').classList.add('hidden');
@@ -1298,6 +1637,7 @@ function saveSubSubActivity() {
       subSubActivityName: subSubActivity ? subSubActivity.name : '',
       startTime: timerState.subSubStartTime,
       endTime: now,
+      ...getTimerEnvironmentContext('subsub'),
       ...(typeof collectSessionMeta === 'function' ? collectSessionMeta('subsub', now) : {})
     };
     if (subSubNote) entry.note = subSubNote;

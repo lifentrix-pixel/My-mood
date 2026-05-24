@@ -1329,6 +1329,146 @@ input[type="range"]::-moz-range-thumb {
   margin-bottom: 16px;
 }
 
+.timer-environment-dock {
+  position: sticky;
+  bottom: 10px;
+  z-index: 12;
+  margin: 20px 0 4px;
+  padding: 12px;
+  background:
+    linear-gradient(135deg, rgba(167,139,250,0.12), rgba(56,189,248,0.08)),
+    rgba(22,22,31,0.92);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  box-shadow: 0 14px 35px rgba(0,0,0,0.28);
+  backdrop-filter: blur(16px);
+}
+.timer-environment-dock.hidden {
+  display: none;
+}
+.timer-environment-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.timer-environment-head span {
+  color: var(--text2);
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.timer-environment-head strong {
+  color: var(--text);
+  display: block;
+  font-size: 15px;
+  margin-top: 2px;
+}
+.timer-env-add {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent2), var(--accent));
+  color: #fff;
+  cursor: pointer;
+  flex: 0 0 auto;
+  font-size: 22px;
+  font-weight: 800;
+  -webkit-tap-highlight-color: transparent;
+}
+.timer-env-add:active {
+  transform: scale(.94);
+}
+.timer-env-list {
+  display: flex;
+  gap: 12px;
+  min-height: 76px;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: 2px 2px 4px;
+  scrollbar-width: none;
+}
+.timer-env-list::-webkit-scrollbar {
+  display: none;
+}
+.timer-env-item {
+  position: relative;
+  flex: 0 0 66px;
+  width: 66px;
+}
+.timer-env-circle {
+  --env-color: var(--accent);
+  width: 64px;
+  height: 64px;
+  border: 1px solid color-mix(in srgb, var(--env-color) 56%, transparent);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--env-color) 30%, transparent), transparent 68%),
+    rgba(255,255,255,0.04);
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  overflow: hidden;
+  padding: 7px;
+  position: relative;
+  transition: transform .16s, border-color .2s, box-shadow .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.timer-env-circle:active {
+  transform: scale(.94);
+}
+.timer-env-circle.active {
+  border-color: var(--env-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--env-color) 18%, transparent), 0 0 22px color-mix(in srgb, var(--env-color) 22%, transparent);
+}
+.timer-env-emoji {
+  font-size: 22px;
+  line-height: 1;
+}
+.timer-env-name {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.05;
+  max-width: 50px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.timer-env-edit {
+  align-items: center;
+  background: rgba(13,13,20,0.92);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 50%;
+  color: var(--text2);
+  cursor: pointer;
+  display: flex;
+  font-size: 11px;
+  height: 22px;
+  justify-content: center;
+  line-height: 1;
+  position: absolute;
+  right: -2px;
+  top: -2px;
+  width: 22px;
+  -webkit-tap-highlight-color: transparent;
+}
+.timer-env-edit:active {
+  transform: scale(.92);
+}
+.timer-env-delete {
+  border-color: rgba(248,113,113,0.35);
+  color: #fecaca;
+}
+
 /* Sub-activity grid */
 .timer-sub-grid {
   display: grid;
@@ -1657,6 +1797,11 @@ input[type="range"]::-moz-range-thumb {
   background: rgba(45,212,191,0.12);
   border-color: rgba(45,212,191,0.34);
   color: #99f6e4;
+}
+.badge-environment {
+  background: rgba(56,189,248,0.12);
+  border-color: rgba(56,189,248,0.34);
+  color: #bae6fd;
 }
 .timer-quality-segment-summary {
   display: flex;
@@ -4373,6 +4518,8 @@ body.in-dreamland #sub-nav { display: none !important; }
   .timer-food-head { align-items: stretch; flex-direction: column; }
   .timer-food-contexts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .timer-food-rating { grid-template-columns: 1fr; }
+  .timer-environment-dock { margin-left: -2px; margin-right: -2px; }
+  .timer-env-list { gap: 10px; }
 }
 
 /* Bristol grid */
