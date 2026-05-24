@@ -539,6 +539,17 @@ function performExport(format) {
     exportData.intentions = intentions;
     totalEntries += intentions.length;
   }
+
+  const dataQualityReports = filterDataByTimeframe(
+    JSON.parse(localStorage.getItem('innerscape_data_quality_reports') || '[]'),
+    timeframe,
+    'ts'
+  );
+  if (dataQualityReports.length) {
+    exportData.data_quality_reports = dataQualityReports;
+    exportData.data_quality_decisions = JSON.parse(localStorage.getItem('innerscape_data_quality_decisions') || '{}');
+    totalEntries += dataQualityReports.length;
+  }
   
   console.log('Total entries found:', totalEntries);
   
@@ -708,7 +719,9 @@ function importBackup(data) {
   mergeKey('innerscape_wishes', data.wishes, 'Wishes');
   mergeKey('innerscape_stool_entries', data.stool_entries, 'Stool');
   mergeKey('innerscape_quick_notes', data.quick_notes, 'Quick notes');
+  mergeKey('innerscape_data_quality_reports', data.data_quality_reports, 'Data quality reports');
   mergeKey('innerscape_intentions', data.intentions, 'Intentions');
+  if (data.data_quality_decisions) { localStorage.setItem('innerscape_data_quality_decisions', JSON.stringify(data.data_quality_decisions)); logs.push('✅ Data quality decisions'); }
   if (data.oura_config) { localStorage.setItem('innerscape_oura_config', JSON.stringify(data.oura_config)); logs.push('✅ Oura config'); }
   if (data.oura_data) { localStorage.setItem('innerscape_oura_data', JSON.stringify(data.oura_data)); logs.push('✅ Oura data'); }
 
@@ -863,7 +876,7 @@ function exportMeditationCSV() {
 function exportAllJSON() {
   const data = {
     exported: new Date().toISOString(),
-    version: 'innerscape-v14',
+    version: 'innerscape-v15',
     mood_entries: loadEntries(),
     dreams: loadDreams(),
     activities: loadActivities(),
@@ -878,6 +891,8 @@ function exportAllJSON() {
     wishes: JSON.parse(localStorage.getItem('innerscape_wishes') || '[]'),
     stool_entries: JSON.parse(localStorage.getItem('innerscape_stool_entries') || '[]'),
     quick_notes: JSON.parse(localStorage.getItem('innerscape_quick_notes') || '[]'),
+    data_quality_reports: JSON.parse(localStorage.getItem('innerscape_data_quality_reports') || '[]'),
+    data_quality_decisions: JSON.parse(localStorage.getItem('innerscape_data_quality_decisions') || '{}'),
     intentions: JSON.parse(localStorage.getItem('innerscape_intentions') || '[]'),
     oura_config: JSON.parse(localStorage.getItem('innerscape_oura_config') || 'null'),
     oura_data: JSON.parse(localStorage.getItem('innerscape_oura_data') || 'null'),
@@ -895,6 +910,7 @@ function exportAllJSON() {
   if (data.todos.length) counts.push(`${data.todos.length} todos`);
   if (data.wishes.length) counts.push(`${data.wishes.length} wishes`);
   if (data.stool_entries.length) counts.push(`${data.stool_entries.length} stool`);
+  if (data.data_quality_reports.length) counts.push(`${data.data_quality_reports.length} accuracy`);
   if (data.oura_data) counts.push('Oura data');
   
   const json = JSON.stringify(data, null, 2);

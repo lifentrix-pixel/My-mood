@@ -423,7 +423,17 @@ function unmapStoolEntries(rows) {
 /* ── New Reverse Mappers ── */
 
 function unmapQuickNotes(rows) {
-  return rows.map(r => ({ id: r.id, ts: r.ts, text: r.text }));
+  return rows.map(r => ({
+    id: r.id,
+    ts: r.ts,
+    text: r.text,
+    local_date: r.local_date || null,
+    timezone: r.timezone || 'Europe/Helsinki',
+    schema_version: r.schema_version || 1,
+    source: r.source || 'phone_app',
+    note_type: r.note_type || 'quick_note',
+    privacy_level: r.privacy_level || 'normal'
+  }));
 }
 
 function unmapIntentions(rows) {

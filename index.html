@@ -73,6 +73,7 @@
         <button class="sub-nav-btn" data-view="monthly">Month</button>
         <button class="sub-nav-btn" data-view="trends">Trends</button>
         <button class="sub-nav-btn" data-view="forecast">🔮 Forecast</button>
+        <button class="sub-nav-btn" data-view="data-quality">Accuracy</button>
         <button class="sub-nav-btn" data-view="export">Export</button>
       </div>
       <div class="sub-nav-group" data-group="todos">
@@ -1275,6 +1276,47 @@
     <!-- Forecast view -->
     <section id="view-forecast" class="view">
       <div id="forecast-content"></div>
+    </section>
+
+    <!-- Data Quality view -->
+    <section id="view-data-quality" class="view">
+      <div class="data-accuracy-page">
+        <div class="data-accuracy-hero">
+          <div>
+            <span class="data-accuracy-kicker">Data Accuracy</span>
+            <h2>Signal Trust</h2>
+          </div>
+          <div id="data-accuracy-score" class="data-accuracy-score"></div>
+        </div>
+
+        <div class="data-accuracy-mark">
+          <div class="data-accuracy-mark-head">
+            <span>Mark Recent Data</span>
+            <div class="data-accuracy-range-buttons" id="data-accuracy-range-buttons">
+              <button type="button" data-days="1" class="active">1 day</button>
+              <button type="button" data-days="2">2 days</button>
+              <button type="button" data-days="3">3 days</button>
+            </div>
+          </div>
+          <textarea id="data-accuracy-note" rows="3" placeholder="Optional detail..."></textarea>
+          <button id="data-accuracy-save-mark" type="button">Mark somewhat unreliable</button>
+        </div>
+
+        <div class="data-accuracy-section">
+          <div class="data-accuracy-section-head">
+            <span>Predicted Issues</span>
+            <button id="data-accuracy-refresh" type="button">Refresh</button>
+          </div>
+          <div id="data-accuracy-flags" class="data-accuracy-flags"></div>
+        </div>
+
+        <div class="data-accuracy-section">
+          <div class="data-accuracy-section-head">
+            <span>Saved Reviews</span>
+          </div>
+          <div id="data-accuracy-history" class="data-accuracy-history"></div>
+        </div>
+      </div>
     </section>
 
     <!-- Export view -->

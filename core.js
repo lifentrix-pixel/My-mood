@@ -512,6 +512,7 @@ function switchView(view) {
   if (view === 'weekly') renderWeekly();
   if (view === 'monthly') renderMonthly();
   if (view === 'trends') renderTrends();
+  if (view === 'data-quality' && typeof renderDataQualityPage === 'function') renderDataQualityPage();
   if (view === 'timer') renderTimerView();
   if (view === 'studio') renderStudioGallery();
   if (view === 'media') initMedia();

@@ -71,6 +71,9 @@ function importData(data) {
   importKey('innerscape_todos', data.todos, 'Todos');
   importKey('innerscape_wishes', data.wishes, 'Wishes');
   importKey('innerscape_stool_entries', data.stool_entries, 'Stool entries');
+  importKey('innerscape_quick_notes', data.quick_notes, 'Quick notes');
+  importKey('innerscape_data_quality_reports', data.data_quality_reports, 'Data quality reports');
+  if (data.data_quality_decisions) importObj('innerscape_data_quality_decisions', data.data_quality_decisions, 'Data quality decisions');
 
   // Oura config/data (objects, not arrays)
   if (data.oura_config) importObj('innerscape_oura_config', data.oura_config, 'Oura config');
