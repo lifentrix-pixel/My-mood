@@ -78,6 +78,7 @@
       </div>
       <div class="sub-nav-group" data-group="todos">
         <button class="sub-nav-btn" data-view="todos">All Tasks</button>
+        <button class="sub-nav-btn" data-view="pressure">Overhead</button>
       </div>
       <div class="sub-nav-group" data-group="wishlist">
         <button class="sub-nav-btn" data-view="wishlist">My Wishes</button>
@@ -1163,6 +1164,49 @@
       </div>
     </section>
 
+    <!-- Pressure Dump View -->
+    <section id="view-pressure" class="view">
+      <div class="pressure-page">
+        <div class="pressure-hero">
+          <div>
+            <span class="pressure-kicker">Overhead</span>
+            <h1>Pressure Piles</h1>
+          </div>
+          <div class="pressure-meter" id="pressure-meter"></div>
+        </div>
+
+        <div class="pressure-dump-card">
+          <div class="pressure-field">
+            <label for="pressure-text">What is hovering?</label>
+            <textarea id="pressure-text" rows="4" placeholder="Subscription, avoided task, money thing, message I need to answer..."></textarea>
+          </div>
+
+          <div class="pressure-pile-picker" id="pressure-pile-picker"></div>
+
+          <div class="pressure-controls">
+            <label class="pressure-slider-label" for="pressure-level">
+              <span>Pressure</span>
+              <strong id="pressure-level-value">3</strong>
+            </label>
+            <input id="pressure-level" class="pressure-slider" type="range" min="1" max="5" step="1" value="3">
+            <input id="pressure-due" class="pressure-date" type="date" aria-label="Optional date">
+          </div>
+
+          <button id="pressure-save" class="pressure-save-btn" type="button">Drop it in</button>
+        </div>
+
+        <div class="pressure-piles" id="pressure-piles"></div>
+
+        <div class="pressure-section">
+          <div class="pressure-section-head">
+            <span>Active Hovering Things</span>
+            <button id="pressure-show-done" type="button">Done</button>
+          </div>
+          <div id="pressure-list" class="pressure-list"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- ======= Wishlist View ======= -->
     <section id="view-wishlist" class="view wishlist-dreamland">
       <button class="wish-back-btn" onclick="exitDreamland()">←</button>
@@ -1603,6 +1647,7 @@
   <script src="sync.js"></script>
   <script src="medication.js"></script>
   <script src="todos.js"></script>
+  <script src="pressure.js"></script>
   <script src="wishlist.js"></script>
   <script src="studio.js"></script>
   <script src="stool.js"></script>

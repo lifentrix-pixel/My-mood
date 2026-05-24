@@ -514,6 +514,7 @@ function switchView(view) {
   if (view === 'trends') renderTrends();
   if (view === 'data-quality' && typeof renderDataQualityPage === 'function') renderDataQualityPage();
   if (view === 'timer') renderTimerView();
+  if (view === 'pressure' && typeof renderPressurePage === 'function') renderPressurePage();
   if (view === 'studio') renderStudioGallery();
   if (view === 'media') initMedia();
   if (view === 'export') initExport();

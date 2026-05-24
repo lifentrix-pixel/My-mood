@@ -34,7 +34,7 @@ function initTodos() {
 }
 
 function renderTodos() {
-  const todos = loadTodos();
+  const todos = loadTodos().filter(t => t.kind !== 'pressure_item');
   const active = todos.filter(t => !t.completed);
   const completed = todos.filter(t => t.completed);
 

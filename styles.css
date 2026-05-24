@@ -7386,3 +7386,431 @@ body.in-dreamland #sub-nav { display: none !important; }
     grid-template-columns: 1fr;
   }
 }
+
+/* Pressure Dump */
+.pressure-page {
+  display: grid;
+  gap: 18px;
+  padding: 20px clamp(16px, 4vw, 34px) 96px;
+}
+
+.pressure-hero {
+  align-items: end;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.92), rgba(42, 32, 48, 0.92));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 22px;
+}
+
+.pressure-kicker {
+  color: #fbbf24;
+  display: block;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.pressure-hero h1 {
+  color: var(--text-color);
+  font-size: 3rem;
+  letter-spacing: 0;
+  line-height: 0.96;
+  margin: 0;
+}
+
+.pressure-meter {
+  align-items: center;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.32);
+  border-radius: 8px;
+  color: #fcd34d;
+  display: grid;
+  min-height: 92px;
+  min-width: 116px;
+  padding: 14px;
+  text-align: center;
+}
+
+.pressure-meter strong {
+  font-size: 2.2rem;
+  line-height: 1;
+}
+
+.pressure-meter span {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.pressure-dump-card,
+.pressure-section {
+  background: rgba(20, 20, 30, 0.76);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.pressure-field {
+  display: grid;
+  gap: 8px;
+}
+
+.pressure-field label,
+.pressure-slider-label span,
+.pressure-section-head span {
+  color: var(--text-color);
+  font-size: 0.96rem;
+  font-weight: 760;
+  letter-spacing: 0;
+}
+
+.pressure-field textarea,
+.pressure-date {
+  background: rgba(9, 9, 14, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-color);
+  font: inherit;
+  line-height: 1.38;
+  padding: 12px;
+}
+
+.pressure-field textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.pressure-pile-picker {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.pressure-pile-chip {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: grid;
+  gap: 5px;
+  min-height: 82px;
+  padding: 10px 8px;
+  text-align: center;
+}
+
+.pressure-pile-chip span {
+  color: var(--pile-color);
+  font-size: 1.28rem;
+  line-height: 1;
+}
+
+.pressure-pile-chip strong {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.18;
+}
+
+.pressure-pile-chip.active {
+  background: color-mix(in srgb, var(--pile-color) 16%, transparent);
+  border-color: color-mix(in srgb, var(--pile-color) 54%, rgba(255,255,255,0.12));
+  color: var(--text-color);
+}
+
+.pressure-controls {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto 1fr minmax(132px, 0.5fr);
+}
+
+.pressure-slider-label {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.pressure-slider-label strong {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  color: #fcd34d;
+  display: inline-flex;
+  height: 32px;
+  justify-content: center;
+  min-width: 32px;
+}
+
+.pressure-slider {
+  appearance: none;
+  border-radius: 999px;
+  height: 12px;
+  outline: none;
+}
+
+.pressure-slider::-webkit-slider-thumb {
+  appearance: none;
+  background: #f8fafc;
+  border: 4px solid #0d0d14;
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.18);
+  height: 30px;
+  width: 30px;
+}
+
+.pressure-date {
+  min-height: 42px;
+}
+
+.pressure-save-btn {
+  background: #bbf7d0;
+  border: 0;
+  border-radius: 8px;
+  color: #052e16;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 820;
+  justify-self: start;
+  letter-spacing: 0;
+  min-height: 44px;
+  padding: 11px 18px;
+}
+
+.pressure-piles {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.pressure-pile-card {
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  min-height: 168px;
+  padding: 12px;
+}
+
+.pressure-pile-visual {
+  align-items: end;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 5px;
+  justify-content: end;
+  min-height: 86px;
+}
+
+.pressure-stack-block {
+  animation: pressureSettle 520ms ease both;
+  animation-delay: var(--delay);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--pile-color) 68%, #fff), var(--pile-color));
+  border-radius: 6px;
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--pile-color) 12%, transparent);
+  display: block;
+  height: 12px;
+  margin-inline: auto;
+  opacity: 0.92;
+  width: var(--block-width);
+}
+
+@keyframes pressureSettle {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.96);
+  }
+  to {
+    opacity: 0.92;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.pressure-pile-info {
+  display: grid;
+  gap: 3px;
+}
+
+.pressure-pile-info span {
+  color: var(--pile-color);
+  font-size: 1.24rem;
+}
+
+.pressure-pile-info strong {
+  color: var(--text-color);
+  font-size: 0.9rem;
+  letter-spacing: 0;
+}
+
+.pressure-pile-info small {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.28;
+}
+
+.pressure-section-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+#pressure-show-done,
+.pressure-item-actions button {
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 760;
+  letter-spacing: 0;
+  min-height: 36px;
+  padding: 8px 12px;
+}
+
+#pressure-show-done {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-color);
+}
+
+#pressure-show-done.active {
+  background: rgba(167, 139, 250, 0.18);
+  color: #c4b5fd;
+}
+
+.pressure-list {
+  display: grid;
+  gap: 12px;
+}
+
+.pressure-item {
+  background: rgba(10, 10, 16, 0.66);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 4px solid var(--pile-color);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.pressure-item-top,
+.pressure-item-meta,
+.pressure-item-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pressure-item-top {
+  justify-content: space-between;
+}
+
+.pressure-item-pile,
+.pressure-item-score,
+.pressure-item-meta span {
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 780;
+  letter-spacing: 0;
+  line-height: 1.2;
+  padding: 7px 9px;
+}
+
+.pressure-item-pile {
+  background: color-mix(in srgb, var(--pile-color) 15%, transparent);
+  color: color-mix(in srgb, var(--pile-color) 72%, #fff);
+}
+
+.pressure-item-score,
+.pressure-item-meta span {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-muted);
+}
+
+.pressure-item h3 {
+  color: var(--text-color);
+  font-size: 1.05rem;
+  line-height: 1.26;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.pressure-item p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.36;
+  margin: 0;
+}
+
+.pressure-item-actions button[data-pressure-action="todo"] {
+  background: #dbeafe;
+  color: #0f172a;
+}
+
+.pressure-item-actions button[data-pressure-action="done"] {
+  background: rgba(187, 247, 208, 0.14);
+  color: #bbf7d0;
+}
+
+.pressure-item-actions button[data-pressure-action="delete"] {
+  background: rgba(248, 113, 113, 0.12);
+  color: #fca5a5;
+}
+
+.pressure-empty {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+}
+
+.pressure-empty strong {
+  color: var(--text-color);
+}
+
+.pressure-empty span {
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+@media (max-width: 720px) {
+  .pressure-page {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .pressure-hero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pressure-hero h1 {
+    font-size: 2.4rem;
+  }
+
+  .pressure-meter {
+    min-width: 0;
+  }
+
+  .pressure-pile-picker,
+  .pressure-piles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pressure-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .pressure-save-btn {
+    justify-self: stretch;
+  }
+}
