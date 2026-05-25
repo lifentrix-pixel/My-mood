@@ -847,14 +847,39 @@ function renderCloudSyncSection() {
           <div style="height:6px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden;">
             <div style="height:100%;width:${pct}%;background:${color};border-radius:3px;"></div>
           </div>
+          ${pct > 80 ? '<p style="margin:8px 0 0;font-size:0.78em;color:#fbbf24;">Phone cache is crowded. Free Phone Space keeps recent data here and archives older/heavier data locally.</p>' : ''}
         </div>`;
       })()}
-      <div style="display:flex;gap:8px;margin-top:12px;">
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
         <button onclick="syncToSupabase()" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(167,139,250,0.3);background:rgba(167,139,250,0.15);color:#a78bfa;font-size:0.9em;cursor:pointer;">🔄 Sync Now</button>
         <button onclick="forceSyncAll()" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(167,139,250,0.3);background:rgba(167,139,250,0.15);color:#a78bfa;font-size:0.9em;cursor:pointer;">🔁 Full Re-sync</button>
+        <button onclick="freePhoneStorage()" style="flex:1 0 100%;padding:10px;border-radius:10px;border:1px solid rgba(52,211,153,0.28);background:rgba(52,211,153,0.12);color:#7dd3ae;font-size:0.9em;cursor:pointer;">🧹 Free Phone Space</button>
       </div>
     </div>
   `;
+}
+
+async function freePhoneStorage() {
+  const before = typeof getLocalStorageBytes === 'function' ? getLocalStorageBytes() : null;
+  updateSyncStatus('Freeing space...', 'syncing');
+  try {
+    if (typeof migrateAutomaticBackupsToIDB === 'function') await migrateAutomaticBackupsToIDB();
+    if (typeof migrateFoodPhotosToIDB === 'function') await migrateFoodPhotosToIDB();
+    if (typeof migrateOuraToIDB === 'function') await migrateOuraToIDB();
+    if (typeof trimLocalStorage === 'function') await trimLocalStorage({ force: true });
+    const after = typeof getLocalStorageBytes === 'function' ? getLocalStorageBytes() : null;
+    const freed = before != null && after != null ? Math.max(0, before - after) : 0;
+    const freedLabel = freed >= 1024 * 1024
+      ? `${(freed / 1024 / 1024).toFixed(1)}MB`
+      : `${Math.round(freed / 1024)}KB`;
+    showToast(freed > 1024 ? `Freed ${freedLabel} on this device` : 'Phone cache is already trimmed');
+    updateSyncStatus('Space freed', 'synced');
+    renderCloudSyncSection();
+  } catch (error) {
+    console.error('Free phone storage failed:', error);
+    updateSyncStatus('Storage cleanup failed', 'error');
+    showToast('Could not free phone space yet');
+  }
 }
 
 /* ── Init ── */
@@ -897,6 +922,7 @@ window.fullSync = fullSync;
 window.pullFromSupabase = pullFromSupabase;
 window.initSync = initSync;
 window.renderCloudSyncSection = renderCloudSyncSection;
+window.freePhoneStorage = freePhoneStorage;
 
 // Auto-init (wrapped for safety)
 try {

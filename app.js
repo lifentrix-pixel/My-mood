@@ -2090,7 +2090,6 @@ document.addEventListener('DOMContentLoaded', () => {
   
   registerSW();
   setupNotifications();
-  scheduleBackups();
   if (typeof initFirebase === 'function') initFirebase();
   initDreams();
   initMeditate();
@@ -2107,31 +2106,47 @@ document.addEventListener('DOMContentLoaded', () => {
   seedIntentions();
   
   // Migrate large data to IndexedDB to free localStorage
-  if (typeof migrateFoodPhotosToIDB === 'function') {
-    migrateFoodPhotosToIDB().then(n => { if (n > 0) console.log('Migrated', n, 'food photos to IDB'); });
-  }
-  migrateOuraToIDB();
-  trimLocalStorage();
+  (async () => {
+    if (typeof migrateAutomaticBackupsToIDB === 'function') {
+      const bytes = await migrateAutomaticBackupsToIDB();
+      if (bytes > 0) console.log('Moved automatic backups to IDB, freed', (bytes / 1024).toFixed(0), 'KB');
+    }
+    if (typeof migrateFoodPhotosToIDB === 'function') {
+      const photos = await migrateFoodPhotosToIDB();
+      if (photos > 0) console.log('Migrated', photos, 'food photos to IDB');
+    }
+    await migrateOuraToIDB();
+    await trimLocalStorage();
+    scheduleBackups();
+  })();
 });
 
 // Trim localStorage when over 80% — move old data to IDB (Supabase has the full copy)
-async function trimLocalStorage() {
+async function trimLocalStorage(options = {}) {
   try {
+    let freedBytes = 0;
+    if (typeof migrateAutomaticBackupsToIDB === 'function') {
+      freedBytes += await migrateAutomaticBackupsToIDB();
+    }
+    if (typeof migrateFoodPhotosToIDB === 'function') {
+      await migrateFoodPhotosToIDB();
+    }
+    await migrateOuraToIDB();
+
     let totalBytes = 0;
     for (let i = 0; i < localStorage.length; i++) {
       totalBytes += (localStorage.getItem(localStorage.key(i)) || '').length * 2;
     }
     const pct = totalBytes / (5 * 1024 * 1024) * 100;
-    if (pct < 60) return;
+    if (!options.force && pct < 60) return freedBytes;
     
     // Aggressive trim: if over 90%, keep only 30 days; if over 70%, keep 60 days; else 90
-    const keepDays = pct > 90 ? 30 : pct > 70 ? 60 : 90;
+    const keepDays = options.force ? 30 : pct > 90 ? 30 : pct > 70 ? 60 : 90;
     console.log(`Storage at ${pct.toFixed(0)}% — trimming to ${keepDays} days...`);
     
     // These keys are sorted by typical size (biggest first)
     const trimTargets = [
       { key: 'innerscape_time_entries', tsField: 'startTime' },
-      { key: 'innerscape_entries', tsField: 'ts' },
       { key: 'innerscape_medication_logs', tsField: 'timestamp' },
       { key: 'innerscape_food_entries', tsField: 'timestamp' },
       { key: 'innerscape_stool_entries', tsField: 'timestamp' },
@@ -2139,9 +2154,8 @@ async function trimLocalStorage() {
     ];
     
     const cutoff = Date.now() - (keepDays * 24 * 60 * 60 * 1000);
-    let freedBytes = 0;
-    
-    for (const { key, tsField, keepDays } of trimTargets) {
+
+    for (const { key, tsField } of trimTargets) {
       const raw = localStorage.getItem(key);
       if (!raw || raw.length < 10000) continue; // skip small keys
       
@@ -2171,8 +2185,10 @@ async function trimLocalStorage() {
     if (freedBytes > 0) {
       console.log(`Freed ${(freedBytes / 1024).toFixed(0)}KB from localStorage`);
     }
+    return freedBytes;
   } catch (e) {
     console.error('trimLocalStorage error:', e);
+    return 0;
   }
 }
 

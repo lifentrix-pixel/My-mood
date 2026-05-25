@@ -46,6 +46,84 @@ async function idbDelete(key) {
   });
 }
 
+function getLocalStorageBytes() {
+  let totalBytes = 0;
+  for (let i = 0; i < localStorage.length; i++) {
+    totalBytes += (localStorage.getItem(localStorage.key(i)) || '').length * 2;
+  }
+  return totalBytes;
+}
+
+function summarizeAutomaticBackup(backup) {
+  const count = key => Array.isArray(backup?.[key]) ? backup[key].length : (backup?.counts?.[key] || 0);
+  return {
+    timestamp: backup?.timestamp || Date.now(),
+    version: backup?.version || 'v24',
+    counts: {
+      entries: count('entries'),
+      dreams: count('dreams'),
+      activities: count('activities'),
+      timeEntries: count('timeEntries'),
+      medSessions: count('medSessions'),
+      foodEntries: count('foodEntries'),
+    },
+  };
+}
+
+function summarizeAutomaticBackups(backups) {
+  return (Array.isArray(backups) ? backups : []).slice(-3).map(summarizeAutomaticBackup);
+}
+
+function compactAutomaticBackupsLocalOnly() {
+  const key = 'innerscape_auto_backups';
+  const raw = localStorage.getItem(key);
+  if (!raw || raw.length < 10000) return 0;
+  const before = raw.length * 2;
+  try {
+    const backups = JSON.parse(raw);
+    const summaries = summarizeAutomaticBackups(backups);
+    localStorage.setItem(key, JSON.stringify(summaries));
+  } catch {
+    localStorage.removeItem(key);
+  }
+  return Math.max(0, before - ((localStorage.getItem(key) || '').length * 2));
+}
+
+async function migrateAutomaticBackupsToIDB() {
+  const key = 'innerscape_auto_backups';
+  const archiveKey = 'innerscape_auto_backups_full';
+  const raw = localStorage.getItem(key);
+  if (!raw || raw.length < 10000) return 0;
+  const before = raw.length * 2;
+  try {
+    const backups = JSON.parse(raw);
+    const fullBackups = (Array.isArray(backups) ? backups : [])
+      .filter(backup => Array.isArray(backup.entries) || Array.isArray(backup.timeEntries) || Array.isArray(backup.foodEntries));
+    if (fullBackups.length) {
+      const existing = await idbGet(archiveKey);
+      const merged = [...(Array.isArray(existing) ? existing : []), ...fullBackups].slice(-3);
+      await idbSet(archiveKey, merged);
+      localStorage.setItem(key, JSON.stringify(summarizeAutomaticBackups(merged)));
+    } else {
+      localStorage.setItem(key, JSON.stringify(summarizeAutomaticBackups(backups)));
+    }
+  } catch (error) {
+    console.warn('Automatic backup migration failed:', error);
+    compactAutomaticBackupsLocalOnly();
+  }
+  return Math.max(0, before - ((localStorage.getItem(key) || '').length * 2));
+}
+
+function emergencyLocalStorageCleanup() {
+  const before = getLocalStorageBytes();
+  compactAutomaticBackupsLocalOnly();
+  return Math.max(0, before - getLocalStorageBytes());
+}
+
+window.getLocalStorageBytes = getLocalStorageBytes;
+window.migrateAutomaticBackupsToIDB = migrateAutomaticBackupsToIDB;
+window.emergencyLocalStorageCleanup = emergencyLocalStorageCleanup;
+
 // Migrate food photos from localStorage to IndexedDB
 async function migrateFoodPhotosToIDB() {
   try {
@@ -93,6 +171,16 @@ function safeSave(key, data) {
   } catch (e) {
     if (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014) {
       console.error('Storage quota exceeded for key:', key);
+      const freed = emergencyLocalStorageCleanup();
+      if (freed > 0) {
+        try {
+          localStorage.setItem(key, typeof data === 'string' ? data : JSON.stringify(data));
+          showToast(`📦 Freed ${(freed / 1024).toFixed(0)}KB of phone cache — saved`);
+          return true;
+        } catch (retryError) {
+          console.warn('Retry after local cleanup failed:', retryError);
+        }
+      }
       // Try to free space by migrating food photos to IndexedDB
       try {
         const foodKey = 'innerscape_food_entries';
@@ -116,7 +204,8 @@ function safeSave(key, data) {
           return true;
         }
       } catch (e2) { console.error('Quota recovery failed:', e2); }
-      showToast('⚠️ Storage full! Go to Export → Full Re-sync to back up.');
+      if (typeof freePhoneStorage === 'function') setTimeout(() => freePhoneStorage(), 100);
+      showToast('⚠️ Storage full — freeing phone cache. Check Export if it stays full.');
       return false;
     }
     throw e;
@@ -432,7 +521,7 @@ function loadTodos() {
   try { return JSON.parse(localStorage.getItem(TODOS_KEY)) || []; } catch { return []; }
 }
 function saveTodos(todos) {
-  localStorage.setItem(TODOS_KEY, JSON.stringify(todos));
+  safeSave(TODOS_KEY, todos);
 }
 
 // ── Toast with Undo ──
@@ -626,7 +715,7 @@ function showUpdateBanner(worker) {
 }
 
 // ── Data Safety Net ──
-function createAutomaticBackup() {
+async function createAutomaticBackup() {
   try {
     const backupData = {
       timestamp: Date.now(),
@@ -638,11 +727,14 @@ function createAutomaticBackup() {
       medSessions: loadMeditations(),
       foodEntries: loadFoodEntries()
     };
-    const backups = JSON.parse(localStorage.getItem('innerscape_auto_backups') || '[]');
+    const saved = await idbGet('innerscape_auto_backups_full');
+    const backups = Array.isArray(saved) ? saved : [];
     backups.push(backupData);
-    if (backups.length > 3) backups.shift();
-    localStorage.setItem('innerscape_auto_backups', JSON.stringify(backups));
+    const recent = backups.slice(-3);
+    await idbSet('innerscape_auto_backups_full', recent);
+    localStorage.setItem('innerscape_auto_backups', JSON.stringify(summarizeAutomaticBackups(recent)));
   } catch (e) {
+    console.warn('Automatic backup failed:', e);
   }
 }
 

@@ -1330,18 +1330,18 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .timer-environment-dock {
-  position: sticky;
-  bottom: 10px;
-  z-index: 12;
-  margin: 20px 0 4px;
-  padding: 12px;
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  margin: -4px 0 14px;
+  padding: 8px 10px;
   background:
-    linear-gradient(135deg, rgba(167,139,250,0.12), rgba(56,189,248,0.08)),
-    rgba(22,22,31,0.92);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 8px;
-  box-shadow: 0 14px 35px rgba(0,0,0,0.28);
-  backdrop-filter: blur(16px);
+    linear-gradient(135deg, rgba(167,139,250,0.08), rgba(56,189,248,0.05)),
+    rgba(22,22,31,0.62);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  box-shadow: none;
+  backdrop-filter: blur(10px);
 }
 .timer-environment-dock.hidden {
   display: none;
@@ -1350,13 +1350,14 @@ input[type="range"]::-moz-range-thumb {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
+  flex: 0 0 96px;
+  gap: 8px;
+  min-width: 0;
 }
 .timer-environment-head span {
   color: var(--text2);
   display: block;
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 800;
   letter-spacing: .06em;
   text-transform: uppercase;
@@ -1364,19 +1365,24 @@ input[type="range"]::-moz-range-thumb {
 .timer-environment-head strong {
   color: var(--text);
   display: block;
-  font-size: 15px;
+  font-size: 12px;
+  line-height: 1.1;
   margin-top: 2px;
+  max-width: 62px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .timer-env-add {
-  width: 38px;
-  height: 38px;
+  width: 28px;
+  height: 28px;
   border: 0;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--accent2), var(--accent));
   color: #fff;
   cursor: pointer;
   flex: 0 0 auto;
-  font-size: 22px;
+  font-size: 17px;
   font-weight: 800;
   -webkit-tap-highlight-color: transparent;
 }
@@ -1385,11 +1391,13 @@ input[type="range"]::-moz-range-thumb {
 }
 .timer-env-list {
   display: flex;
-  gap: 12px;
-  min-height: 76px;
+  flex: 1;
+  gap: 8px;
+  min-height: 46px;
+  min-width: 0;
   overflow-x: auto;
   overflow-y: visible;
-  padding: 2px 2px 4px;
+  padding: 2px;
   scrollbar-width: none;
 }
 .timer-env-list::-webkit-scrollbar {
@@ -1397,17 +1405,17 @@ input[type="range"]::-moz-range-thumb {
 }
 .timer-env-item {
   position: relative;
-  flex: 0 0 66px;
-  width: 66px;
+  flex: 0 0 44px;
+  width: 44px;
 }
 .timer-env-circle {
   --env-color: var(--accent);
-  width: 64px;
-  height: 64px;
+  width: 42px;
+  height: 42px;
   border: 1px solid color-mix(in srgb, var(--env-color) 56%, transparent);
   border-radius: 50%;
   background:
-    radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--env-color) 30%, transparent), transparent 68%),
+    radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--env-color) 28%, transparent), transparent 68%),
     rgba(255,255,255,0.04);
   color: var(--text);
   cursor: pointer;
@@ -1415,9 +1423,9 @@ input[type="range"]::-moz-range-thumb {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 1px;
   overflow: hidden;
-  padding: 7px;
+  padding: 3px;
   position: relative;
   transition: transform .16s, border-color .2s, box-shadow .2s;
   -webkit-tap-highlight-color: transparent;
@@ -1427,18 +1435,18 @@ input[type="range"]::-moz-range-thumb {
 }
 .timer-env-circle.active {
   border-color: var(--env-color);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--env-color) 18%, transparent), 0 0 22px color-mix(in srgb, var(--env-color) 22%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--env-color) 18%, transparent), 0 0 14px color-mix(in srgb, var(--env-color) 18%, transparent);
 }
 .timer-env-emoji {
-  font-size: 22px;
+  font-size: 17px;
   line-height: 1;
 }
 .timer-env-name {
   display: block;
-  font-size: 10px;
+  font-size: 8px;
   font-weight: 800;
   line-height: 1.05;
-  max-width: 50px;
+  max-width: 32px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1451,14 +1459,14 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text2);
   cursor: pointer;
   display: flex;
-  font-size: 11px;
-  height: 22px;
+  font-size: 9px;
+  height: 16px;
   justify-content: center;
   line-height: 1;
   position: absolute;
-  right: -2px;
-  top: -2px;
-  width: 22px;
+  right: -4px;
+  top: -4px;
+  width: 16px;
   -webkit-tap-highlight-color: transparent;
 }
 .timer-env-edit:active {
@@ -4518,8 +4526,9 @@ body.in-dreamland #sub-nav { display: none !important; }
   .timer-food-head { align-items: stretch; flex-direction: column; }
   .timer-food-contexts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .timer-food-rating { grid-template-columns: 1fr; }
-  .timer-environment-dock { margin-left: -2px; margin-right: -2px; }
-  .timer-env-list { gap: 10px; }
+  .timer-environment-dock { gap: 8px; margin-left: 0; margin-right: 0; padding: 7px 8px; }
+  .timer-environment-head { flex-basis: 88px; }
+  .timer-env-list { gap: 7px; }
 }
 
 /* Bristol grid */
