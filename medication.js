@@ -234,6 +234,14 @@ function saveMedication() {
 }
 
 function logMedication(medication) {
+  const canonicalMedication = medication && loadMedications().find(m => m.id === medication.id);
+  if (!canonicalMedication) {
+    showToast('Choose an existing medication');
+    renderTodayMedications();
+    return;
+  }
+  medication = canonicalMedication;
+
   const logs = loadMedicationLogs();
   const todayStart = startOfDay(new Date()).getTime();
   const todayLogs = logs.filter(log => log.medicationId === medication.id && log.timestamp >= todayStart);
@@ -265,6 +273,15 @@ function saveMedicationLog() {
   saveBtn.disabled = true;
   
   try {
+    const canonicalMedication = loadMedications().find(m => m.id === currentLoggingMedication.id);
+    if (!canonicalMedication) {
+      showToast('Choose an existing medication');
+      saveBtn.disabled = false;
+      return;
+    }
+    currentLoggingMedication = canonicalMedication;
+    const medicationName = currentLoggingMedication.name;
+
     const time = $('#medication-log-time').value;
     const notes = $('#medication-log-notes').value.trim();
     
@@ -302,7 +319,7 @@ function saveMedicationLog() {
     
     closeMedicationLogModal();
     renderTodayMedications();
-    showToast(`${currentLoggingMedication.name} logged ✓`);
+    showToast(`${medicationName} logged ✓`);
     
   } finally {
     setTimeout(() => { saveBtn.disabled = false; }, 1000);

@@ -1178,6 +1178,7 @@ function installDataHandoffLayer() {
     const startStr = $('#timer-manual-start').value;
     const endStr = $('#timer-manual-end').value;
     if (!actId || !date || !startStr || !endStr) { showToast('Fill in all fields'); return; }
+    if (!loadActivities().some(a => a.id === actId)) { showToast('Choose an existing activity'); return; }
     const startTime = new Date(`${date}T${startStr}`).getTime();
     const endTime = new Date(`${date}T${endStr}`).getTime();
     if (endTime <= startTime) { showToast('End time must be after start'); return; }

@@ -95,6 +95,124 @@ function safeLoad(key) {
   try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; }
 }
 
+function safeSaveSync(key, value) {
+  if (typeof safeSave === 'function') return safeSave(key, value);
+  localStorage.setItem(key, JSON.stringify(value));
+  return true;
+}
+
+function canonicalLabelFromId(prefix, id) {
+  const tail = String(id || '').slice(-6).toUpperCase();
+  return `${prefix} ${tail}`;
+}
+
+function ensureCanonicalActivitiesForTimeEntries(timeEntries, activities) {
+  const existing = new Set((activities || []).map(activity => activity.id).filter(Boolean));
+  const next = [...(activities || [])];
+  let added = 0;
+
+  (timeEntries || []).forEach(entry => {
+    const activityId = entry.activityId || entry.activity_id;
+    if (!activityId || existing.has(activityId)) return;
+    const now = Date.now();
+    next.push({
+      id: activityId,
+      name: entry.activityName || entry.activity_name || canonicalLabelFromId('Restored activity', activityId),
+      emoji: entry.activityEmoji || entry.activity_emoji || '⏱',
+      category: entry.category || null,
+      createdAt: entry.createdAt || now,
+      updatedAt: now,
+      restored_from_log: true,
+      schema_version: entry.schema_version || 1,
+      source: entry.source || 'phone_app',
+    });
+    existing.add(activityId);
+    added++;
+  });
+
+  if (added > 0) {
+    safeSaveSync('innerscape_activities', next);
+    console.info(`Restored ${added} missing activity catalog row${added === 1 ? '' : 's'} before time entry sync`);
+  }
+  return next;
+}
+
+function ensureCanonicalMedicationsForLogs(medicationLogs, medications) {
+  const existing = new Set((medications || []).map(medication => medication.id).filter(Boolean));
+  const next = [...(medications || [])];
+  let added = 0;
+
+  (medicationLogs || []).forEach(log => {
+    const medicationId = log.medicationId || log.medication_id;
+    if (!medicationId || existing.has(medicationId)) return;
+    const now = Date.now();
+    const name = log.medicationName || log.medication_name || canonicalLabelFromId('Restored medication', medicationId);
+    next.push({
+      id: medicationId,
+      name,
+      dosage: log.dosage || '',
+      frequency: 'multiple',
+      color: log.color || '#a78bfa',
+      createdAt: log.createdAt || now,
+      updatedAt: now,
+      restored_from_log: true,
+      schema_version: log.schema_version || 1,
+      source: log.source || 'phone_app',
+    });
+    existing.add(medicationId);
+    added++;
+  });
+
+  if (added > 0) {
+    safeSaveSync('innerscape_medications', next);
+    console.info(`Restored ${added} missing medication catalog row${added === 1 ? '' : 's'} before medication log sync`);
+  }
+  return next;
+}
+
+function clearMissingParentEntryRefs(entries) {
+  const ids = new Set((entries || []).map(entry => entry.id).filter(Boolean));
+  let changed = false;
+  const next = (entries || []).map(entry => {
+    const parentId = entry.parent_entry_id || entry.parentEntryId || null;
+    if (!parentId || ids.has(parentId)) return entry;
+    changed = true;
+    return { ...entry, parent_entry_id: null, parentEntryId: null };
+  });
+  if (changed) {
+    safeSaveSync('innerscape_time_entries', next);
+    console.info('Cleared missing parent_entry_id references before time entry sync');
+  }
+  return next;
+}
+
+function includeParentTimeEntries(entriesForSync, allEntries) {
+  const byId = new Map((allEntries || []).filter(entry => entry.id).map(entry => [entry.id, entry]));
+  const included = new Map((entriesForSync || []).filter(entry => entry.id).map(entry => [entry.id, entry]));
+  let changed = true;
+  while (changed) {
+    changed = false;
+    Array.from(included.values()).forEach(entry => {
+      const parentId = entry.parent_entry_id || entry.parentEntryId;
+      if (parentId && !included.has(parentId) && byId.has(parentId)) {
+        included.set(parentId, byId.get(parentId));
+        changed = true;
+      }
+    });
+  }
+  return Array.from(included.values());
+}
+
+function splitParentedTimeEntries(entries) {
+  const parents = [];
+  const children = [];
+  (entries || []).forEach(entry => {
+    if (entry.parent_entry_id || entry.parentEntryId) children.push(entry);
+    else parents.push(entry);
+  });
+  return { parents, children };
+}
+
 function encodeTimeEntryNotes(entry) {
   const text = entry.notes || entry.note || null;
   const rawEnvironment = entry.environment && typeof entry.environment === 'object' ? entry.environment : {};
@@ -177,16 +295,17 @@ function mapCheckins(entries) {
   }));
 }
 
-function mapTimeEntries(entries) {
+function mapTimeEntries(entries, validParentIds) {
+  const ids = validParentIds || new Set((entries || []).map(e => e.id).filter(Boolean));
   return entries.filter(e => e.id).map(e => ({
     id: e.id,
-    activity_id: e.activityId || null,
-    start_time: e.startTime || null,
-    end_time: e.endTime || null,
+    activity_id: e.activityId || e.activity_id || null,
+    start_time: e.startTime || e.start_time || null,
+    end_time: e.endTime || e.end_time || null,
     sub_activity: e.subActivityName || e.subActivityId || e.subActivity || null,
     notes: encodeTimeEntryNotes(e),
     tracking_mode: e.tracking_mode || e.trackingMode || 'primary',
-    parent_entry_id: e.parent_entry_id || e.parentEntryId || null,
+    parent_entry_id: ids.has(e.parent_entry_id || e.parentEntryId) ? (e.parent_entry_id || e.parentEntryId) : null,
     intensity: e.intensity ?? null,
     local_date: e.local_date || (typeof appDataLocalDate === 'function' ? appDataLocalDate(e.startTime) : null),
     timezone: e.timezone || 'Europe/Helsinki',
@@ -223,9 +342,9 @@ function mapFoodEntries(entries) {
 function mapMedicationLogs(entries) {
   return entries.filter(e => e.id).map(e => ({
     id: e.id,
-    medication_id: e.medicationId || null,
-    medication_name: e.medicationName || null,
-    ts: e.timestamp || null,
+    medication_id: e.medicationId || e.medication_id || null,
+    medication_name: e.medicationName || e.medication_name || null,
+    ts: e.timestamp || e.ts || null,
     local_date: e.local_date || (typeof appDataLocalDate === 'function' ? appDataLocalDate(e.timestamp) : null),
     timezone: e.timezone || 'Europe/Helsinki',
     schema_version: e.schema_version || 1,
@@ -741,10 +860,11 @@ async function syncToSupabase(force, _skipStatusGuard) {
 
   try {
     const checkins = await loadCheckinsForSync(force, lastSync);
-    const timeEntries = safeLoad('innerscape_time_entries');
-    const activities = safeLoad('innerscape_activities');
+    let timeEntries = clearMissingParentEntryRefs(safeLoad('innerscape_time_entries'));
+    let activities = ensureCanonicalActivitiesForTimeEntries(timeEntries, safeLoad('innerscape_activities'));
     const food = safeLoad('innerscape_food_entries');
     const medLogs = safeLoad('innerscape_medication_logs');
+    const medications = ensureCanonicalMedicationsForLogs(medLogs, safeLoad('innerscape_medications'));
     const stool = safeLoad('innerscape_stool_entries');
 
     // Filter by timestamp if not force
@@ -756,12 +876,51 @@ async function syncToSupabase(force, _skipStatusGuard) {
       });
     };
 
-    const results = await Promise.allSettled([
-      upsertRows('checkins', mapCheckins(filterNew(checkins, 'ts'))),
-      upsertRows('time_entries', mapTimeEntries(filterNew(timeEntries, 'startTime'))),
-      upsertRows('activities', mapActivities(activities)), // always sync all (small dataset)
+    const settleSyncStep = async (label, fn) => {
+      try {
+        return { status: 'fulfilled', value: await fn(), label };
+      } catch (reason) {
+        return { status: 'rejected', reason, label };
+      }
+    };
+    const skippedSyncStep = (label, because) => ({
+      status: 'rejected',
+      reason: new Error(`${label} skipped because ${because}`),
+      label
+    });
+
+    const timeEntriesForSync = includeParentTimeEntries(filterNew(timeEntries, 'startTime'), timeEntries);
+    const validTimeEntryIds = new Set(timeEntriesForSync.map(entry => entry.id).filter(Boolean));
+    const { parents: parentTimeEntries, children: childTimeEntries } = splitParentedTimeEntries(timeEntriesForSync);
+    const medLogsForSync = filterNew(medLogs, 'timestamp');
+
+    const checkinsResult = await settleSyncStep('checkins', () =>
+      upsertRows('checkins', mapCheckins(filterNew(checkins, 'ts')))
+    );
+    const activitiesResult = await settleSyncStep('activities', () =>
+      upsertRows('activities', mapActivities(activities))
+    );
+    const parentTimeResult = activitiesResult.status === 'fulfilled'
+      ? await settleSyncStep('time_entries parents', () =>
+          upsertRows('time_entries', mapTimeEntries(parentTimeEntries, validTimeEntryIds))
+        )
+      : skippedSyncStep('time_entries parents', 'activities failed');
+    const childTimeResult = activitiesResult.status === 'fulfilled' && parentTimeResult.status === 'fulfilled'
+      ? await settleSyncStep('time_entries children', () =>
+          upsertRows('time_entries', mapTimeEntries(childTimeEntries, validTimeEntryIds))
+        )
+      : skippedSyncStep('time_entries children', 'time entry parents failed');
+    const medicationsResult = await settleSyncStep('medications', () =>
+      upsertRows('medications', mapJsonbTable(medications, 'medication'))
+    );
+    const medicationLogsResult = medicationsResult.status === 'fulfilled'
+      ? await settleSyncStep('medication_logs', () =>
+          upsertRows('medication_logs', mapMedicationLogs(medLogsForSync))
+        )
+      : skippedSyncStep('medication_logs', 'medications failed');
+
+    const parallelResults = await Promise.allSettled([
       upsertRows('food_entries', mapFoodEntries(filterNew(food, 'timestamp'))),
-      upsertRows('medication_logs', mapMedicationLogs(filterNew(medLogs, 'timestamp'))),
       upsertRows('stool_entries', mapStoolEntries(filterNew(stool, 'timestamp'))),
       // 12 new tables
       upsertRows('quick_notes', mapQuickNotes(filterNew(safeLoad('innerscape_quick_notes'), 'ts'))),
@@ -769,7 +928,6 @@ async function syncToSupabase(force, _skipStatusGuard) {
       upsertRows('dreams', mapDreams(filterNew(safeLoad('innerscape_dreams'), 'ts'))),
       upsertRows('todos', mapJsonbTable(safeLoad('innerscape_todos'), 'todo')),
       upsertRows('wishes', mapJsonbTable(safeLoad('innerscape_wishes'), 'wish')),
-      upsertRows('medications', mapJsonbTable(safeLoad('innerscape_medications'), 'medication')),
       upsertRows('meditations', mapJsonbTable(safeLoad('innerscape_meditations'), 'meditation')),
       upsertRows('food_presets', (() => { try { const fp = JSON.parse(localStorage.getItem('innerscape_food_presets') || 'null'); return fp ? [{ id: 'food_presets', data: fp }] : []; } catch { return []; } })()),
       upsertRows('media_queue', mapJsonbTable(safeLoad('innerscape_media_queue'), 'mq')),
@@ -778,6 +936,15 @@ async function syncToSupabase(force, _skipStatusGuard) {
       upsertRows('oura_data', mapOuraData((() => { try { return JSON.parse(localStorage.getItem('innerscape_oura_data') || '{}'); } catch { return {}; } })())),
       upsertRows('integration_sync_status', mapIntegrationSyncStatus((() => { try { return JSON.parse(localStorage.getItem('innerscape_integration_sync_status') || '{}'); } catch { return {}; } })()))
     ]);
+    const results = [
+      checkinsResult,
+      activitiesResult,
+      parentTimeResult,
+      childTimeResult,
+      medicationsResult,
+      medicationLogsResult,
+      ...parallelResults
+    ];
 
     const failed = results.filter(r => r.status === 'rejected');
     if (results[0]?.status === 'fulfilled') {
