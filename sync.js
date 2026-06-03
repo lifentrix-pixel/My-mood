@@ -106,20 +106,169 @@ function canonicalLabelFromId(prefix, id) {
   return `${prefix} ${tail}`;
 }
 
+const LEGACY_UNLABELED_ACTIVITY_ID = 'legacy-unlabeled-activity';
+const LEGACY_DULOXETINE_MEDICATION_ID = 'legacy-duloxetine';
+const LEGACY_DRAWING_ACTIVITY_ID = 'mlozshk0qlvm';
+const LEGACY_ACTIVITY_ID_MAP = {
+  mlotx7zex4f5: LEGACY_UNLABELED_ACTIVITY_ID,
+  mlox4ewofhey: LEGACY_UNLABELED_ACTIVITY_ID,
+  mlox49pmsht5: LEGACY_UNLABELED_ACTIVITY_ID,
+  mlox4alnlu0i: LEGACY_UNLABELED_ACTIVITY_ID,
+  mlox4bkc1np1: LEGACY_UNLABELED_ACTIVITY_ID,
+  mlox4iadv7tu: LEGACY_UNLABELED_ACTIVITY_ID,
+  mlox4hsay8ch: LEGACY_UNLABELED_ACTIVITY_ID,
+  mloy4i3s0oab: LEGACY_UNLABELED_ACTIVITY_ID,
+  mlox4iu9xi3c: LEGACY_UNLABELED_ACTIVITY_ID,
+  mloyt6y87q8i: LEGACY_DRAWING_ACTIVITY_ID,
+};
+const LEGACY_MEDICATION_ID_MAP = {
+  mmtn1yc0onsv: LEGACY_DULOXETINE_MEDICATION_ID,
+  mmj2b9tp7zdx: LEGACY_DULOXETINE_MEDICATION_ID,
+};
+
+function canonicalActivityId(id) {
+  return LEGACY_ACTIVITY_ID_MAP[id] || id;
+}
+
+function canonicalMedicationId(id) {
+  return LEGACY_MEDICATION_ID_MAP[id] || id;
+}
+
+function remapLegacyTimeEntryActivityIds(entries) {
+  let changed = false;
+  const next = (entries || []).map(entry => {
+    const currentId = entry.activityId || entry.activity_id;
+    const canonicalId = canonicalActivityId(currentId);
+    if (!currentId || canonicalId === currentId) return entry;
+    changed = true;
+    return { ...entry, activityId: canonicalId, activity_id: canonicalId };
+  });
+  if (changed) {
+    safeSaveSync('innerscape_time_entries', next);
+    console.info('Remapped legacy activity IDs before time entry sync');
+  }
+  return next;
+}
+
+function remapLegacyMedicationLogIds(logs) {
+  let changed = false;
+  const next = (logs || []).map(log => {
+    const currentId = log.medicationId || log.medication_id;
+    const canonicalId = canonicalMedicationId(currentId);
+    if (!currentId || canonicalId === currentId) return log;
+    changed = true;
+    return {
+      ...log,
+      medicationId: canonicalId,
+      medication_id: canonicalId,
+      medicationName: log.medicationName || log.medication_name || 'Duloxetine',
+      medication_name: log.medication_name || log.medicationName || 'Duloxetine',
+    };
+  });
+  if (changed) {
+    safeSaveSync('innerscape_medication_logs', next);
+    console.info('Remapped legacy medication IDs before medication log sync');
+  }
+  return next;
+}
+
+function ensureCatalogRow(rows, row) {
+  const next = [...(rows || [])];
+  const existing = next.find(item => item.id === row.id);
+  if (!existing) {
+    next.push(row);
+    return { rows: next, changed: true };
+  }
+  let changed = false;
+  Object.keys(row).forEach(prop => {
+    const shouldForceHiddenFlag = (prop === 'archived' || prop === 'hidden') && row[prop] === true && existing[prop] !== true;
+    if (existing[prop] == null || shouldForceHiddenFlag || (prop === 'category' && row[prop] === 'legacy_archive')) {
+      existing[prop] = row[prop];
+      changed = true;
+    }
+  });
+  return { rows: next, changed };
+}
+
+function ensureLegacyActivityCatalogRows(activities, timeEntries) {
+  let next = [...(activities || [])];
+  let changed = false;
+  const now = Date.now();
+  const needsDrawingTarget = (timeEntries || []).some(entry =>
+    canonicalActivityId(entry.activityId || entry.activity_id) === LEGACY_DRAWING_ACTIVITY_ID
+  );
+
+  const legacyResult = ensureCatalogRow(next, {
+    id: LEGACY_UNLABELED_ACTIVITY_ID,
+    name: 'Legacy unlabeled activity',
+    emoji: '⏱',
+    category: 'legacy_archive',
+    archived: true,
+    hidden: true,
+    createdAt: now,
+    updatedAt: now,
+    restored_from_log: true,
+    schema_version: 1,
+    source: 'codex_cleanup',
+  });
+  next = legacyResult.rows;
+  changed = changed || legacyResult.changed;
+
+  if (needsDrawingTarget && !next.some(activity => activity.id === LEGACY_DRAWING_ACTIVITY_ID)) {
+    next.push({
+      id: LEGACY_DRAWING_ACTIVITY_ID,
+      name: 'Art practice',
+      emoji: '👩🏻‍🎨',
+      category: 'creative_practice',
+      createdAt: now,
+      updatedAt: now,
+      restored_from_log: true,
+      schema_version: 1,
+      source: 'codex_cleanup',
+    });
+    changed = true;
+  }
+
+  if (changed) safeSaveSync('innerscape_activities', next);
+  return next;
+}
+
+function ensureLegacyMedicationCatalogRows(medications) {
+  const now = Date.now();
+  const result = ensureCatalogRow(medications, {
+    id: LEGACY_DULOXETINE_MEDICATION_ID,
+    name: 'Duloxetine',
+    dosage: 'Historical: 1-2 pills',
+    frequency: 'multiple',
+    color: 'rgb(167, 139, 250)',
+    archived: true,
+    hidden: true,
+    createdAt: now,
+    updatedAt: now,
+    restored_from_log: true,
+    schema_version: 1,
+    source: 'codex_cleanup',
+  });
+  if (result.changed) safeSaveSync('innerscape_medications', result.rows);
+  return result.rows;
+}
+
 function ensureCanonicalActivitiesForTimeEntries(timeEntries, activities) {
   const existing = new Set((activities || []).map(activity => activity.id).filter(Boolean));
   const next = [...(activities || [])];
   let added = 0;
 
   (timeEntries || []).forEach(entry => {
-    const activityId = entry.activityId || entry.activity_id;
+    const activityId = canonicalActivityId(entry.activityId || entry.activity_id);
     if (!activityId || existing.has(activityId)) return;
     const now = Date.now();
     next.push({
       id: activityId,
       name: entry.activityName || entry.activity_name || canonicalLabelFromId('Restored activity', activityId),
       emoji: entry.activityEmoji || entry.activity_emoji || '⏱',
-      category: entry.category || null,
+      category: 'legacy_archive',
+      archived: true,
+      hidden: true,
       createdAt: entry.createdAt || now,
       updatedAt: now,
       restored_from_log: true,
@@ -143,7 +292,7 @@ function ensureCanonicalMedicationsForLogs(medicationLogs, medications) {
   let added = 0;
 
   (medicationLogs || []).forEach(log => {
-    const medicationId = log.medicationId || log.medication_id;
+    const medicationId = canonicalMedicationId(log.medicationId || log.medication_id);
     if (!medicationId || existing.has(medicationId)) return;
     const now = Date.now();
     const name = log.medicationName || log.medication_name || canonicalLabelFromId('Restored medication', medicationId);
@@ -153,6 +302,8 @@ function ensureCanonicalMedicationsForLogs(medicationLogs, medications) {
       dosage: log.dosage || '',
       frequency: 'multiple',
       color: log.color || '#a78bfa',
+      archived: true,
+      hidden: true,
       createdAt: log.createdAt || now,
       updatedAt: now,
       restored_from_log: true,
@@ -299,7 +450,7 @@ function mapTimeEntries(entries, validParentIds) {
   const ids = validParentIds || new Set((entries || []).map(e => e.id).filter(Boolean));
   return entries.filter(e => e.id).map(e => ({
     id: e.id,
-    activity_id: e.activityId || e.activity_id || null,
+    activity_id: canonicalActivityId(e.activityId || e.activity_id) || null,
     start_time: e.startTime || e.start_time || null,
     end_time: e.endTime || e.end_time || null,
     sub_activity: e.subActivityName || e.subActivityId || e.subActivity || null,
@@ -342,7 +493,7 @@ function mapFoodEntries(entries) {
 function mapMedicationLogs(entries) {
   return entries.filter(e => e.id).map(e => ({
     id: e.id,
-    medication_id: e.medicationId || e.medication_id || null,
+    medication_id: canonicalMedicationId(e.medicationId || e.medication_id) || null,
     medication_name: e.medicationName || e.medication_name || null,
     ts: e.timestamp || e.ts || null,
     local_date: e.local_date || (typeof appDataLocalDate === 'function' ? appDataLocalDate(e.timestamp) : null),
@@ -472,7 +623,7 @@ function unmapTimeEntries(rows) {
     const decodedNotes = decodeTimeEntryNotes(r.notes);
     return {
       id: r.id,
-      activityId: r.activity_id || null,
+      activityId: canonicalActivityId(r.activity_id) || null,
       startTime: r.start_time || null,
       endTime: r.end_time || null,
       subActivityName: r.sub_activity || null,
@@ -524,7 +675,7 @@ function unmapFoodEntries(rows) {
 function unmapMedicationLogs(rows) {
   return rows.map(r => ({
     id: r.id,
-    medicationId: r.medication_id || null,
+    medicationId: canonicalMedicationId(r.medication_id) || null,
     medicationName: r.medication_name || null,
     timestamp: r.ts || null
   }));
@@ -860,11 +1011,13 @@ async function syncToSupabase(force, _skipStatusGuard) {
 
   try {
     const checkins = await loadCheckinsForSync(force, lastSync);
-    let timeEntries = clearMissingParentEntryRefs(safeLoad('innerscape_time_entries'));
-    let activities = ensureCanonicalActivitiesForTimeEntries(timeEntries, safeLoad('innerscape_activities'));
+    let timeEntries = remapLegacyTimeEntryActivityIds(clearMissingParentEntryRefs(safeLoad('innerscape_time_entries')));
+    let activities = ensureLegacyActivityCatalogRows(safeLoad('innerscape_activities'), timeEntries);
+    activities = ensureCanonicalActivitiesForTimeEntries(timeEntries, activities);
     const food = safeLoad('innerscape_food_entries');
-    const medLogs = safeLoad('innerscape_medication_logs');
-    const medications = ensureCanonicalMedicationsForLogs(medLogs, safeLoad('innerscape_medications'));
+    const medLogs = remapLegacyMedicationLogIds(safeLoad('innerscape_medication_logs'));
+    let medications = ensureLegacyMedicationCatalogRows(safeLoad('innerscape_medications'));
+    medications = ensureCanonicalMedicationsForLogs(medLogs, medications);
     const stool = safeLoad('innerscape_stool_entries');
 
     // Filter by timestamp if not force

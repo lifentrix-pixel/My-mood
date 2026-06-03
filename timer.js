@@ -32,6 +32,11 @@ let timerEnvironmentState = {
   selectedColor: TIMER_COLORS[2],
 };
 
+function timerIsArchivedActivity(activity) {
+  if (typeof isArchivedActivity === 'function') return isArchivedActivity(activity);
+  return Boolean(activity?.archived || activity?.hidden || activity?.category === 'legacy_archive');
+}
+
 function escapeTimerEnvText(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({
     '&': '&amp;',
@@ -581,7 +586,7 @@ function renderTimerGrid() {
   renderTimerEnvironmentDock();
   renderCategoryFilters();
   const search = ($('#timer-search').value || '').toLowerCase();
-  let activities = loadActivities();
+  let activities = loadActivities().filter(activity => !timerIsArchivedActivity(activity));
   if (search) activities = activities.filter(a => a.name.toLowerCase().includes(search) || a.emoji.includes(search));
   if (timerCategoryFilter) activities = activities.filter(a => a.category === timerCategoryFilter);
   activities = smartSortActivities(activities);
@@ -783,7 +788,7 @@ function deleteActivity(id) {
 
 function startTimer(activity) {
   const canonicalActivity = activity && loadActivities().find(a => a.id === activity.id);
-  if (!canonicalActivity) {
+  if (!canonicalActivity || timerIsArchivedActivity(canonicalActivity)) {
     showToast('Choose an existing activity');
     renderTimerGrid();
     return;
@@ -1425,7 +1430,7 @@ function openTimerManualModal() {
   modal.classList.remove('hidden');
   const select = $('#timer-manual-activity');
   select.innerHTML = '';
-  loadActivities().forEach(a => {
+  loadActivities().filter(a => !timerIsArchivedActivity(a)).forEach(a => {
     const opt = document.createElement('option');
     opt.value = a.id;
     opt.textContent = `${a.emoji} ${a.name}`;
@@ -1447,7 +1452,7 @@ function saveManualEntry() {
   const startStr = $('#timer-manual-start').value;
   const endStr = $('#timer-manual-end').value;
   if (!actId || !date || !startStr || !endStr) { showToast('Fill in all fields'); return; }
-  if (!loadActivities().some(a => a.id === actId)) { showToast('Choose an existing activity'); return; }
+  if (!loadActivities().some(a => a.id === actId && !timerIsArchivedActivity(a))) { showToast('Choose an existing activity'); return; }
   const startTime = new Date(`${date}T${startStr}`).getTime();
   const endTime = new Date(`${date}T${endStr}`).getTime();
   if (endTime <= startTime) { showToast('End time must be after start'); return; }

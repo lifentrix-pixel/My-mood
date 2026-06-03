@@ -95,6 +95,7 @@ function installActivityTaxonomy() {
   };
 
   window.inferActivityCategory = function inferActivityCategory(activity) {
+    if (activity.archived || activity.hidden || activity.category === 'legacy_archive') return 'legacy_archive';
     const category = APP_LEGACY_CATEGORY_MAP[activity.category] || activity.category;
     if (activityCategoryIds.has(category)) return category;
     return APP_ACTIVITY_NAME_CATEGORY_MAP[activityNameKey(activity.name)] || '';
@@ -103,9 +104,16 @@ function installActivityTaxonomy() {
   window.normalizeActivity = function normalizeActivity(activity) {
     const normalized = { ...activity };
     normalized.name = normalizeActivityName(normalized.name || '');
+    const isArchived = Boolean(normalized.archived || normalized.hidden || normalized.category === 'legacy_archive');
+    normalized.archived = isArchived;
+    normalized.hidden = isArchived;
     normalized.category = inferActivityCategory(normalized);
     if (!normalized.schema_version) normalized.schema_version = 1;
     return normalized;
+  };
+
+  window.isArchivedActivity = function isArchivedActivity(activity) {
+    return Boolean(activity?.archived || activity?.hidden || activity?.category === 'legacy_archive');
   };
 
   window.hasDuplicateActivityName = function hasDuplicateActivityName(activities, name, exceptId = null) {
@@ -315,7 +323,7 @@ function installActivityTaxonomy() {
     renderCategoryFilters();
     const search = ($('#timer-search').value || '').toLowerCase();
     const categories = loadCategories();
-    let activities = loadActivities();
+    let activities = loadActivities().filter(a => !isArchivedActivity(a));
     if (search) activities = activities.filter(a => a.name.toLowerCase().includes(search) || a.emoji.includes(search));
     if (timerCategoryFilter) activities = activities.filter(a => a.category === timerCategoryFilter);
     activities = smartSortActivities(activities);
@@ -1178,7 +1186,7 @@ function installDataHandoffLayer() {
     const startStr = $('#timer-manual-start').value;
     const endStr = $('#timer-manual-end').value;
     if (!actId || !date || !startStr || !endStr) { showToast('Fill in all fields'); return; }
-    if (!loadActivities().some(a => a.id === actId)) { showToast('Choose an existing activity'); return; }
+    if (!loadActivities().some(a => a.id === actId && !isArchivedActivity(a))) { showToast('Choose an existing activity'); return; }
     const startTime = new Date(`${date}T${startStr}`).getTime();
     const endTime = new Date(`${date}T${endStr}`).getTime();
     if (endTime <= startTime) { showToast('End time must be after start'); return; }

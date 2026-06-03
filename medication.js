@@ -2,6 +2,10 @@
 
 let currentLoggingMedication = null;
 
+function isArchivedMedication(medication) {
+  return Boolean(medication?.archived || medication?.hidden || medication?.category === 'legacy_archive');
+}
+
 function initMedication() {
   const addBtn = $('#medication-add-btn');
   if (addBtn) {
@@ -52,7 +56,7 @@ function renderMedication() {
 }
 
 function renderTodayMedications() {
-  const medications = loadMedications();
+  const medications = loadMedications().filter(med => !isArchivedMedication(med));
   const logs = loadMedicationLogs();
   const todayStart = startOfDay(new Date()).getTime();
   const todayLogs = logs.filter(log => log.timestamp >= todayStart);
@@ -235,7 +239,7 @@ function saveMedication() {
 
 function logMedication(medication) {
   const canonicalMedication = medication && loadMedications().find(m => m.id === medication.id);
-  if (!canonicalMedication) {
+  if (!canonicalMedication || isArchivedMedication(canonicalMedication)) {
     showToast('Choose an existing medication');
     renderTodayMedications();
     return;
@@ -274,7 +278,7 @@ function saveMedicationLog() {
   
   try {
     const canonicalMedication = loadMedications().find(m => m.id === currentLoggingMedication.id);
-    if (!canonicalMedication) {
+    if (!canonicalMedication || isArchivedMedication(canonicalMedication)) {
       showToast('Choose an existing medication');
       saveBtn.disabled = false;
       return;
