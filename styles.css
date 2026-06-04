@@ -7074,6 +7074,8 @@ body.in-dreamland #sub-nav { display: none !important; }
 .data-accuracy-page {
   display: grid;
   gap: 18px;
+  max-width: 100%;
+  overflow-x: hidden;
   padding: 20px clamp(16px, 4vw, 34px) 96px;
 }
 
@@ -7115,6 +7117,7 @@ body.in-dreamland #sub-nav { display: none !important; }
   display: grid;
   min-height: 92px;
   min-width: 118px;
+  overflow: hidden;
   padding: 14px;
   text-align: center;
 }
@@ -7128,6 +7131,7 @@ body.in-dreamland #sub-nav { display: none !important; }
 .data-accuracy-score strong {
   font-size: 2.2rem;
   line-height: 1;
+  white-space: nowrap;
 }
 
 .data-accuracy-score span {
@@ -7164,6 +7168,7 @@ body.in-dreamland #sub-nav { display: none !important; }
   display: grid;
   gap: 8px;
   min-height: 148px;
+  min-width: 0;
   padding: 12px;
 }
 
@@ -7180,6 +7185,7 @@ body.in-dreamland #sub-nav { display: none !important; }
   align-items: center;
   display: flex;
   gap: 8px;
+  min-width: 0;
 }
 
 .data-accuracy-trust-top span {
@@ -7199,6 +7205,8 @@ body.in-dreamland #sub-nav { display: none !important; }
   color: var(--text-color);
   font-size: 0.86rem;
   line-height: 1.1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .data-accuracy-trust-score {
@@ -7228,6 +7236,7 @@ body.in-dreamland #sub-nav { display: none !important; }
   font-size: 0.74rem;
   line-height: 1.25;
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .data-accuracy-mark-controls {
@@ -7505,8 +7514,8 @@ body.in-dreamland #sub-nav { display: none !important; }
 
 @media (max-width: 640px) {
   .data-accuracy-page {
-    padding-left: 14px;
-    padding-right: 14px;
+    gap: 14px;
+    padding: 14px 12px 104px;
   }
 
   .data-accuracy-hero,
@@ -7517,12 +7526,42 @@ body.in-dreamland #sub-nav { display: none !important; }
     flex-direction: column;
   }
 
+  .data-accuracy-hero,
+  .data-accuracy-mark,
+  .data-accuracy-section {
+    padding: 14px;
+    width: 100%;
+  }
+
   .data-accuracy-score {
+    justify-self: stretch;
     min-width: 0;
+    min-height: 76px;
+    padding: 12px;
+  }
+
+  .data-accuracy-score strong {
+    font-size: 2rem;
   }
 
   .data-accuracy-hero h2 {
-    font-size: 2.45rem;
+    font-size: 2.35rem;
+  }
+
+  .data-accuracy-trust-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .data-accuracy-trust-card {
+    min-height: 0;
+  }
+
+  .data-accuracy-trust-top strong {
+    font-size: 0.98rem;
+  }
+
+  .data-accuracy-trust-score {
+    font-size: 1.9rem;
   }
 
   .data-accuracy-range-buttons {

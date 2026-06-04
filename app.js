@@ -2289,7 +2289,7 @@ function renderDataQualityPage() {
   if (scoreEl) {
     scoreEl.className = `data-accuracy-score ${score < 72 ? 'needs-review' : ''}`;
     scoreEl.innerHTML = `
-      <strong>${score}%</strong>
+      <strong>${Math.round(score)}%</strong>
       <span>${dataQualityScoreLabel(score)}</span>
     `;
   }
@@ -2302,7 +2302,7 @@ function renderDataQualityPage() {
           <span>${dataQualityEscape(signal.emoji)}</span>
           <strong>${dataQualityEscape(signal.label)}</strong>
         </div>
-        <div class="data-accuracy-trust-score">${signal.score}%</div>
+        <div class="data-accuracy-trust-score">${Math.round(signal.score)}%</div>
         <div class="data-accuracy-trust-bar"><span style="width:${signal.score}%"></span></div>
         <p>Weight ${signal.downstream_weight.toFixed(2)}${signal.confirmed ? ` · ${signal.confirmed} confirmed` : ''}</p>
         ${signal.issues.length ? `<small>${signal.issues.map(dataQualityEscape).join(' · ')}</small>` : '<small>No active flags</small>'}
