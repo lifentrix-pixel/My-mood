@@ -1413,6 +1413,20 @@ const DATA_QUALITY_REPORTS_KEY = 'innerscape_data_quality_reports';
 const DATA_QUALITY_DECISIONS_KEY = 'innerscape_data_quality_decisions';
 let dataAccuracySelectedDays = 1;
 
+const DATA_QUALITY_SIGNALS = {
+  all: { label: 'All signals', emoji: '◇', color: '#a78bfa' },
+  checkins: { label: 'Check-ins', emoji: '▥', color: '#f472b6' },
+  activity: { label: 'Activity time', emoji: '◷', color: '#38bdf8' },
+  food: { label: 'Food', emoji: '◌', color: '#fbbf24' },
+  stool: { label: 'Stool', emoji: '▣', color: '#34d399' },
+  medication: { label: 'Medication', emoji: '+', color: '#fb7185' },
+  oura: { label: 'Oura', emoji: '○', color: '#93c5fd' },
+};
+
+function dataQualitySignalLabel(signal) {
+  return DATA_QUALITY_SIGNALS[signal]?.label || DATA_QUALITY_SIGNALS.all.label;
+}
+
 function dataQualitySafeArray(key) {
   try {
     const value = JSON.parse(localStorage.getItem(key) || '[]');
@@ -1422,12 +1436,80 @@ function dataQualitySafeArray(key) {
   }
 }
 
+function normalizeDataQualityReport(report) {
+  const days = Array.isArray(report?.dates) && report.dates.length
+    ? report.dates
+    : (Array.isArray(report?.days) ? report.days : []);
+  const scopeStart = report?.scope_start || days[0] || report?.local_date || null;
+  const scopeEnd = report?.scope_end || days[days.length - 1] || scopeStart;
+  const signalType = DATA_QUALITY_SIGNALS[report?.signal_type] ? report.signal_type : 'all';
+  const trustScore = Math.max(0, Math.min(100, Number(
+    report?.trust_score ?? report?.trustScore ?? (report?.reliability === 'somewhat_unreliable' ? 60 : 75)
+  ) || 60));
+  return {
+    ...report,
+    schema_version: Math.max(2, report?.schema_version || 1),
+    scope_type: report?.scope_type || (days.length > 1 ? 'window' : 'day'),
+    scope_start: scopeStart,
+    scope_end: scopeEnd,
+    dates: days,
+    range_label: report?.range_label || report?.rangeLabel || dataQualityRangeLabel(days),
+    signal_type: signalType,
+    trust_score: trustScore,
+    downstream_weight: Math.max(0, Math.min(1, Number(report?.downstream_weight ?? report?.downstreamWeight ?? trustScore / 100))),
+    reason_codes: Array.isArray(report?.reason_codes)
+      ? report.reason_codes
+      : (report?.flag_type ? [report.flag_type] : [report?.kind || 'manual_review']),
+    source: report?.source || 'phone_app',
+    quality_source: report?.quality_source || report?.created_by || 'user',
+  };
+}
+
+function parseDataQualityReportsFromQuickNotes() {
+  return dataQualitySafeArray('innerscape_quick_notes')
+    .filter(note => note.note_type === 'data_quality_report')
+    .map(note => {
+      const embedded = note.data_quality_report || (() => {
+        const match = String(note.text || '').match(/\nDQ:(\{.*\})$/s);
+        if (!match) return null;
+        try { return JSON.parse(match[1]); } catch { return null; }
+      })();
+      if (!embedded) return null;
+      return normalizeDataQualityReport({
+        id: embedded.report_id || note.data_quality_report_id || note.id,
+        ts: note.ts,
+        created_at: note.created_at || new Date(note.ts || Date.now()).toISOString(),
+        kind: 'synced_quality_report',
+        title: 'Synced data-quality report',
+        status: embedded.status || 'confirmed',
+        scope_type: embedded.scope_type,
+        scope_start: embedded.scope_start,
+        scope_end: embedded.scope_end,
+        dates: embedded.scope_start
+          ? [embedded.scope_start, embedded.scope_end].filter(Boolean).filter((day, index, arr) => arr.indexOf(day) === index)
+          : [],
+        signal_type: embedded.signal_type,
+        trust_score: embedded.trust_score,
+        downstream_weight: embedded.downstream_weight,
+        reason_codes: embedded.reason_codes,
+        quality_source: embedded.quality_source || 'synced_note',
+        note: String(note.text || '').replace(/\nDQ:\{.*\}$/s, ''),
+        ...appDataMeta(note.ts || Date.now()),
+      });
+    })
+    .filter(Boolean);
+}
+
 function loadDataQualityReports() {
-  return dataQualitySafeArray(DATA_QUALITY_REPORTS_KEY);
+  const byId = new Map();
+  [...parseDataQualityReportsFromQuickNotes(), ...dataQualitySafeArray(DATA_QUALITY_REPORTS_KEY)]
+    .map(normalizeDataQualityReport)
+    .forEach(report => byId.set(report.id, { ...(byId.get(report.id) || {}), ...report }));
+  return Array.from(byId.values()).sort((a, b) => (b.ts || 0) - (a.ts || 0));
 }
 
 function saveDataQualityReports(reports) {
-  localStorage.setItem(DATA_QUALITY_REPORTS_KEY, JSON.stringify(reports.slice(0, 250)));
+  localStorage.setItem(DATA_QUALITY_REPORTS_KEY, JSON.stringify(reports.map(normalizeDataQualityReport).slice(0, 250)));
 }
 
 function loadDataQualityDecisions() {
@@ -1507,11 +1589,23 @@ function dataQualityStreamCount(day, sets) {
 }
 
 function dataQualityFlag(config) {
+  const signalType = DATA_QUALITY_SIGNALS[config.signal_type] ? config.signal_type : 'all';
+  const confidence = config.confidence ?? 0.6;
+  const severity = config.severity || 'low';
+  const severityTrust = severity === 'high' ? 38 : severity === 'medium' ? 58 : 74;
+  const trustScore = Math.max(0, Math.min(100, config.trust_score ?? Math.round(severityTrust * (1 - Math.max(0, confidence - 0.6) * 0.25))));
   return {
-    confidence: 0.6,
+    confidence,
     suggestedDays: 1,
     days: [],
     evidence: [],
+    signal_type: signalType,
+    scope_type: 'window',
+    reason_codes: config.type ? [config.type] : [],
+    trust_score: trustScore,
+    downstream_weight: trustScore / 100,
+    quality_source: 'app_algorithm',
+    severity,
     ...config,
   };
 }
@@ -1542,6 +1636,7 @@ function buildDataAccuracyFlags() {
     flags.push(dataQualityFlag({
       id: `missing-food-${missingFood.join('-')}`,
       type: 'missing_food',
+      signal_type: 'food',
       severity: 'medium',
       confidence: 0.74,
       title: 'Possible food logging gap',
@@ -1562,6 +1657,7 @@ function buildDataAccuracyFlags() {
     flags.push(dataQualityFlag({
       id: `missing-stool-${missingStool.join('-')}`,
       type: 'missing_stool',
+      signal_type: 'stool',
       severity: 'medium',
       confidence: 0.7,
       title: 'Possible stool logging gap',
@@ -1581,6 +1677,7 @@ function buildDataAccuracyFlags() {
     flags.push(dataQualityFlag({
       id: `missing-checkin-${checkinGaps.join('-')}`,
       type: 'missing_checkin',
+      signal_type: 'checkins',
       severity: 'low',
       confidence: 0.64,
       title: 'Check-in may be missing',
@@ -1600,6 +1697,7 @@ function buildDataAccuracyFlags() {
     flags.push(dataQualityFlag({
       id: `missing-activity-time-${timerGaps.join('-')}`,
       type: 'missing_activity_time',
+      signal_type: 'activity',
       severity: 'low',
       confidence: 0.58,
       title: 'Activity timing may be thin',
@@ -1619,6 +1717,7 @@ function buildDataAccuracyFlags() {
     flags.push(dataQualityFlag({
       id: `missing-medication-${medGaps.join('-')}`,
       type: 'missing_medication',
+      signal_type: 'medication',
       severity: 'medium',
       confidence: 0.68,
       title: 'Medication logging may be missing',
@@ -1644,6 +1743,7 @@ function buildDataAccuracyFlags() {
     flags.push(dataQualityFlag({
       id: `thin-data-${thinDays.join('-')}`,
       type: 'thin_data',
+      signal_type: 'all',
       severity: 'low',
       confidence: 0.56,
       title: 'Recent data looks unusually thin',
@@ -1665,6 +1765,7 @@ function buildDataAccuracyFlags() {
     flags.push(dataQualityFlag({
       id: `open-timer-${dayKey(savedActive.startTime)}`,
       type: 'open_timer',
+      signal_type: 'activity',
       severity: 'high',
       confidence: 0.82,
       title: 'Open timer looks forgotten',
@@ -1687,6 +1788,7 @@ function buildDataAccuracyFlags() {
     flags.push(dataQualityFlag({
       id: `long-timer-${days.join('-')}`,
       type: 'long_timer',
+      signal_type: 'activity',
       severity: 'medium',
       confidence: 0.66,
       title: 'Very long timer entry',
@@ -1708,6 +1810,7 @@ function buildDataAccuracyFlags() {
       flags.push(dataQualityFlag({
         id: `oura-stale-${latestOuraDay}`,
         type: 'oura_stale',
+        signal_type: 'oura',
         severity: 'low',
         confidence: 0.62,
         title: 'Oura signal is stale',
@@ -1733,10 +1836,10 @@ function dataQualitySeverityPenalty(severity) {
 function dataQualityScore(flags) {
   const decisions = loadDataQualityDecisions();
   const activeFlags = flags.filter(flag => decisions[flag.id]?.status !== 'denied');
-  const recentManualReports = loadDataQualityReports().filter(report =>
-    report.kind === 'manual_unreliable_range' && Date.now() - (report.ts || 0) < 4 * 86400000
-  ).length;
-  const penalty = activeFlags.reduce((sum, flag) => sum + dataQualitySeverityPenalty(flag.severity), 0) + recentManualReports * 8;
+  const recentManualPenalty = loadDataQualityReports()
+    .filter(report => report.status !== 'denied' && Date.now() - (report.ts || 0) < 7 * 86400000)
+    .reduce((sum, report) => sum + Math.max(0, 82 - (report.trust_score || 82)) / 3, 0);
+  const penalty = activeFlags.reduce((sum, flag) => sum + dataQualitySeverityPenalty(flag.severity), 0) + recentManualPenalty;
   return Math.max(0, Math.min(100, 100 - penalty));
 }
 
@@ -1747,37 +1850,134 @@ function dataQualityScoreLabel(score) {
   return 'Needs attention';
 }
 
+function dataQualitySignalStatus(score) {
+  if (score >= 84) return 'strong';
+  if (score >= 68) return 'review';
+  if (score >= 50) return 'thin';
+  return 'weak';
+}
+
+function dataQualitySignalAffected(report, signal) {
+  const reportSignal = report?.signal_type || 'all';
+  return reportSignal === 'all' || reportSignal === signal;
+}
+
+function dataQualitySignalSummaries(flags = buildDataAccuracyFlags(), reports = loadDataQualityReports()) {
+  const decisions = loadDataQualityDecisions();
+  const signalIds = Object.keys(DATA_QUALITY_SIGNALS).filter(signal => signal !== 'all');
+  const summaries = {};
+  signalIds.forEach(signal => {
+    summaries[signal] = {
+      id: signal,
+      ...DATA_QUALITY_SIGNALS[signal],
+      score: 96,
+      issues: [],
+      confirmed: 0,
+      downstream_weight: 0.96,
+    };
+  });
+
+  flags
+    .filter(flag => decisions[flag.id]?.status !== 'denied')
+    .forEach(flag => {
+      const affectedSignals = flag.signal_type === 'all' ? signalIds : [flag.signal_type];
+      affectedSignals.forEach(signal => {
+        const summary = summaries[signal];
+        if (!summary) return;
+        const penalty = Math.round(dataQualitySeverityPenalty(flag.severity) * (flag.confidence || 0.6));
+        summary.score = Math.max(0, summary.score - penalty);
+        summary.issues.push(flag.title);
+      });
+    });
+
+  reports
+    .filter(report => report.status !== 'denied')
+    .filter(report => Date.now() - (report.ts || 0) < 21 * 86400000)
+    .forEach(report => {
+      signalIds.forEach(signal => {
+        const summary = summaries[signal];
+        if (!summary || !dataQualitySignalAffected(report, signal)) return;
+        summary.score = Math.min(summary.score, report.trust_score);
+        summary.confirmed += report.status === 'confirmed' ? 1 : 0;
+        const reason = report.reason_codes?.[0] || report.kind || 'review';
+        if (!summary.issues.includes(reason)) summary.issues.push(reason);
+      });
+    });
+
+  Object.values(summaries).forEach(summary => {
+    summary.score = Math.max(0, Math.min(100, Math.round(summary.score)));
+    summary.status = dataQualitySignalStatus(summary.score);
+    summary.downstream_weight = Number((summary.score / 100).toFixed(2));
+    summary.issues = summary.issues.slice(0, 3);
+  });
+
+  return summaries;
+}
+
+function getDataQualityTrustContext() {
+  const flags = buildDataAccuracyFlags();
+  const reports = loadDataQualityReports();
+  const summaries = dataQualitySignalSummaries(flags, reports);
+  return {
+    generated_at: new Date().toISOString(),
+    overall_score: dataQualityScore(flags),
+    signals: summaries,
+    active_flags: flags.filter(flag => loadDataQualityDecisions()[flag.id]?.status !== 'denied'),
+    recent_reports: reports.slice(0, 12),
+  };
+}
+window.getDataQualityTrustContext = getDataQualityTrustContext;
+
 function dataQualityReportText(report) {
+  const normalized = normalizeDataQualityReport(report);
+  const signal = dataQualitySignalLabel(normalized.signal_type);
+  const trust = `${Math.round(normalized.trust_score)}% trust`;
+  const reasons = normalized.reason_codes?.length ? ` Reasons: ${normalized.reason_codes.join(', ')}.` : '';
   if (report.kind === 'manual_unreliable_range') {
-    return `Data accuracy: ${report.range_label} marked somewhat unreliable${report.note ? `. ${report.note}` : ''}`;
+    return `Data accuracy: ${normalized.range_label} marked somewhat unreliable for ${signal} (${trust}).${reasons}${normalized.note ? ` ${normalized.note}` : ''}`;
   }
   if (report.kind === 'flag_review') {
-    const status = report.status === 'denied' ? 'dismissed' : 'confirmed';
-    return `Data accuracy: ${status} possible issue - ${report.flag_title}${report.range_label ? ` (${report.range_label})` : ''}`;
+    const status = normalized.status === 'denied' ? 'dismissed' : 'confirmed';
+    return `Data accuracy: ${status} possible ${signal} issue - ${normalized.flag_title}${normalized.range_label ? ` (${normalized.range_label})` : ''}. ${trust}.${reasons}`;
   }
-  return `Data accuracy: ${report.title || 'review saved'}`;
+  return `Data accuracy: ${normalized.title || 'review saved'} for ${signal} (${trust}).${reasons}`;
 }
 
 function saveDataQualityReport(draft) {
   const ts = Date.now();
-  const report = {
+  const report = normalizeDataQualityReport({
     id: `dq-${ts}-${Math.random().toString(36).slice(2, 7)}`,
     ts,
     created_at: new Date(ts).toISOString(),
     ...appDataMeta(ts),
+    schema_version: 2,
     ...draft,
-  };
+  });
   const reports = loadDataQualityReports();
   reports.unshift(report);
   saveDataQualityReports(reports);
 
   const notes = dataQualitySafeArray('innerscape_quick_notes');
+  const compact = {
+    report_id: report.id,
+    scope_type: report.scope_type,
+    scope_start: report.scope_start,
+    scope_end: report.scope_end,
+    signal_type: report.signal_type,
+    trust_score: report.trust_score,
+    status: report.status,
+    reason_codes: report.reason_codes,
+    downstream_weight: report.downstream_weight,
+    quality_source: report.quality_source,
+  };
   const quickNote = {
     id: `dq-note-${report.id}`,
     ts,
-    text: dataQualityReportText(report),
+    text: `${dataQualityReportText(report)}\nDQ:${JSON.stringify(compact)}`,
     note_type: 'data_quality_report',
     privacy_level: 'normal',
+    data_quality_report_id: report.id,
+    data_quality_report: compact,
     ...appDataMeta(ts),
   };
   notes.unshift(quickNote);
@@ -1793,6 +1993,8 @@ function getDataQualityHistory() {
     title: report.kind === 'manual_unreliable_range' ? 'Manual reliability mark' : report.flag_title || 'Flag review',
     detail: dataQualityReportText(report),
     range: report.range_label || dataQualityRangeLabel(report.dates || report.days || []),
+    signal: report.signal_type,
+    trust: report.trust_score,
   }));
   const reportNoteIds = new Set(reports.map(report => `dq-note-${report.id}`));
   const syncedNotes = dataQualitySafeArray('innerscape_quick_notes')
@@ -1813,15 +2015,32 @@ function updateDataAccuracyRangeButtons() {
   });
 }
 
+function updateDataAccuracyTrustValue() {
+  const slider = $('#data-accuracy-trust');
+  const value = $('#data-accuracy-trust-value');
+  if (!slider || !value) return;
+  value.textContent = `${slider.value}%`;
+}
+
 function saveManualDataAccuracyMark() {
   const days = dataQualityLastDays(dataAccuracySelectedDays);
   const note = ($('#data-accuracy-note')?.value || '').trim();
+  const signal = $('#data-accuracy-signal')?.value || 'all';
+  const trustScore = Math.max(10, Math.min(100, parseInt($('#data-accuracy-trust')?.value || '60', 10)));
   saveDataQualityReport({
     kind: 'manual_unreliable_range',
     status: 'confirmed',
     reliability: 'somewhat_unreliable',
+    scope_type: days.length > 1 ? 'window' : 'day',
+    scope_start: days[0],
+    scope_end: days[days.length - 1],
     days: dataAccuracySelectedDays,
     dates: days,
+    signal_type: signal,
+    trust_score: trustScore,
+    downstream_weight: trustScore / 100,
+    reason_codes: ['manual_unreliable_window'],
+    quality_source: 'user',
     range_label: dataQualityRangeLabel(days),
     note,
   });
@@ -1849,8 +2068,17 @@ function saveDataQualityDecision(flagId, status) {
     flag_id: flag.id,
     flag_type: flag.type,
     flag_title: flag.title,
+    scope_type: flag.days?.length > 1 ? 'window' : 'day',
+    scope_start: flag.days?.[0] || null,
+    scope_end: flag.days?.[flag.days.length - 1] || flag.days?.[0] || null,
+    signal_type: flag.signal_type || 'all',
+    trust_score: status === 'denied' ? 92 : flag.trust_score,
+    downstream_weight: status === 'denied' ? 0.92 : flag.downstream_weight,
+    reason_codes: flag.reason_codes?.length ? flag.reason_codes : [flag.type],
+    quality_source: 'user_review',
     range_label: flag.rangeLabel,
     days: flag.days,
+    dates: flag.days,
     evidence: flag.evidence,
     confidence: flag.confidence,
   });
@@ -1863,6 +2091,8 @@ function renderDataQualityPage() {
   if (!page) return;
   const flags = buildDataAccuracyFlags();
   const decisions = loadDataQualityDecisions();
+  const reports = loadDataQualityReports();
+  const trustSummaries = dataQualitySignalSummaries(flags, reports);
   const score = dataQualityScore(flags);
   const scoreEl = $('#data-accuracy-score');
   if (scoreEl) {
@@ -1871,6 +2101,22 @@ function renderDataQualityPage() {
       <strong>${score}%</strong>
       <span>${dataQualityScoreLabel(score)}</span>
     `;
+  }
+
+  const trustEl = $('#data-accuracy-trust-grid');
+  if (trustEl) {
+    trustEl.innerHTML = Object.values(trustSummaries).map(signal => `
+      <article class="data-accuracy-trust-card data-accuracy-trust-${signal.status}" style="--signal-color:${signal.color}">
+        <div class="data-accuracy-trust-top">
+          <span>${dataQualityEscape(signal.emoji)}</span>
+          <strong>${dataQualityEscape(signal.label)}</strong>
+        </div>
+        <div class="data-accuracy-trust-score">${signal.score}%</div>
+        <div class="data-accuracy-trust-bar"><span style="width:${signal.score}%"></span></div>
+        <p>Weight ${signal.downstream_weight.toFixed(2)}${signal.confirmed ? ` · ${signal.confirmed} confirmed` : ''}</p>
+        ${signal.issues.length ? `<small>${signal.issues.map(dataQualityEscape).join(' · ')}</small>` : '<small>No active flags</small>'}
+      </article>
+    `).join('');
   }
 
   const flagsEl = $('#data-accuracy-flags');
@@ -1897,11 +2143,12 @@ function renderDataQualityPage() {
                 <span class="data-accuracy-severity">${flag.severity}</span>
                 <h3>${dataQualityEscape(flag.title)}</h3>
               </div>
-              <div class="data-accuracy-confidence">${Math.round(flag.confidence * 100)}%</div>
+              <div class="data-accuracy-confidence">${dataQualityEscape(dataQualitySignalLabel(flag.signal_type))} · ${Math.round(flag.confidence * 100)}%</div>
             </div>
             <p>${dataQualityEscape(flag.summary)}</p>
             <div class="data-accuracy-meta">
               <span>${dataQualityEscape(flag.rangeLabel || dataQualityRangeLabel(flag.days))}</span>
+              <span>${Math.round(flag.trust_score)}% trust</span>
               ${statusLabel ? `<span>${statusLabel}</span>` : ''}
             </div>
             <div class="data-accuracy-evidence">
@@ -1927,7 +2174,7 @@ function renderDataQualityPage() {
           <strong>${dataQualityEscape(item.title)}</strong>
           <span>${dataQualityEscape(item.detail)}</span>
         </div>
-        <time>${dataQualityEscape(shortDate(item.ts || Date.now()))}</time>
+        <time>${dataQualityEscape(shortDate(item.ts || Date.now()))}${item.signal ? `<br>${dataQualityEscape(dataQualitySignalLabel(item.signal))} · ${Math.round(item.trust || 0)}%` : ''}</time>
       </div>
     `).join('') : `
       <div class="data-accuracy-empty compact">
@@ -1954,6 +2201,7 @@ function initDataAccuracyPage() {
   });
 
   $('#data-accuracy-save-mark')?.addEventListener('click', saveManualDataAccuracyMark);
+  $('#data-accuracy-trust')?.addEventListener('input', updateDataAccuracyTrustValue);
   $('#data-accuracy-refresh')?.addEventListener('click', () => {
     renderDataQualityPage();
     showToast('Accuracy scan refreshed');
@@ -1970,6 +2218,11 @@ function initDataAccuracyPage() {
       const flag = buildDataAccuracyFlags().find(item => item.id === flagId);
       dataAccuracySelectedDays = Math.max(1, Math.min(3, flag?.suggestedDays || flag?.days?.length || 1));
       updateDataAccuracyRangeButtons();
+      if (flag && $('#data-accuracy-signal')) $('#data-accuracy-signal').value = flag.signal_type || 'all';
+      if (flag && $('#data-accuracy-trust')) {
+        $('#data-accuracy-trust').value = String(Math.round(flag.trust_score || 60));
+        updateDataAccuracyTrustValue();
+      }
       const noteEl = $('#data-accuracy-note');
       if (noteEl && flag) {
         noteEl.value = `Flag: ${flag.title} (${flag.rangeLabel || dataQualityRangeLabel(flag.days)})`;
@@ -1980,6 +2233,7 @@ function initDataAccuracyPage() {
   });
 
   updateDataAccuracyRangeButtons();
+  updateDataAccuracyTrustValue();
   renderDataQualityPage();
 }
 

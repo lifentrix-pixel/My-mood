@@ -1333,6 +1333,13 @@
           <div id="data-accuracy-score" class="data-accuracy-score"></div>
         </div>
 
+        <div class="data-accuracy-section">
+          <div class="data-accuracy-section-head">
+            <span>Trust Map</span>
+          </div>
+          <div id="data-accuracy-trust-grid" class="data-accuracy-trust-grid"></div>
+        </div>
+
         <div class="data-accuracy-mark">
           <div class="data-accuracy-mark-head">
             <span>Mark Recent Data</span>
@@ -1341,6 +1348,25 @@
               <button type="button" data-days="2">2 days</button>
               <button type="button" data-days="3">3 days</button>
             </div>
+          </div>
+          <div class="data-accuracy-mark-controls">
+            <label>
+              Signal
+              <select id="data-accuracy-signal">
+                <option value="all">All signals</option>
+                <option value="checkins">Check-ins</option>
+                <option value="activity">Activity time</option>
+                <option value="food">Food</option>
+                <option value="stool">Stool</option>
+                <option value="medication">Medication</option>
+                <option value="oura">Oura</option>
+              </select>
+            </label>
+            <label>
+              Trust
+              <strong id="data-accuracy-trust-value">60%</strong>
+              <input id="data-accuracy-trust" type="range" min="10" max="100" step="5" value="60">
+            </label>
           </div>
           <textarea id="data-accuracy-note" rows="3" placeholder="Optional detail..."></textarea>
           <button id="data-accuracy-save-mark" type="button">Mark somewhat unreliable</button>

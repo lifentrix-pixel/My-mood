@@ -541,7 +541,9 @@ function performExport(format) {
   }
 
   const dataQualityReports = filterDataByTimeframe(
-    JSON.parse(localStorage.getItem('innerscape_data_quality_reports') || '[]'),
+    typeof loadDataQualityReports === 'function'
+      ? loadDataQualityReports()
+      : JSON.parse(localStorage.getItem('innerscape_data_quality_reports') || '[]'),
     timeframe,
     'ts'
   );
@@ -891,7 +893,9 @@ function exportAllJSON() {
     wishes: JSON.parse(localStorage.getItem('innerscape_wishes') || '[]'),
     stool_entries: JSON.parse(localStorage.getItem('innerscape_stool_entries') || '[]'),
     quick_notes: JSON.parse(localStorage.getItem('innerscape_quick_notes') || '[]'),
-    data_quality_reports: JSON.parse(localStorage.getItem('innerscape_data_quality_reports') || '[]'),
+    data_quality_reports: typeof loadDataQualityReports === 'function'
+      ? loadDataQualityReports()
+      : JSON.parse(localStorage.getItem('innerscape_data_quality_reports') || '[]'),
     data_quality_decisions: JSON.parse(localStorage.getItem('innerscape_data_quality_decisions') || '{}'),
     intentions: JSON.parse(localStorage.getItem('innerscape_intentions') || '[]'),
     oura_config: JSON.parse(localStorage.getItem('innerscape_oura_config') || 'null'),
