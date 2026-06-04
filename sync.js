@@ -667,6 +667,7 @@ function unmapFoodEntries(rows) {
     id: r.id,
     timestamp: r.ts || null,
     description: r.description || null,
+    mealType: r.category || 'meal',
     category: r.category || null,
     photo: r.photo || null
   }));

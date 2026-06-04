@@ -124,10 +124,12 @@ function openPresetEditor() {
 function saveFoodEntry(entry) {
   const entries = loadFoodEntries();
   const ts = entry.timestamp || Date.now();
+  const mealType = normalizeFoodMealType(entry);
   entries.push({
     ...entry,
     timestamp: ts,
-    category: entry.category || entry.mealType || 'meal',
+    mealType,
+    category: entry.category || mealType,
     local_date: typeof appDataLocalDate === 'function' ? appDataLocalDate(ts) : undefined,
     timezone: 'Europe/Helsinki',
     schema_version: 1,
@@ -206,6 +208,18 @@ function inferMealType() {
   if (hour >= 11 && hour < 16) return 'lunch';
   if (hour >= 16 && hour < 22) return 'dinner';
   return 'snack';
+}
+
+function normalizeFoodMealType(entry = {}) {
+  const raw = entry.mealType || entry.meal_type || entry.category || 'meal';
+  const value = String(raw || 'meal').trim().toLowerCase().replace(/\s+/g, '_');
+  return value || 'meal';
+}
+
+function foodMealLabel(mealType) {
+  return String(mealType || 'meal')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, char => char.toUpperCase());
 }
 
 function selectMealType(mealType) {
@@ -383,23 +397,27 @@ function renderFoodHistory() {
   };
   
   entries.slice(0, 20).forEach(entry => {
+    const mealType = normalizeFoodMealType(entry);
+    const tags = Array.isArray(entry.tags) ? entry.tags : [];
+    const contexts = Array.isArray(entry.contexts) ? entry.contexts : [];
+    const satisfaction = Number.isFinite(Number(entry.satisfaction)) ? Number(entry.satisfaction) : 5;
     const entryEl = document.createElement('div');
     entryEl.className = 'food-entry';
     
     entryEl.innerHTML = `
       <div class="food-entry-header">
-        <span class="food-entry-meal">${mealEmojis[entry.mealType] || '🍽️'} ${entry.mealType.charAt(0).toUpperCase() + entry.mealType.slice(1)}</span>
+        <span class="food-entry-meal">${mealEmojis[mealType] || '🍽️'} ${foodMealLabel(mealType)}</span>
         <span class="food-entry-time">${new Date(entry.timestamp).toLocaleDateString()} ${timeStr(entry.timestamp)}</span>
       </div>
       ${entry.description ? `<div class="food-entry-description">${entry.description}</div>` : ''}
       ${(entry.photo || entry.photoRef) ? `<button class="food-photo-toggle" onclick="toggleFoodPhoto(this)">📷 Show photo</button><img class="food-entry-photo hidden" alt="Food photo" ${entry.photo ? `src="${entry.photo}"` : `data-ref="${entry.photoRef}"`}>` : ''}
       <div class="food-entry-footer">
         <div class="food-entry-tags">
-          ${entry.tags.map(tag => `<span class="food-entry-tag">${tag}</span>`).join('')}
-          ${(entry.contexts || []).map(context => `<span class="food-entry-tag food-entry-context">${context.replace(/_/g, ' ')}</span>`).join('')}
+          ${tags.map(tag => `<span class="food-entry-tag">${tag}</span>`).join('')}
+          ${contexts.map(context => `<span class="food-entry-tag food-entry-context">${String(context).replace(/_/g, ' ')}</span>`).join('')}
         </div>
         <div class="food-entry-actions">
-          <span class="food-entry-rating">😋 ${entry.satisfaction}/10</span>
+          <span class="food-entry-rating">😋 ${satisfaction}/10</span>
           <button class="food-entry-delete" data-id="${entry.id}" title="Delete entry">✕</button>
         </div>
       </div>

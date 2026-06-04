@@ -1137,7 +1137,7 @@ const shareWithDaisy = withCooldown(function() {
       food_entries: foodEntries.map(f => ({
         date: new Date(f.timestamp).toISOString().split('T')[0],
         time: timeStr(f.timestamp),
-        meal_type: f.mealType,
+        meal_type: f.mealType || f.meal_type || f.category || 'meal',
         description: f.description,
         satisfaction: f.satisfaction,
         tags: f.tags,
