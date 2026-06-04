@@ -1412,6 +1412,7 @@ function getDataQualityWarnings() {
 const DATA_QUALITY_REPORTS_KEY = 'innerscape_data_quality_reports';
 const DATA_QUALITY_DECISIONS_KEY = 'innerscape_data_quality_decisions';
 let dataAccuracySelectedDays = 1;
+let dataAccuracyPendingFlagId = null;
 
 const DATA_QUALITY_SIGNALS = {
   all: { label: 'All signals', emoji: '◇', color: '#a78bfa' },
@@ -1586,6 +1587,54 @@ function dataQualityUnionSets(...sets) {
 
 function dataQualityStreamCount(day, sets) {
   return sets.reduce((count, set) => count + (set.has(day) ? 1 : 0), 0);
+}
+
+function dataQualityIsImproperlyLogged(entry) {
+  if (!entry) return false;
+  if ((entry.logging_issue || entry.loggingIssue) === 'improperly_logged') return true;
+  const marks = Array.isArray(entry.session_marks)
+    ? entry.session_marks
+    : (Array.isArray(entry.sessionMarks) ? entry.sessionMarks : []);
+  return marks.some(mark => mark?.type === 'improperly_logged' && mark.active !== false);
+}
+
+function dataQualityRuntimeReports() {
+  const timeEntries = typeof loadTimeEntries === 'function' ? loadTimeEntries() : dataQualitySafeArray('innerscape_time_entries');
+  const recentDays = dataQualityLastDays(21);
+  const recentDaySet = new Set(recentDays);
+  const improperEntries = (timeEntries || [])
+    .filter(dataQualityIsImproperlyLogged)
+    .filter(entry => recentDaySet.has(dayKey(entry.startTime || entry.start_time || entry.ts || entry.createdAt || Date.now())));
+  if (!improperEntries.length) return [];
+
+  const days = [...new Set(improperEntries.map(entry =>
+    dayKey(entry.startTime || entry.start_time || entry.ts || entry.createdAt || Date.now())
+  ))].sort();
+  const latest = improperEntries.reduce((max, entry) => Math.max(max, entry.startTime || entry.start_time || entry.ts || 0), 0);
+  const trustScore = improperEntries.length >= 3 ? 42 : 55;
+  return [normalizeDataQualityReport({
+    id: `dq-runtime-improper-timer-${days.join('-')}`,
+    ts: latest || Date.now(),
+    created_at: new Date(latest || Date.now()).toISOString(),
+    kind: 'timer_logging_issue',
+    title: 'Timer entries marked improperly logged',
+    status: 'confirmed',
+    scope_type: days.length > 1 ? 'window' : 'day',
+    scope_start: days[0],
+    scope_end: days[days.length - 1],
+    dates: days,
+    signal_type: 'activity',
+    trust_score: trustScore,
+    downstream_weight: trustScore / 100,
+    reason_codes: ['user_marked_improperly_logged'],
+    quality_source: 'timer_user_marker',
+    note: `${improperEntries.length} activity entr${improperEntries.length === 1 ? 'y was' : 'ies were'} marked improperly logged.`,
+    ...appDataMeta(latest || Date.now()),
+  })];
+}
+
+function dataQualityOpenFlags(flags, decisions = loadDataQualityDecisions()) {
+  return (flags || []).filter(flag => !decisions[flag.id]?.status);
 }
 
 function dataQualityFlag(config) {
@@ -1835,8 +1884,8 @@ function dataQualitySeverityPenalty(severity) {
 
 function dataQualityScore(flags) {
   const decisions = loadDataQualityDecisions();
-  const activeFlags = flags.filter(flag => decisions[flag.id]?.status !== 'denied');
-  const recentManualPenalty = loadDataQualityReports()
+  const activeFlags = dataQualityOpenFlags(flags, decisions);
+  const recentManualPenalty = [...loadDataQualityReports(), ...dataQualityRuntimeReports()]
     .filter(report => report.status !== 'denied' && Date.now() - (report.ts || 0) < 7 * 86400000)
     .reduce((sum, report) => sum + Math.max(0, 82 - (report.trust_score || 82)) / 3, 0);
   const penalty = activeFlags.reduce((sum, flag) => sum + dataQualitySeverityPenalty(flag.severity), 0) + recentManualPenalty;
@@ -1878,7 +1927,7 @@ function dataQualitySignalSummaries(flags = buildDataAccuracyFlags(), reports = 
   });
 
   flags
-    .filter(flag => decisions[flag.id]?.status !== 'denied')
+    .filter(flag => !decisions[flag.id]?.status)
     .forEach(flag => {
       const affectedSignals = flag.signal_type === 'all' ? signalIds : [flag.signal_type];
       affectedSignals.forEach(signal => {
@@ -1916,13 +1965,14 @@ function dataQualitySignalSummaries(flags = buildDataAccuracyFlags(), reports = 
 
 function getDataQualityTrustContext() {
   const flags = buildDataAccuracyFlags();
-  const reports = loadDataQualityReports();
+  const decisions = loadDataQualityDecisions();
+  const reports = [...loadDataQualityReports(), ...dataQualityRuntimeReports()];
   const summaries = dataQualitySignalSummaries(flags, reports);
   return {
     generated_at: new Date().toISOString(),
     overall_score: dataQualityScore(flags),
     signals: summaries,
-    active_flags: flags.filter(flag => loadDataQualityDecisions()[flag.id]?.status !== 'denied'),
+    active_flags: dataQualityOpenFlags(flags, decisions),
     recent_reports: reports.slice(0, 12),
   };
 }
@@ -1987,10 +2037,14 @@ function saveDataQualityReport(draft) {
 }
 
 function getDataQualityHistory() {
-  const reports = loadDataQualityReports().map(report => ({
+  const reports = [...loadDataQualityReports(), ...dataQualityRuntimeReports()].map(report => ({
     id: report.id,
     ts: report.ts,
-    title: report.kind === 'manual_unreliable_range' ? 'Manual reliability mark' : report.flag_title || 'Flag review',
+    title: report.kind === 'manual_unreliable_range'
+      ? 'Manual reliability mark'
+      : report.kind === 'timer_logging_issue'
+        ? 'Timer reliability marker'
+        : report.flag_title || 'Flag review',
     detail: dataQualityReportText(report),
     range: report.range_label || dataQualityRangeLabel(report.dates || report.days || []),
     signal: report.signal_type,
@@ -2027,7 +2081,9 @@ function saveManualDataAccuracyMark() {
   const note = ($('#data-accuracy-note')?.value || '').trim();
   const signal = $('#data-accuracy-signal')?.value || 'all';
   const trustScore = Math.max(10, Math.min(100, parseInt($('#data-accuracy-trust')?.value || '60', 10)));
-  saveDataQualityReport({
+  const pendingFlagId = dataAccuracyPendingFlagId;
+  const previousDecision = pendingFlagId ? loadDataQualityDecisions()[pendingFlagId] || null : null;
+  const report = saveDataQualityReport({
     kind: 'manual_unreliable_range',
     status: 'confirmed',
     reliability: 'somewhat_unreliable',
@@ -2044,16 +2100,55 @@ function saveManualDataAccuracyMark() {
     range_label: dataQualityRangeLabel(days),
     note,
   });
+  if (pendingFlagId) {
+    const pendingFlag = buildDataAccuracyFlags().find(flag => flag.id === pendingFlagId);
+    const decisions = loadDataQualityDecisions();
+    decisions[pendingFlagId] = {
+      status: 'confirmed',
+      ts: Date.now(),
+      title: pendingFlag?.title || 'Manual reliability mark',
+      type: pendingFlag?.type || 'manual_unreliable_window',
+      days,
+      report_id: report.id,
+    };
+    saveDataQualityDecisions(decisions);
+    dataAccuracyPendingFlagId = null;
+  }
   const noteEl = $('#data-accuracy-note');
   if (noteEl) noteEl.value = '';
-  showToast('Data reliability mark saved');
   renderDataQualityPage();
+  showToast(
+    'Data reliability mark saved',
+    () => pendingFlagId
+      ? undoDataQualityDecision(pendingFlagId, previousDecision, report.id)
+      : undoDataQualityReport(report.id)
+  );
+}
+
+function undoDataQualityReport(reportId) {
+  const reports = dataQualitySafeArray(DATA_QUALITY_REPORTS_KEY).filter(report => report.id !== reportId);
+  saveDataQualityReports(reports);
+
+  const quickNoteId = `dq-note-${reportId}`;
+  const notes = dataQualitySafeArray('innerscape_quick_notes').filter(note => note.id !== quickNoteId);
+  localStorage.setItem('innerscape_quick_notes', JSON.stringify(notes));
+  if (typeof deleteFromSupabase === 'function') deleteFromSupabase('quick_notes', quickNoteId);
+  renderDataQualityPage();
+}
+
+function undoDataQualityDecision(flagId, previousDecision, reportId) {
+  const decisions = loadDataQualityDecisions();
+  if (previousDecision) decisions[flagId] = previousDecision;
+  else delete decisions[flagId];
+  saveDataQualityDecisions(decisions);
+  undoDataQualityReport(reportId);
 }
 
 function saveDataQualityDecision(flagId, status) {
   const flag = buildDataAccuracyFlags().find(item => item.id === flagId);
   if (!flag) return;
   const decisions = loadDataQualityDecisions();
+  const previousDecision = decisions[flagId] ? { ...decisions[flagId] } : null;
   decisions[flagId] = {
     status,
     ts: Date.now(),
@@ -2062,7 +2157,7 @@ function saveDataQualityDecision(flagId, status) {
     days: flag.days,
   };
   saveDataQualityDecisions(decisions);
-  saveDataQualityReport({
+  const report = saveDataQualityReport({
     kind: 'flag_review',
     status,
     flag_id: flag.id,
@@ -2082,8 +2177,11 @@ function saveDataQualityDecision(flagId, status) {
     evidence: flag.evidence,
     confidence: flag.confidence,
   });
-  showToast(status === 'denied' ? 'Marked as not a problem' : 'Confirmed for review');
   renderDataQualityPage();
+  showToast(
+    status === 'denied' ? 'Removed from review' : 'Confirmed and moved to saved reviews',
+    () => undoDataQualityDecision(flagId, previousDecision, report.id)
+  );
 }
 
 function renderDataQualityPage() {
@@ -2091,7 +2189,8 @@ function renderDataQualityPage() {
   if (!page) return;
   const flags = buildDataAccuracyFlags();
   const decisions = loadDataQualityDecisions();
-  const reports = loadDataQualityReports();
+  const openFlags = dataQualityOpenFlags(flags, decisions);
+  const reports = [...loadDataQualityReports(), ...dataQualityRuntimeReports()];
   const trustSummaries = dataQualitySignalSummaries(flags, reports);
   const score = dataQualityScore(flags);
   const scoreEl = $('#data-accuracy-score');
@@ -2121,21 +2220,15 @@ function renderDataQualityPage() {
 
   const flagsEl = $('#data-accuracy-flags');
   if (flagsEl) {
-    if (!flags.length) {
+    if (!openFlags.length) {
       flagsEl.innerHTML = `
         <div class="data-accuracy-empty">
           <strong>No obvious gaps right now</strong>
-          <span>The app is still watching for missing logs, odd timer shapes, and sudden changes in logging density.</span>
+          <span>The app is still watching for missing logs, odd timer shapes, timer reliability marks, and sudden changes in logging density.</span>
         </div>
       `;
     } else {
-      flagsEl.innerHTML = flags.map(flag => {
-        const decision = decisions[flag.id];
-        const statusLabel = decision?.status === 'denied'
-          ? 'Marked okay'
-          : decision?.status === 'confirmed'
-            ? 'Confirmed'
-            : '';
+      flagsEl.innerHTML = openFlags.map(flag => {
         return `
           <article class="data-accuracy-flag data-accuracy-${flag.severity}">
             <div class="data-accuracy-flag-top">
@@ -2149,7 +2242,6 @@ function renderDataQualityPage() {
             <div class="data-accuracy-meta">
               <span>${dataQualityEscape(flag.rangeLabel || dataQualityRangeLabel(flag.days))}</span>
               <span>${Math.round(flag.trust_score)}% trust</span>
-              ${statusLabel ? `<span>${statusLabel}</span>` : ''}
             </div>
             <div class="data-accuracy-evidence">
               ${flag.evidence.map(item => `<span>${dataQualityEscape(item)}</span>`).join('')}
@@ -2216,6 +2308,7 @@ function initDataAccuracyPage() {
     if (action === 'deny') saveDataQualityDecision(flagId, 'denied');
     if (action === 'mark') {
       const flag = buildDataAccuracyFlags().find(item => item.id === flagId);
+      dataAccuracyPendingFlagId = flag?.id || null;
       dataAccuracySelectedDays = Math.max(1, Math.min(3, flag?.suggestedDays || flag?.days?.length || 1));
       updateDataAccuracyRangeButtons();
       if (flag && $('#data-accuracy-signal')) $('#data-accuracy-signal').value = flag.signal_type || 'all';
