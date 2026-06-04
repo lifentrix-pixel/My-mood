@@ -1411,6 +1411,7 @@ function getDataQualityWarnings() {
 
 const DATA_QUALITY_REPORTS_KEY = 'innerscape_data_quality_reports';
 const DATA_QUALITY_DECISIONS_KEY = 'innerscape_data_quality_decisions';
+const DATA_QUALITY_QUICK_NOTE_PREFIX = 'DQv1';
 let dataAccuracySelectedDays = 1;
 let dataAccuracyPendingFlagId = null;
 
@@ -1466,35 +1467,56 @@ function normalizeDataQualityReport(report) {
   };
 }
 
+function dataQualityExtractEmbeddedReport(note) {
+  if (note?.data_quality_report) return note.data_quality_report;
+  const match = String(note?.text || '').match(/\n(DQv1|DQ):(\{.*\})$/s);
+  if (!match) return null;
+  try {
+    return {
+      payload_version: match[1],
+      ...JSON.parse(match[2]),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function dataQualityStripEmbeddedReport(text) {
+  return String(text || '').replace(/\n(?:DQv1|DQ):\{.*\}$/s, '');
+}
+
 function parseDataQualityReportsFromQuickNotes() {
   return dataQualitySafeArray('innerscape_quick_notes')
     .filter(note => note.note_type === 'data_quality_report')
     .map(note => {
-      const embedded = note.data_quality_report || (() => {
-        const match = String(note.text || '').match(/\nDQ:(\{.*\})$/s);
-        if (!match) return null;
-        try { return JSON.parse(match[1]); } catch { return null; }
-      })();
+      const embedded = dataQualityExtractEmbeddedReport(note);
       if (!embedded) return null;
       return normalizeDataQualityReport({
         id: embedded.report_id || note.data_quality_report_id || note.id,
         ts: note.ts,
         created_at: note.created_at || new Date(note.ts || Date.now()).toISOString(),
+        payload_version: embedded.payload_version || 'DQ',
+        schema_version: embedded.schema_version,
         kind: 'synced_quality_report',
         title: 'Synced data-quality report',
         status: embedded.status || 'confirmed',
         scope_type: embedded.scope_type,
         scope_start: embedded.scope_start,
         scope_end: embedded.scope_end,
-        dates: embedded.scope_start
-          ? [embedded.scope_start, embedded.scope_end].filter(Boolean).filter((day, index, arr) => arr.indexOf(day) === index)
-          : [],
+        dates: Array.isArray(embedded.dates) && embedded.dates.length
+          ? embedded.dates
+          : (embedded.scope_start
+              ? [embedded.scope_start, embedded.scope_end].filter(Boolean).filter((day, index, arr) => arr.indexOf(day) === index)
+              : []),
+        range_label: embedded.range_label,
         signal_type: embedded.signal_type,
         trust_score: embedded.trust_score,
         downstream_weight: embedded.downstream_weight,
         reason_codes: embedded.reason_codes,
         quality_source: embedded.quality_source || 'synced_note',
-        note: String(note.text || '').replace(/\nDQ:\{.*\}$/s, ''),
+        evidence: Array.isArray(embedded.evidence) ? embedded.evidence : [],
+        confidence: embedded.confidence,
+        note: dataQualityStripEmbeddedReport(note.text),
         ...appDataMeta(note.ts || Date.now()),
       });
     })
@@ -1978,6 +2000,70 @@ function getDataQualityTrustContext() {
 }
 window.getDataQualityTrustContext = getDataQualityTrustContext;
 
+function dataQualityAgentReport(report) {
+  const normalized = normalizeDataQualityReport(report);
+  return {
+    id: normalized.id,
+    status: normalized.status || 'confirmed',
+    kind: normalized.kind || 'quality_report',
+    signal_type: normalized.signal_type,
+    scope_type: normalized.scope_type,
+    scope_start: normalized.scope_start,
+    scope_end: normalized.scope_end,
+    dates: normalized.dates || [],
+    trust_score: Math.round(normalized.trust_score),
+    downstream_weight: normalized.downstream_weight,
+    reason_codes: normalized.reason_codes || [],
+    evidence: Array.isArray(normalized.evidence) ? normalized.evidence : [],
+    confidence: normalized.confidence ?? null,
+    quality_source: normalized.quality_source,
+    note: normalized.note || '',
+  };
+}
+
+function getDataQualityAgentContext() {
+  const context = getDataQualityTrustContext();
+  const signals = Object.values(context.signals || {}).map(signal => ({
+    id: signal.id,
+    label: signal.label,
+    status: signal.status,
+    trust_score: signal.score,
+    downstream_weight: signal.downstream_weight,
+    issue_summary: signal.issues || [],
+    confirmed_reports: signal.confirmed || 0,
+  }));
+  const overallWeight = signals.length
+    ? Number((signals.reduce((sum, signal) => sum + signal.downstream_weight, 0) / signals.length).toFixed(2))
+    : Number((context.overall_score / 100).toFixed(2));
+  return {
+    context_version: 'signal_trust_v1',
+    quick_note_payload_version: DATA_QUALITY_QUICK_NOTE_PREFIX,
+    generated_at: context.generated_at,
+    overall_trust_score: Math.round(context.overall_score),
+    default_downstream_weight: overallWeight,
+    signals,
+    active_flags: (context.active_flags || []).map(flag => ({
+      id: flag.id,
+      title: flag.title,
+      signal_type: flag.signal_type,
+      severity: flag.severity,
+      confidence: flag.confidence,
+      trust_score: Math.round(flag.trust_score),
+      downstream_weight: flag.downstream_weight,
+      reason_codes: flag.reason_codes || [],
+      dates: flag.days || [],
+      evidence: flag.evidence || [],
+    })),
+    recent_reports: (context.recent_reports || []).map(dataQualityAgentReport),
+    usage_guidance: [
+      'Use downstream_weight to soften conclusions from low-trust signals.',
+      'Treat confirmed reports and timer reliability markers as user-provided provenance, not just warnings.',
+      'When data is thin, prefer questions and caveats over strong causal claims.',
+    ],
+  };
+}
+window.getDataQualityAgentContext = getDataQualityAgentContext;
+
 function dataQualityReportText(report) {
   const normalized = normalizeDataQualityReport(report);
   const signal = dataQualitySignalLabel(normalized.signal_type);
@@ -2009,21 +2095,27 @@ function saveDataQualityReport(draft) {
 
   const notes = dataQualitySafeArray('innerscape_quick_notes');
   const compact = {
+    payload_version: DATA_QUALITY_QUICK_NOTE_PREFIX,
+    schema_version: report.schema_version,
     report_id: report.id,
     scope_type: report.scope_type,
     scope_start: report.scope_start,
     scope_end: report.scope_end,
+    dates: report.dates || [],
+    range_label: report.range_label,
     signal_type: report.signal_type,
     trust_score: report.trust_score,
     status: report.status,
     reason_codes: report.reason_codes,
     downstream_weight: report.downstream_weight,
     quality_source: report.quality_source,
+    evidence: Array.isArray(report.evidence) ? report.evidence.slice(0, 6) : [],
+    confidence: report.confidence ?? null,
   };
   const quickNote = {
     id: `dq-note-${report.id}`,
     ts,
-    text: `${dataQualityReportText(report)}\nDQ:${JSON.stringify(compact)}`,
+    text: `${dataQualityReportText(report)}\n${DATA_QUALITY_QUICK_NOTE_PREFIX}:${JSON.stringify(compact)}`,
     note_type: 'data_quality_report',
     privacy_level: 'normal',
     data_quality_report_id: report.id,

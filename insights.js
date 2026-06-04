@@ -547,11 +547,15 @@ function performExport(format) {
     timeframe,
     'ts'
   );
+  const dataQualityContext = typeof getDataQualityAgentContext === 'function'
+    ? getDataQualityAgentContext()
+    : null;
   if (dataQualityReports.length) {
     exportData.data_quality_reports = dataQualityReports;
     exportData.data_quality_decisions = JSON.parse(localStorage.getItem('innerscape_data_quality_decisions') || '{}');
     totalEntries += dataQualityReports.length;
   }
+  if (dataQualityContext) exportData.data_quality_context = dataQualityContext;
   
   console.log('Total entries found:', totalEntries);
   
@@ -897,6 +901,9 @@ function exportAllJSON() {
       ? loadDataQualityReports()
       : JSON.parse(localStorage.getItem('innerscape_data_quality_reports') || '[]'),
     data_quality_decisions: JSON.parse(localStorage.getItem('innerscape_data_quality_decisions') || '{}'),
+    data_quality_context: typeof getDataQualityAgentContext === 'function'
+      ? getDataQualityAgentContext()
+      : null,
     intentions: JSON.parse(localStorage.getItem('innerscape_intentions') || '[]'),
     oura_config: JSON.parse(localStorage.getItem('innerscape_oura_config') || 'null'),
     oura_data: JSON.parse(localStorage.getItem('innerscape_oura_data') || 'null'),

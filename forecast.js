@@ -25,6 +25,7 @@ function showForecastPage() {
   const stoolEntries = fcLoadArray('innerscape_stool_entries');
   const mediaSessions = fcLoadArray('innerscape_media_sessions');
   const oura = fcLoadOuraData();
+  const dataQualityContext = fcGetDataQualityContext();
 
   // Core calculations
   const recent24 = entries.filter(e => now - e.ts < 24 * 3600000);
@@ -45,13 +46,13 @@ function showForecastPage() {
   html.push(fcBuildCheckinNudge(entries, now));
 
   // 3. Today's dynamic brief
-  html.push(fcBuildTodayBrief(entries, timeEntries, activities, foodEntries, medLogs, medications, oura, dreams, quickNotes, now, velocity));
+  html.push(fcBuildTodayBrief(entries, timeEntries, activities, foodEntries, medLogs, medications, oura, dreams, quickNotes, now, velocity, dataQualityContext));
 
   // 4. Daily data coverage note
   html.push(fcBuildDataCoverageNote(entries, timeEntries, foodEntries, medLogs, medications, oura, dreams, quickNotes, meditationEntries, stoolEntries, mediaSessions, now));
 
   // 5. What the forecast can currently see
-  html.push(fcBuildDataPulse(entries, timeEntries, foodEntries, medLogs, oura, dreams, quickNotes, meditationEntries, stoolEntries, mediaSessions, now));
+  html.push(fcBuildDataPulse(entries, timeEntries, foodEntries, medLogs, oura, dreams, quickNotes, meditationEntries, stoolEntries, mediaSessions, now, dataQualityContext));
 
   // 6. Momentum streaks
   html.push(fcBuildMomentum(entries, now));
@@ -259,7 +260,7 @@ function fcBuildMomentum(entries, now) {
    TODAY BRIEF — Recency-aware forecast
    ═══════════════════════════════════ */
 
-function fcBuildTodayBrief(entries, timeEntries, activities, foodEntries, medLogs, medications, oura, dreams, quickNotes, now, velocity) {
+function fcBuildTodayBrief(entries, timeEntries, activities, foodEntries, medLogs, medications, oura, dreams, quickNotes, now, velocity, dataQualityContext = null) {
   if (entries.length < 3) return '';
 
   const model = fcBuildTodayModel(entries, oura, now, velocity);
@@ -269,7 +270,7 @@ function fcBuildTodayBrief(entries, timeEntries, activities, foodEntries, medLog
   const timeSignal = fcBuildTimeWindowSignal(entries, now);
   const textSignal = fcBuildTextSignal(entries, dreams, quickNotes, now);
   const sources = fcBuildSourceStats(entries, timeEntries, foodEntries, medLogs, oura, dreams, quickNotes, [], [], [], now);
-  const confidence = fcForecastConfidence(entries, sources, now);
+  const confidence = fcForecastConfidence(entries, sources, now, dataQualityContext);
 
   const signals = [];
   if (pressure) {
@@ -592,29 +593,35 @@ function fcBuildTextSignal(entries, dreams, quickNotes, now) {
   return null;
 }
 
-function fcBuildDataPulse(entries, timeEntries, foodEntries, medLogs, oura, dreams, quickNotes, meditationEntries, stoolEntries, mediaSessions, now) {
+function fcBuildDataPulse(entries, timeEntries, foodEntries, medLogs, oura, dreams, quickNotes, meditationEntries, stoolEntries, mediaSessions, now, dataQualityContext = null) {
   const sources = fcBuildSourceStats(entries, timeEntries, foodEntries, medLogs, oura, dreams, quickNotes, meditationEntries, stoolEntries, mediaSessions, now);
-  const confidence = fcForecastConfidence(entries, sources, now);
+  const confidence = fcForecastConfidence(entries, sources, now, dataQualityContext);
   const active = sources.filter(s => s.status === 'active').length;
   const quiet = sources.filter(s => s.status === 'quiet').length;
+  const trustNote = fcBuildTrustNote(dataQualityContext, sources);
 
   return `
     <div class="fc-card fc-data-card">
       <div class="fc-card-header"><span>📡</span> Forecast Ingredients</div>
       <div class="fc-data-summary">
         <strong>${active}</strong> active source${active === 1 ? '' : 's'} this week${quiet ? ` · ${quiet} quiet but available` : ''}.
-        The forecast trusts fresh check-ins most, then looks for support from activity, sleep, food, meds, dreams, and notes.
+        The forecast trusts fresh check-ins most, then weighs each signal by its current reliability.
       </div>
+      ${trustNote}
       <div class="fc-source-grid">
-        ${sources.map(s => `
-          <div class="fc-source-chip fc-source-${s.status}">
+        ${sources.map(s => {
+          const trust = fcSourceTrust(s, dataQualityContext);
+          const trustClass = trust < 0.68 ? 'low' : trust < 0.84 ? 'review' : 'strong';
+          return `
+          <div class="fc-source-chip fc-source-${s.status} fc-source-trust-${trustClass}">
             <span>${s.icon}</span>
             <div>
               <strong>${s.label}</strong>
-              <small>${s.detail}</small>
+              <small>${s.detail}${trust < 0.96 ? ` · ${Math.round(trust * 100)}% trust` : ''}</small>
             </div>
           </div>
-        `).join('')}
+        `;
+        }).join('')}
       </div>
       <div class="fc-confidence-line">
         <div class="fc-confidence-fill" style="width:${confidence}%"></div>
@@ -2398,7 +2405,86 @@ function fcHumanAge(ts, now) {
   return `${Math.round(days / 30)}mo ago`;
 }
 
-function fcForecastConfidence(entries, sources, now) {
+const FC_SOURCE_SIGNAL_MAP = {
+  'Check-ins': 'checkins',
+  Activities: 'activity',
+  Food: 'food',
+  Meds: 'medication',
+  Oura: 'oura',
+  Stool: 'stool',
+};
+
+function fcGetDataQualityContext() {
+  try {
+    if (typeof getDataQualityAgentContext === 'function') return getDataQualityAgentContext();
+    if (typeof getDataQualityTrustContext === 'function') return getDataQualityTrustContext();
+  } catch (error) {
+    console.warn('Forecast data-quality context unavailable:', error);
+  }
+  return null;
+}
+
+function fcTrustSignal(dataQualityContext, signalId) {
+  const signals = dataQualityContext?.signals;
+  if (!signals) return null;
+  if (Array.isArray(signals)) return signals.find(signal => signal?.id === signalId) || null;
+  return signals[signalId] || null;
+}
+
+function fcSignalWeight(signal) {
+  if (!signal) return 1;
+  const raw = signal.downstream_weight ?? (signal.trust_score ?? signal.score ?? 100) / 100;
+  const weight = Number(raw);
+  return Number.isFinite(weight) ? Math.max(0.1, Math.min(1, weight)) : 1;
+}
+
+function fcSourceTrust(source, dataQualityContext) {
+  const signalId = FC_SOURCE_SIGNAL_MAP[source?.label];
+  if (!signalId) return 1;
+  return fcSignalWeight(fcTrustSignal(dataQualityContext, signalId));
+}
+
+function fcForecastTrustWeight(dataQualityContext, sources) {
+  if (!dataQualityContext) return 1;
+  const relevantSources = (sources || []).filter(source =>
+    source.status !== 'empty' && FC_SOURCE_SIGNAL_MAP[source.label]
+  );
+  const sourceWeights = relevantSources.map(source => fcSourceTrust(source, dataQualityContext));
+  const sourceAverage = sourceWeights.length
+    ? sourceWeights.reduce((sum, weight) => sum + weight, 0) / sourceWeights.length
+    : 1;
+  const overallRaw = dataQualityContext.overall_trust_score ?? dataQualityContext.overall_score ?? 100;
+  const overallWeight = Math.max(0.1, Math.min(1, Number(overallRaw) / 100 || 1));
+  return Math.max(0.1, Math.min(1, sourceAverage * 0.7 + overallWeight * 0.3));
+}
+
+function fcBuildTrustNote(dataQualityContext, sources) {
+  if (!dataQualityContext) return '';
+  const weakSources = (sources || [])
+    .filter(source => FC_SOURCE_SIGNAL_MAP[source.label] && fcSourceTrust(source, dataQualityContext) < 0.84)
+    .map(source => `${source.label} ${Math.round(fcSourceTrust(source, dataQualityContext) * 100)}%`);
+  const activeFlags = Array.isArray(dataQualityContext.active_flags) ? dataQualityContext.active_flags : [];
+  const overallScore = Math.round(dataQualityContext.overall_trust_score ?? dataQualityContext.overall_score ?? 100);
+
+  let message = '';
+  if (weakSources.length) {
+    message = `Reading ${weakSources.slice(0, 3).map(fcEscape).join(', ')} more gently because recent accuracy notes lowered their trust.`;
+  } else if (activeFlags.length) {
+    message = `${activeFlags.length} accuracy question${activeFlags.length === 1 ? '' : 's'} still need review, so the forecast is staying cautious.`;
+  } else if (overallScore < 88) {
+    message = `Overall signal trust is ${overallScore}%, so the forecast is using softer confidence.`;
+  }
+  if (!message) return '';
+
+  return `
+    <div class="fc-trust-note">
+      <strong>Signal trust</strong>
+      <span>${message}</span>
+    </div>
+  `;
+}
+
+function fcForecastConfidence(entries, sources, now, dataQualityContext = null) {
   const latestEntry = entries.length ? Math.max(...entries.map(e => e.ts || 0)) : null;
   const hoursSince = latestEntry ? (now - latestEntry) / 3600000 : Infinity;
   const daySpan = entries.length > 1
@@ -2422,6 +2508,8 @@ function fcForecastConfidence(entries, sources, now) {
   else if (daySpan >= 5) score += 5;
 
   score += Math.min(22, activeSources * 4);
+  const trustWeight = fcForecastTrustWeight(dataQualityContext, sources);
+  if (trustWeight < 0.98) score -= Math.round((1 - trustWeight) * 30);
   return Math.max(25, Math.min(95, Math.round(score)));
 }
 
