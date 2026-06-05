@@ -2073,7 +2073,11 @@ function dataQualityReportText(report) {
     return `Data accuracy: ${normalized.range_label} marked somewhat unreliable for ${signal} (${trust}).${reasons}${normalized.note ? ` ${normalized.note}` : ''}`;
   }
   if (report.kind === 'flag_review') {
-    const status = normalized.status === 'denied' ? 'dismissed' : 'confirmed';
+    const status = normalized.status === 'denied'
+      ? 'dismissed'
+      : normalized.status === 'unsure'
+        ? 'marked unsure about'
+        : 'confirmed';
     return `Data accuracy: ${status} possible ${signal} issue - ${normalized.flag_title}${normalized.range_label ? ` (${normalized.range_label})` : ''}. ${trust}.${reasons}`;
   }
   return `Data accuracy: ${normalized.title || 'review saved'} for ${signal} (${trust}).${reasons}`;
@@ -2241,6 +2245,8 @@ function saveDataQualityDecision(flagId, status) {
   if (!flag) return;
   const decisions = loadDataQualityDecisions();
   const previousDecision = decisions[flagId] ? { ...decisions[flagId] } : null;
+  const reasonCodes = flag.reason_codes?.length ? [...flag.reason_codes] : [flag.type];
+  if (status === 'unsure' && !reasonCodes.includes('user_unsure')) reasonCodes.push('user_unsure');
   decisions[flagId] = {
     status,
     ts: Date.now(),
@@ -2261,7 +2267,7 @@ function saveDataQualityDecision(flagId, status) {
     signal_type: flag.signal_type || 'all',
     trust_score: status === 'denied' ? 92 : flag.trust_score,
     downstream_weight: status === 'denied' ? 0.92 : flag.downstream_weight,
-    reason_codes: flag.reason_codes?.length ? flag.reason_codes : [flag.type],
+    reason_codes: reasonCodes,
     quality_source: 'user_review',
     range_label: flag.rangeLabel,
     days: flag.days,
@@ -2270,8 +2276,13 @@ function saveDataQualityDecision(flagId, status) {
     confidence: flag.confidence,
   });
   renderDataQualityPage();
+  const toastMessage = status === 'denied'
+    ? 'Removed from review'
+    : status === 'unsure'
+      ? 'Marked unsure and moved to saved reviews'
+      : 'Confirmed and moved to saved reviews';
   showToast(
-    status === 'denied' ? 'Removed from review' : 'Confirmed and moved to saved reviews',
+    toastMessage,
     () => undoDataQualityDecision(flagId, previousDecision, report.id)
   );
 }
@@ -2340,6 +2351,7 @@ function renderDataQualityPage() {
             </div>
             <div class="data-accuracy-actions">
               <button type="button" data-dq-action="confirm" data-flag-id="${dataQualityEscape(flag.id)}">Confirm</button>
+              <button type="button" data-dq-action="unsure" data-flag-id="${dataQualityEscape(flag.id)}">Unsure</button>
               <button type="button" data-dq-action="deny" data-flag-id="${dataQualityEscape(flag.id)}">Deny</button>
               <button type="button" data-dq-action="mark" data-flag-id="${dataQualityEscape(flag.id)}">Mark days</button>
             </div>
@@ -2397,6 +2409,7 @@ function initDataAccuracyPage() {
     const action = button.dataset.dqAction;
     const flagId = button.dataset.flagId;
     if (action === 'confirm') saveDataQualityDecision(flagId, 'confirmed');
+    if (action === 'unsure') saveDataQualityDecision(flagId, 'unsure');
     if (action === 'deny') saveDataQualityDecision(flagId, 'denied');
     if (action === 'mark') {
       const flag = buildDataAccuracyFlags().find(item => item.id === flagId);

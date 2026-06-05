@@ -7451,6 +7451,11 @@ body.in-dreamland #sub-nav { display: none !important; }
   color: #052e16;
 }
 
+.data-accuracy-actions button[data-dq-action="unsure"] {
+  background: rgba(125, 211, 252, 0.14);
+  color: #bae6fd;
+}
+
 .data-accuracy-actions button[data-dq-action="deny"] {
   background: rgba(255, 255, 255, 0.08);
   color: var(--text-color);
