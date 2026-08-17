@@ -1,9 +1,11 @@
 /* ── Meditation Timer ── */
 
 const CIRC = 2 * Math.PI * 90;
+const MED_PHASE_LENGTHS_KEY = 'innerscape_meditation_phase_lengths';
 
 let medState = {
-  phaseDuration: 8,
+  cleanPhaseDuration: 8,
+  feelPhaseDuration: 8,
   running: false,
   phase: 'clean',
   round: 1,
@@ -18,28 +20,24 @@ let medState = {
 };
 
 function initMeditate() {
-  const durSlider = $('#med-dur-slider');
-  const durVal = $('#med-dur-value');
-  const durDown = $('#med-dur-down');
-  const durUp = $('#med-dur-up');
+  restoreMeditationPhaseLengths();
+  syncMeditationPhaseInputs();
 
-  durSlider.addEventListener('input', () => {
-    medState.phaseDuration = parseInt(durSlider.value);
-    durVal.textContent = medState.phaseDuration;
+  ['clean', 'feel'].forEach(phase => {
+    const input = $(`#med-${phase}-duration`);
+    input.addEventListener('input', event => {
+      if (event.target.value !== '') setMeditationPhaseDuration(phase, event.target.value, false);
+    });
+    input.addEventListener('change', event => {
+      setMeditationPhaseDuration(phase, event.target.value, true);
+    });
   });
-  durDown.addEventListener('click', () => {
-    if (medState.phaseDuration > 7) {
-      medState.phaseDuration--;
-      durSlider.value = medState.phaseDuration;
-      durVal.textContent = medState.phaseDuration;
-    }
-  });
-  durUp.addEventListener('click', () => {
-    if (medState.phaseDuration < 10) {
-      medState.phaseDuration++;
-      durSlider.value = medState.phaseDuration;
-      durVal.textContent = medState.phaseDuration;
-    }
+  document.querySelectorAll('[data-med-duration-change]').forEach(button => {
+    button.addEventListener('click', () => {
+      const phase = button.dataset.medPhase;
+      const change = parseInt(button.dataset.medDurationChange, 10);
+      setMeditationPhaseDuration(phase, getMeditationPhaseDuration(phase) + change);
+    });
   });
 
   $('#med-begin-btn').addEventListener('click', startMedSession);
@@ -64,13 +62,50 @@ function initMeditate() {
   renderMedHistory();
 }
 
+function clampMeditationPhaseDuration(value) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return 1;
+  return Math.min(60, Math.max(1, parsed));
+}
+
+function getMeditationPhaseDuration(phase = medState.phase) {
+  return phase === 'feel' ? medState.feelPhaseDuration : medState.cleanPhaseDuration;
+}
+
+function setMeditationPhaseDuration(phase, value, syncInputs = true) {
+  const duration = clampMeditationPhaseDuration(value);
+  if (phase === 'feel') medState.feelPhaseDuration = duration;
+  else medState.cleanPhaseDuration = duration;
+  localStorage.setItem(MED_PHASE_LENGTHS_KEY, JSON.stringify({
+    clean: medState.cleanPhaseDuration,
+    feel: medState.feelPhaseDuration,
+  }));
+  if (syncInputs) syncMeditationPhaseInputs();
+}
+
+function restoreMeditationPhaseLengths() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(MED_PHASE_LENGTHS_KEY));
+    if (!saved || typeof saved !== 'object') return;
+    if (saved.clean != null) medState.cleanPhaseDuration = clampMeditationPhaseDuration(saved.clean);
+    if (saved.feel != null) medState.feelPhaseDuration = clampMeditationPhaseDuration(saved.feel);
+  } catch (_) {
+    // Use the gentle eight-minute defaults when an old preference cannot be read.
+  }
+}
+
+function syncMeditationPhaseInputs() {
+  $('#med-clean-duration').value = medState.cleanPhaseDuration;
+  $('#med-feel-duration').value = medState.feelPhaseDuration;
+}
+
 function startMedSession() {
   medState.running = true;
   medState.phase = 'clean';
   medState.round = 1;
   medState.totalSeconds = 0;
   medState.startTime = Date.now();
-  medState.secondsLeft = medState.phaseDuration * 60;
+  medState.secondsLeft = getMeditationPhaseDuration() * 60;
 
   $('#med-setup').classList.add('hidden');
   $('#med-history').classList.add('hidden');
@@ -95,7 +130,7 @@ function medTick() {
     if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
     medState.phase = medState.phase === 'clean' ? 'feel' : 'clean';
     if (medState.phase === 'clean') medState.round++;
-    medState.secondsLeft = medState.phaseDuration * 60;
+    medState.secondsLeft = getMeditationPhaseDuration() * 60;
     updatePhaseUI();
     updateAmbientTone();
     switchMedCanvasPhase(medState.phase);
@@ -107,7 +142,7 @@ function updateTimerUI() {
   const secs = medState.secondsLeft % 60;
   $('#med-timer-text').textContent = `${mins}:${String(secs).padStart(2, '0')}`;
 
-  const total = medState.phaseDuration * 60;
+  const total = getMeditationPhaseDuration() * 60;
   const progress = medState.secondsLeft / total;
   const offset = CIRC * (1 - progress);
   $('#med-timer-ring').style.strokeDashoffset = offset;
@@ -124,10 +159,10 @@ function updatePhaseUI() {
   $('#med-phase-icon').textContent = isClean ? '🧹' : '🧘';
   $('#med-phase-name').textContent = isClean ? 'Clean' : 'Feel';
   $('#med-phase-name').style.color = isClean ? '#c4a882' : '#9b8fd4';
+  $('#med-phase-duration').textContent = `${getMeditationPhaseDuration()} min`;
   $('#med-round').textContent = `Round ${medState.round}`;
   $('#med-timer-ring').style.stroke = isClean ? '#8b7355' : '#7c6dbd';
   $('#med-timer-ring').style.strokeDashoffset = 0;
-  medState.secondsLeft = medState.phaseDuration * 60;
   updateTimerUI();
 }
 
@@ -162,9 +197,16 @@ function saveMedSession() {
     duration: medState._totalMin,
     rounds: medState._rounds,
     mood,
+    phaseLengths: {
+      clean: medState.cleanPhaseDuration,
+      feel: medState.feelPhaseDuration,
+    },
   });
 
-  addMeditationToTimer(sessionStart, sessionEnd, medState._totalMin, medState._rounds);
+  addMeditationToTimer(sessionStart, sessionEnd, medState._totalMin, medState._rounds, {
+    clean: medState.cleanPhaseDuration,
+    feel: medState.feelPhaseDuration,
+  });
 
   $('#med-complete').classList.add('hidden');
   $('#med-setup').classList.remove('hidden');
@@ -193,7 +235,7 @@ function migrateMeditationToTimer() {
   localStorage.setItem(migrationKey, 'true');
 }
 
-function addMeditationToTimer(startTime, endTime, durationMin, rounds) {
+function addMeditationToTimer(startTime, endTime, durationMin, rounds, phaseLengths = null) {
   let activities = loadActivities();
   let meditationActivity = activities.find(a => a.id === 'meditation-cleaning');
   
@@ -222,6 +264,7 @@ function addMeditationToTimer(startTime, endTime, durationMin, rounds) {
     startTime,
     endTime,
     meditationRounds: rounds,
+    meditationPhaseLengths: phaseLengths,
   });
   saveTimeEntries(timeEntries);
 }
@@ -249,6 +292,7 @@ function renderMedHistory() {
         <span>⏱ ${entry.duration || '<1'} min</span>
         <span>🔄 ${entry.rounds} rounds</span>
       </div>
+      ${entry.phaseLengths ? `<div class="med-card-phase-lengths">🧹 ${entry.phaseLengths.clean} min · 🧘 ${entry.phaseLengths.feel} min</div>` : ''}
       ${entry.mood ? `<div class="med-card-mood">Mood after: ${entry.mood}/10</div>` : ''}
     `;
     card.querySelector('.entry-delete').addEventListener('click', (e) => {
