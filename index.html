@@ -292,14 +292,31 @@
       <!-- Setup Screen -->
       <div id="med-setup">
         <div class="med-setup-card">
-          <div class="med-setup-label">Phase Duration</div>
-          <div class="med-duration-control">
-            <button class="med-dur-btn" id="med-dur-down">−</button>
-            <span class="med-dur-value" id="med-dur-value">8</span>
-            <span class="med-dur-unit">min</span>
-            <button class="med-dur-btn" id="med-dur-up">+</button>
+          <div class="med-setup-label">Set your rhythm</div>
+          <div class="med-phase-settings">
+            <div class="med-phase-setting med-phase-setting-clean">
+              <div class="med-phase-setting-label"><span>🧹 Clean</span><span>first phase</span></div>
+              <div class="med-duration-control">
+                <button class="med-dur-btn" type="button" data-med-duration-change="-1" data-med-phase="clean" aria-label="Shorten clean phase">−</button>
+                <label class="med-duration-input-wrap">
+                  <input type="number" id="med-clean-duration" min="1" max="60" step="1" inputmode="numeric" aria-label="Clean phase length in minutes" value="8">
+                  <span>min</span>
+                </label>
+                <button class="med-dur-btn" type="button" data-med-duration-change="1" data-med-phase="clean" aria-label="Lengthen clean phase">+</button>
+              </div>
+            </div>
+            <div class="med-phase-setting med-phase-setting-feel">
+              <div class="med-phase-setting-label"><span>🧘 Feel</span><span>second phase</span></div>
+              <div class="med-duration-control">
+                <button class="med-dur-btn" type="button" data-med-duration-change="-1" data-med-phase="feel" aria-label="Shorten feel phase">−</button>
+                <label class="med-duration-input-wrap">
+                  <input type="number" id="med-feel-duration" min="1" max="60" step="1" inputmode="numeric" aria-label="Feel phase length in minutes" value="8">
+                  <span>min</span>
+                </label>
+                <button class="med-dur-btn" type="button" data-med-duration-change="1" data-med-phase="feel" aria-label="Lengthen feel phase">+</button>
+              </div>
+            </div>
           </div>
-          <input type="range" id="med-dur-slider" min="7" max="10" step="1" value="8" class="med-slider">
         </div>
         <button id="med-begin-btn" class="med-begin-btn">
           <span class="med-begin-icon">🧹</span>
@@ -313,6 +330,7 @@
         <div class="med-phase-container" id="med-phase-container">
           <div class="med-phase-label" id="med-phase-icon">🧹</div>
           <div class="med-phase-name" id="med-phase-name">Clean</div>
+          <div class="med-phase-duration" id="med-phase-duration">8 min</div>
           <div class="med-round" id="med-round">Round 1</div>
           <div class="med-timer-wrap">
             <svg class="med-timer-svg" viewBox="0 0 200 200">

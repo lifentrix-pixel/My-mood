@@ -926,12 +926,38 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text2);
   margin-bottom: 16px;
 }
+.med-phase-settings {
+  display: grid;
+  gap: 12px;
+}
+.med-phase-setting {
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: 8px;
+  padding: 12px;
+  text-align: left;
+}
+.med-phase-setting-clean { border-left-color: var(--clean-color); }
+.med-phase-setting-feel { border-left-color: var(--feel-color); }
+.med-phase-setting-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.med-phase-setting-label span:last-child {
+  color: var(--text2);
+  font-size: 12px;
+  font-weight: 500;
+}
 .med-duration-control {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin-top: 10px;
 }
 .med-dur-btn {
   width: 40px; height: 40px;
@@ -1029,6 +1055,11 @@ input[type="range"]::-moz-range-thumb {
   font-weight: 700;
   letter-spacing: -0.5px;
   transition: color .8s ease;
+}
+.med-phase-duration {
+  color: var(--text2);
+  font-size: 14px;
+  margin-top: 2px;
 }
 .med-round {
   font-size: 14px;
@@ -1159,6 +1190,11 @@ input[type="range"]::-moz-range-thumb {
   margin-top: 6px;
   font-size: 13px;
   color: var(--text2);
+}
+.med-card-phase-lengths {
+  margin-top: 8px;
+  color: var(--text2);
+  font-size: 12px;
 }
 
 /* Phase transition animation */
