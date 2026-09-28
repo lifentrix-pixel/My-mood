@@ -1043,7 +1043,25 @@ async function syncToSupabase(force, _skipStatusGuard) {
       label
     });
 
-    const timeEntriesForSync = includeParentTimeEntries(filterNew(timeEntries, 'startTime'), timeEntries);
+    // Time entries. A timer's entry is only written when the timer STOPS, so its
+    // startTime is usually older than the last sync that ran while it was still
+    // running — filtering on startTime alone silently dropped every activity that
+    // was open across a sync (none reached Supabase from 1 to 28 Sep 2026).
+    // So: judge an entry by the latest moment it changed, keep re-sending this
+    // device's own entries from the last few days (the upsert is idempotent), and
+    // re-send all of this device's entries once, after this fix lands.
+    const TE_RETRY_MS = 3 * 24 * 60 * 60 * 1000;
+    const TE_BACKFILL_KEY = 'innerscape_te_backfill_v1';
+    let teBackfill = false;
+    try { teBackfill = !localStorage.getItem(TE_BACKFILL_KEY); } catch (e) {}
+    const teChangedAt = e => Math.max(e.startTime || e.start_time || 0, e.endTime || e.end_time || 0, e.updatedAt || 0, e.editedAt || 0);
+    const teFromThisApp = e => (e.source || 'phone_app') === 'phone_app';
+    const teRetryCutoff = Date.now() - TE_RETRY_MS;
+    const timeEntriesChanged = (force || !lastSync) ? timeEntries : timeEntries.filter(e =>
+      (e.startTime || 0) > lastSync ||
+      (teFromThisApp(e) && (teBackfill || teChangedAt(e) > lastSync || teChangedAt(e) >= teRetryCutoff))
+    );
+    const timeEntriesForSync = includeParentTimeEntries(timeEntriesChanged, timeEntries);
     const validTimeEntryIds = new Set(timeEntriesForSync.map(entry => entry.id).filter(Boolean));
     const { parents: parentTimeEntries, children: childTimeEntries } = splitParentedTimeEntries(timeEntriesForSync);
     const medLogsForSync = filterNew(medLogs, 'timestamp');
@@ -1064,6 +1082,9 @@ async function syncToSupabase(force, _skipStatusGuard) {
           upsertRows('time_entries', mapTimeEntries(childTimeEntries, validTimeEntryIds))
         )
       : skippedSyncStep('time_entries children', 'time entry parents failed');
+    if (parentTimeResult.status === 'fulfilled' && childTimeResult.status === 'fulfilled') {
+      try { localStorage.setItem(TE_BACKFILL_KEY, String(Date.now())); } catch (e) {}
+    }
     const medicationsResult = await settleSyncStep('medications', () =>
       upsertRows('medications', mapJsonbTable(medications, 'medication'))
     );
