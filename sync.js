@@ -253,6 +253,26 @@ function ensureLegacyMedicationCatalogRows(medications) {
   return result.rows;
 }
 
+// Activities that lost their name and came back as a "Restored activity"
+// placeholder. Names confirmed by Natalija from combined-backup.json.
+const RESTORED_ACTIVITY_NAMES = {
+  mlp1ix1tyocd: { name: 'Meditations', emoji: '📖' },
+};
+
+function repairRestoredActivityNames() {
+  const activities = safeLoad('innerscape_activities');
+  let changed = false;
+  activities.forEach(activity => {
+    const fix = activity && RESTORED_ACTIVITY_NAMES[activity.id];
+    if (!fix || !/^Restored activity /.test(activity.name || '')) return;
+    activity.name = fix.name;
+    activity.emoji = fix.emoji;
+    activity.updatedAt = Date.now();
+    changed = true;
+  });
+  if (changed) safeSaveSync('innerscape_activities', activities);
+}
+
 function ensureCanonicalActivitiesForTimeEntries(timeEntries, activities) {
   const existing = new Set((activities || []).map(activity => activity.id).filter(Boolean));
   const next = [...(activities || [])];
@@ -1137,6 +1157,7 @@ async function syncToSupabase(force, _skipStatusGuard) {
   try {
     const checkins = await loadCheckinsForSync(force, lastSync);
     let timeEntries = remapLegacyTimeEntryActivityIds(clearMissingParentEntryRefs(safeLoad('innerscape_time_entries')));
+    repairRestoredActivityNames();
     let activities = ensureLegacyActivityCatalogRows(safeLoad('innerscape_activities'), timeEntries);
     activities = ensureCanonicalActivitiesForTimeEntries(timeEntries, activities);
     const food = safeLoad('innerscape_food_entries');
