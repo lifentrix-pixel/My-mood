@@ -446,14 +446,60 @@ function mapCheckins(entries) {
   }));
 }
 
+// activityId -> { subs: Map(subId -> sub), subsByName: Map(name -> sub) }
+function buildSubActivityIndex(activities) {
+  const index = new Map();
+  (activities || []).forEach(activity => {
+    if (!activity || !activity.id || !Array.isArray(activity.subActivities)) return;
+    const subs = new Map();
+    const subsByName = new Map();
+    activity.subActivities.forEach(sub => {
+      if (!sub) return;
+      if (sub.id) subs.set(sub.id, sub);
+      if (sub.name && !subsByName.has(sub.name)) subsByName.set(sub.name, sub);
+    });
+    index.set(canonicalActivityId(activity.id), { subs, subsByName });
+  });
+  return index;
+}
+
+// Name and id go to separate columns. sub_activity stays the name (the review
+// pipeline, Daystream and Ledger read it); the ids keep the link to the definitions.
+function timeEntrySubFields(e, subIndex) {
+  const defs = subIndex.get(canonicalActivityId(e.activityId || e.activity_id));
+  let subName = e.subActivityName || e.subActivity || null;
+  let subId = e.subActivityId || null;
+  // Entries restored from the cloud before this fix had the name copied into
+  // subActivityId. That is not an id: find the real one by name, or send none.
+  if (subId && subId === subName && !(defs && defs.subs.has(subId))) {
+    const byName = defs && defs.subsByName.get(subName);
+    subId = byName ? byName.id : null;
+  }
+  const sub = subId && defs ? defs.subs.get(subId) : null;
+  if (!subName && sub) subName = sub.name || null;
+  const subSubId = e.subSubActivityId || null;
+  let subSubName = e.subSubActivityName || null;
+  if (!subSubName && subSubId && sub && Array.isArray(sub.subSubActivities)) {
+    const subSub = sub.subSubActivities.find(ss => ss && ss.id === subSubId);
+    if (subSub) subSubName = subSub.name || null;
+  }
+  return {
+    sub_activity: subName,
+    sub_activity_id: subId,
+    sub_sub_activity: subSubName,
+    sub_sub_activity_id: subSubId
+  };
+}
+
 function mapTimeEntries(entries, validParentIds) {
   const ids = validParentIds || new Set((entries || []).map(e => e.id).filter(Boolean));
+  const subIndex = buildSubActivityIndex(safeLoad('innerscape_activities'));
   return entries.filter(e => e.id).map(e => ({
     id: e.id,
     activity_id: canonicalActivityId(e.activityId || e.activity_id) || null,
     start_time: e.startTime || e.start_time || null,
     end_time: e.endTime || e.end_time || null,
-    sub_activity: e.subActivityName || e.subActivityId || e.subActivity || null,
+    ...timeEntrySubFields(e, subIndex),
     notes: encodeTimeEntryNotes(e),
     tracking_mode: e.tracking_mode || e.trackingMode || 'primary',
     parent_entry_id: ids.has(e.parent_entry_id || e.parentEntryId) ? (e.parent_entry_id || e.parentEntryId) : null,
@@ -465,15 +511,29 @@ function mapTimeEntries(entries, validParentIds) {
   }));
 }
 
+// sub_activities is only included when this device has an array for that
+// activity, so a placeholder activity never blanks the cloud copy. Rows with and
+// without the key must be upserted in separate batches (see upsertActivities).
 function mapActivities(entries) {
-  return entries.map(e => ({
-    id: e.id,
-    name: e.name || null,
-    emoji: e.emoji || null,
-    category: e.category || null,
-    schema_version: e.schema_version || 1,
-    source: e.source || 'phone_app'
-  }));
+  return entries.map(e => {
+    const row = {
+      id: e.id,
+      name: e.name || null,
+      emoji: e.emoji || null,
+      category: e.category || null,
+      schema_version: e.schema_version || 1,
+      source: e.source || 'phone_app'
+    };
+    if (Array.isArray(e.subActivities)) row.sub_activities = e.subActivities;
+    return row;
+  });
+}
+
+async function upsertActivities(activities) {
+  const rows = mapActivities(activities);
+  const withSubs = await upsertRows('activities', rows.filter(r => 'sub_activities' in r));
+  const withoutSubs = await upsertRows('activities', rows.filter(r => !('sub_activities' in r)));
+  return { ok: true, count: withSubs.count + withoutSubs.count };
 }
 
 function mapFoodEntries(entries) {
@@ -627,7 +687,10 @@ function unmapTimeEntries(rows) {
       startTime: r.start_time || null,
       endTime: r.end_time || null,
       subActivityName: r.sub_activity || null,
-      subActivityId: r.sub_activity || null,
+      // Older rows have no id column filled; keep the old name fallback for those.
+      subActivityId: r.sub_activity_id || r.sub_activity || null,
+      subSubActivityId: r.sub_sub_activity_id || null,
+      subSubActivityName: r.sub_sub_activity || null,
       note: decodedNotes.note || null,
       session_quality: decodedNotes.session_quality || null,
       session_quality_score: decodedNotes.session_quality_score ?? null,
@@ -652,14 +715,20 @@ function unmapTimeEntries(rows) {
 }
 
 function unmapActivities(rows) {
-  return rows.map(r => ({
-    id: r.id,
-    name: r.name || null,
-    emoji: r.emoji || null,
-    category: r.category || null,
-    schema_version: r.schema_version || 1,
-    source: r.source || 'phone_app'
-  }));
+  return rows.map(r => {
+    const activity = {
+      id: r.id,
+      name: r.name || null,
+      emoji: r.emoji || null,
+      category: r.category || null,
+      schema_version: r.schema_version || 1,
+      source: r.source || 'phone_app'
+    };
+    if (Array.isArray(r.sub_activities) && r.sub_activities.length > 0) {
+      activity.subActivities = r.sub_activities;
+    }
+    return activity;
+  });
 }
 
 function unmapFoodEntries(rows) {
@@ -745,6 +814,22 @@ const RECENT_PULL_TABLES = {
   'media_sessions': 'created_at'
 };
 
+async function fetchPhoneAppTimeEntryIds() {
+  const ids = new Set();
+  const limit = 1000;
+  for (let offset = 0; ; offset += limit) {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/time_entries?select=id&source=eq.phone_app&order=id.asc&offset=${offset}&limit=${limit}`,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } }
+    );
+    if (!res.ok) throw new Error(`Pull time_entries ids: ${res.status}`);
+    const chunk = await res.json();
+    chunk.forEach(r => r && r.id && ids.add(r.id));
+    if (chunk.length < limit) break;
+  }
+  return ids;
+}
+
 async function fetchAllRows(table, recentOnly) {
   const rows = [];
   let offset = 0;
@@ -826,6 +911,45 @@ function mergeById(local, remote) {
   return Array.from(map.values());
 }
 
+// Sub-activity ids removed on this device, so a pull doesn't bring them back.
+function deletedSubActivityIds() {
+  try { return new Set(JSON.parse(localStorage.getItem('innerscape_deleted_sub_activities') || '[]')); }
+  catch { return new Set(); }
+}
+
+// Union by id; local wins on conflict. Nested sub-sub-activities merge the same way.
+function mergeSubList(local, remote, deleted) {
+  const merged = Array.isArray(local) ? [...local] : [];
+  const byId = new Map(merged.filter(s => s && s.id).map(s => [s.id, s]));
+  (Array.isArray(remote) ? remote : []).forEach(r => {
+    if (!r || !r.id || deleted.has(r.id)) return;
+    const l = byId.get(r.id);
+    if (!l) {
+      merged.push(r);
+      byId.set(r.id, r);
+    } else if (Array.isArray(r.subSubActivities) && r.subSubActivities.length > 0) {
+      l.subSubActivities = mergeSubList(l.subSubActivities, r.subSubActivities, deleted);
+    }
+  });
+  return merged;
+}
+
+// Activities: the generic merge would let a remote subActivities array replace an
+// empty local one. Merge the base fields without it, then merge subs by id.
+function mergeActivities(local, remote) {
+  const deleted = deletedSubActivityIds();
+  const merged = mergeById(local, remote.map(({ subActivities, ...rest }) => rest));
+  const byId = new Map(merged.map(a => [a.id, a]));
+  remote.forEach(r => {
+    if (!Array.isArray(r.subActivities) || _deletedIds.has(r.id)) return;
+    const target = byId.get(r.id);
+    if (!target) return;
+    const subs = mergeSubList(target.subActivities, r.subActivities, deleted);
+    if (Array.isArray(target.subActivities) || subs.length > 0) target.subActivities = subs;
+  });
+  return merged;
+}
+
 async function pullFromSupabase() {
   if (!navigator.onLine) return;
   updateSyncStatus('Pulling...', 'syncing');
@@ -879,7 +1003,7 @@ async function pullFromSupabase() {
     for (const { key, remote } of merges) {
       if (remote.length === 0) continue;
       const local = safeLoad(key);
-      const merged = mergeById(local, remote);
+      const merged = key === 'innerscape_activities' ? mergeActivities(local, remote) : mergeById(local, remote);
       const added = merged.length - local.length;
       if (added > 0) pulled += added;
       if (!safeSave(key, merged)) {
@@ -1070,7 +1194,7 @@ async function syncToSupabase(force, _skipStatusGuard) {
       upsertRows('checkins', mapCheckins(filterNew(checkins, 'ts')))
     );
     const activitiesResult = await settleSyncStep('activities', () =>
-      upsertRows('activities', mapActivities(activities))
+      upsertActivities(activities)
     );
     const parentTimeResult = activitiesResult.status === 'fulfilled'
       ? await settleSyncStep('time_entries parents', () =>
@@ -1084,6 +1208,28 @@ async function syncToSupabase(force, _skipStatusGuard) {
       : skippedSyncStep('time_entries children', 'time entry parents failed');
     if (parentTimeResult.status === 'fulfilled' && childTimeResult.status === 'fulfilled') {
       try { localStorage.setItem(TE_BACKFILL_KEY, String(Date.now())); } catch (e) {}
+    }
+    // One-time: fill the sub-activity columns on this device's rows that are
+    // already in the cloud. Only id + the four sub columns are sent, and only for
+    // ids that exist there, so activity, times and notes are never rewritten.
+    const TE_SUB_BACKFILL_KEY = 'innerscape_te_sub_backfill_v1';
+    let teSubBackfill = false;
+    try { teSubBackfill = !localStorage.getItem(TE_SUB_BACKFILL_KEY); } catch (e) {}
+    if (teSubBackfill && parentTimeResult.status === 'fulfilled' && childTimeResult.status === 'fulfilled') {
+      const subBackfillResult = await settleSyncStep('time_entries sub backfill', async () => {
+        const remoteIds = await fetchPhoneAppTimeEntryIds();
+        const subIndex = buildSubActivityIndex(safeLoad('innerscape_activities'));
+        const rows = timeEntries
+          .filter(e => e.id && teFromThisApp(e) && remoteIds.has(e.id) &&
+            (e.subActivityId || e.subActivityName || e.subSubActivityId || e.subSubActivityName))
+          .map(e => ({ id: e.id, ...timeEntrySubFields(e, subIndex) }));
+        return upsertRows('time_entries', rows);
+      });
+      if (subBackfillResult.status === 'fulfilled') {
+        try { localStorage.setItem(TE_SUB_BACKFILL_KEY, String(Date.now())); } catch (e) {}
+      } else {
+        console.warn('Sub-activity backfill failed, will retry next sync:', subBackfillResult.reason?.message);
+      }
     }
     const medicationsResult = await settleSyncStep('medications', () =>
       upsertRows('medications', mapJsonbTable(medications, 'medication'))

@@ -794,6 +794,12 @@ function removeSubActivity(parentId, subId) {
   if (!parent || !parent.subActivities) return;
   parent.subActivities = parent.subActivities.filter(s => s.id !== subId);
   saveActivities(activities);
+  // Remember the deletion so a cloud pull doesn't bring the sub-activity back.
+  try {
+    const deleted = JSON.parse(localStorage.getItem('innerscape_deleted_sub_activities') || '[]');
+    if (!deleted.includes(subId)) deleted.push(subId);
+    localStorage.setItem('innerscape_deleted_sub_activities', JSON.stringify(deleted.slice(-500)));
+  } catch (e) {}
 }
 
 // Deletion tracking
