@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0d0d14">
+  <meta name="robots" content="noindex">
+  <title>Innerscape · Gate</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="gate.css">
+</head>
+<body>
+  <main class="gate" data-step="loading">
+    <div class="scene" aria-hidden="true">
+      <img src="assets/threshold.jpg" alt="">
+      <div class="glow"></div>
+      <div class="lantern"></div>
+      <div class="mist"></div>
+      <div class="fade"></div>
+    </div>
+
+    <header class="top">
+      <span class="brand">INNERSCAPE</span>
+      <span class="today" id="today" hidden></span>
+    </header>
+
+    <!-- Choose -->
+    <section class="panel" data-panel="choose" aria-labelledby="choose-title">
+      <div class="heading">
+        <span class="eyebrow" id="beyond">BEYOND THE GATE</span>
+        <h1 id="choose-title">What are you here for?</h1>
+      </div>
+      <div class="reasons" id="reasons" role="group" aria-label="Reason"></div>
+      <div class="field">
+        <span class="label">Anything pulling at you? <span class="optional">optional</span></span>
+        <div class="chips" id="pulls" role="group" aria-label="Pull"></div>
+      </div>
+      <div class="field row">
+        <span class="label">For how long?</span>
+        <div class="chips" id="durations" role="group" aria-label="Minutes"></div>
+      </div>
+      <div class="actions">
+        <button type="button" class="primary" id="enter" disabled>Choose a reason to enter</button>
+        <button type="button" class="secondary" id="turn-back">Turn back</button>
+      </div>
+    </section>
+
+    <!-- Entered -->
+    <section class="panel" data-panel="entered" aria-labelledby="entered-title">
+      <span class="eyebrow gold">THE GATE OPENS</span>
+      <h1 id="entered-title"></h1>
+      <p class="copy">The lantern keeps time. When you close the app you’ll get a one-line summary, and Innerscape will ask later whether you got what you came for.</p>
+      <dl class="recap">
+        <div><dt>Reason</dt><dd id="recap-reason"></dd></div>
+        <div><dt>Pull</dt><dd id="recap-pull"></dd></div>
+        <div><dt>Time you gave it</dt><dd id="recap-min"></dd></div>
+      </dl>
+      <p class="hint">Back within 2 minutes and the gate won’t ask again.</p>
+      <div class="actions">
+        <a class="primary" id="continue" href="#">Continue</a>
+      </div>
+    </section>
+
+    <!-- Turned back -->
+    <section class="panel" data-panel="turned" aria-labelledby="turned-title">
+      <span class="eyebrow gold">YOU TURNED BACK</span>
+      <h1 id="turned-title">The path stays clear.</h1>
+      <p class="copy" id="turned-copy">Logged as a catch.</p>
+      <div class="field">
+        <span class="label">A small next step</span>
+        <div class="ramps" id="ramps" role="group" aria-label="Next step"></div>
+      </div>
+      <div class="actions">
+        <a class="primary" href="/">Open Innerscape</a>
+      </div>
+    </section>
+
+    <!-- Expired / error -->
+    <section class="panel" data-panel="gone" aria-labelledby="gone-title">
+      <span class="eyebrow">THE LINK HAS FADED</span>
+      <h1 id="gone-title">This gate isn’t open anymore.</h1>
+      <p class="copy" id="gone-copy">Gate links only last 15 minutes. Open the app again and a new one appears.</p>
+      <div class="actions">
+        <a class="primary" href="/">Open Innerscape</a>
+      </div>
+    </section>
+  </main>
+  <script src="gate.js"></script>
+</body>
+</html>

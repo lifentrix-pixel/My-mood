@@ -49,7 +49,7 @@ const MEDIA_EXIT_ACTIONS = [
   { id: 'queue', emoji: '📋', label: 'Use queue' },
 ];
 
-let mediaView = 'queue'; // 'queue' | 'session' | 'log'
+let mediaView = 'threshold'; // 'threshold' | 'queue' | 'session' | 'log'
 let activeMediaSession = null;
 
 function loadMediaQueue() {
@@ -80,7 +80,8 @@ function saveMediaShield(shield) {
 }
 
 function initMedia() {
-  mediaView = 'queue';
+  mediaView = 'threshold';
+  thrSessions = null; // reload today's sessions each time Media opens
 
   // Bind modal platform buttons (only once)
   document.querySelectorAll('.media-platform-btn').forEach(btn => {
@@ -111,13 +112,16 @@ function renderMedia() {
   // Tab bar
   html += `
     <div class="media-tabs">
+      <button class="media-tab ${mediaView === 'threshold' ? 'active' : ''}" onclick="switchMediaView('threshold')">Today</button>
       <button class="media-tab ${mediaView === 'queue' ? 'active' : ''}" onclick="switchMediaView('queue')">🛟 Rescue</button>
       <button class="media-tab ${mediaView === 'session' ? 'active' : ''}" onclick="switchMediaView('session')">📋 Intentions</button>
       <button class="media-tab ${mediaView === 'log' ? 'active' : ''}" onclick="switchMediaView('log')">📊 Patterns</button>
     </div>
   `;
 
-  if (mediaView === 'queue') {
+  if (mediaView === 'threshold') {
+    html += renderThreshold();
+  } else if (mediaView === 'queue') {
     html += renderMediaQueue(queue, todayImpulses);
   } else if (mediaView === 'session') {
     html += renderMediaSession(queue);
@@ -127,6 +131,7 @@ function renderMedia() {
 
   container.innerHTML = html;
   bindMediaEvents();
+  if (mediaView === 'threshold') bindThresholdEvents();
 }
 
 /* ═══════════════════════════════════
