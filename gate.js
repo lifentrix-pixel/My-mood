@@ -22,7 +22,7 @@ const GATE_REASONS = [
   ['autopilot', 'Bored · autopilot'],
 ];
 const GATE_PULLS = ['Tired', 'Anxious', 'Lonely', 'Restless', 'Need comfort'];
-const GATE_MINUTES = [5, 10, 20, 30];
+const GATE_MINUTES = [1, 5, 10, 20, 30];
 const GATE_RAMPS = ['Phone down', '3 breaths', 'Glass of water', 'Stand up'];
 
 const gateEl = document.querySelector('.gate');

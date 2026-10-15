@@ -107,7 +107,7 @@ h1 { font-size: 28px; font-weight: 650; letter-spacing: -.02em; color: var(--cre
 .hint { font-size: 13px; color: var(--muted); }
 
 .field { display: flex; flex-direction: column; gap: 6px; }
-.field.row { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; }
+#durations { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
 .label { font-size: 13px; color: var(--text2); }
 .optional { color: #8a8498; }
 
@@ -119,7 +119,7 @@ h1 { font-size: 28px; font-weight: 650; letter-spacing: -.02em; color: var(--cre
   border: 1px solid var(--line); background: rgba(22,22,31,.82); color: var(--text);
 }
 .chips .choice { min-height: 36px; border-radius: 999px; font-size: 13px; }
-#durations .choice { min-width: 52px; border-radius: 10px; text-align: center; font-variant-numeric: tabular-nums; }
+#durations .choice { border-radius: 10px; padding: 0; text-align: center; font-variant-numeric: tabular-nums; }
 .ramps .choice { text-align: center; }
 .choice[aria-pressed="true"] { background: var(--parchment); border-color: var(--parchment); color: var(--ink-on-light); font-weight: 600; }
 
