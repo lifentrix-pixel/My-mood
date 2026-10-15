@@ -219,6 +219,7 @@ function thrLatestTemplate(all) {
         if (s.turned_back) detail = s.note ? `Next step: ${s.note}` : 'At the gate';
         else if (vids.length) detail = `${vids.length - shorts} video${vids.length - shorts === 1 ? '' : 's'}${shorts ? ` · ${shorts} Shorts` : ''}`;
         else if (s.pull) detail = `Pull: ${s.pull}`;
+        if (s.returns && !s.turned_back) detail += `${detail ? ' · ' : ''}${s.returns} quick return${s.returns === 1 ? '' : 's'}`;
         if (s.planned_min && !s.turned_back && s.sec / 60 > s.planned_min + 0.5) detail += `${detail ? ' · ' : ''}${Math.round(s.sec / 60 - s.planned_min)} min over`;
         const canRate = !s.turned_back && !s.live && !s.outcome && s.sec >= 60;
         return `
