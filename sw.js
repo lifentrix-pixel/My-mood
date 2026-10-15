@@ -1,4 +1,4 @@
-const CACHE = 'innerscape-v230';
+const CACHE = 'innerscape-v231';
 
 const ASSETS = ['/', '/index.html', '/styles.css', '/core.js', '/mood.js', '/dreams.js', '/timer.js', '/meditation.js', '/food.js', '/insights.js', '/sync.js', '/medication.js', '/todos.js', '/pressure.js', '/wishlist.js', '/studio.js', '/stool.js', '/forecast.js', '/oura.js', '/activity-overview.js', '/app.js', '/intentions.js', '/media.js', '/media-threshold.js', '/media-threshold.css', '/gate', '/gate.css', '/gate.js', '/assets/threshold.jpg', '/manifest.json'];
 
