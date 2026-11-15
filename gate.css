@@ -112,6 +112,7 @@ h1 { font-size: 28px; font-weight: 650; letter-spacing: -.02em; color: var(--cre
 .optional { color: #8a8498; }
 
 .reasons, .ramps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.reasons button:last-child:nth-child(odd) { grid-column: 1 / -1; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 
 .choice {

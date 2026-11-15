@@ -11,7 +11,7 @@ const THR_SOURCES = [
 ];
 const THR_PURPOSES = {
   specific: 'A specific thing', learning: 'Learning', music: 'Music · background', social: 'Friends · messages',
-  inspiration: 'Inspiration', break: 'A real break', autopilot: 'Bored · autopilot', post: 'Post something', other: 'Other',
+  inspiration: 'Inspiration', break: 'A real break', autopilot: 'Bored · autopilot', post: 'Post something', likes: 'Checking likes', other: 'Other',
 };
 const THR_OUTCOME = { yes: 'got it', partly: 'partly', no: 'didn’t get it' };
 

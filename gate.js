@@ -21,6 +21,10 @@ const GATE_REASONS = [
   ['music', 'Music · background'],
   ['autopilot', 'Bored · autopilot'],
 ];
+// Extra reasons that only make sense for one app.
+const GATE_APP_REASONS = {
+  instagram: [['likes', 'Checking likes']],
+};
 const GATE_PULLS = ['Tired', 'Anxious', 'Lonely', 'Restless', 'Need comfort'];
 const GATE_MINUTES = [1, 5, 10, 20, 30];
 const GATE_RAMPS = ['Phone down', '3 breaths', 'Glass of water', 'Stand up'];
@@ -29,6 +33,7 @@ const gateEl = document.querySelector('.gate');
 const params = new URLSearchParams(location.search);
 const sessionId = params.get('s') || '';
 const app = GATE_APPS[params.get('app')] || GATE_APPS.instagram;
+const reasons = [...GATE_REASONS, ...(GATE_APP_REASONS[params.get('app') || 'instagram'] || [])];
 const choice = { reason: null, pull: null, minutes: 10 };
 
 async function gateRpc(fn, body) {
@@ -70,7 +75,7 @@ function renderChoices(container, items, isOn, onPick) {
 }
 
 function renderChoose() {
-  renderChoices(document.getElementById('reasons'), GATE_REASONS, (v) => choice.reason === v, (v) => {
+  renderChoices(document.getElementById('reasons'), reasons, (v) => choice.reason === v, (v) => {
     choice.reason = v;
     renderChoose();
   });
@@ -91,7 +96,7 @@ function renderChoose() {
 async function enter() {
   const enterBtn = document.getElementById('enter');
   enterBtn.disabled = true;
-  const label = GATE_REASONS.find(([id]) => id === choice.reason)[1];
+  const label = reasons.find(([id]) => id === choice.reason)[1];
   try {
     const r = await gateRpc('brainrot_gate_choose', {
       s: sessionId, purpose_text: label, pull_text: choice.pull || '', minutes: choice.minutes,
