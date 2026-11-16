@@ -56,7 +56,8 @@ function makeIntradayData(entries, visible) {
   
   const datasets = CATS.filter(c => visible[c.id]).map(cat => ({
     label: cat.label,
-    data: entries.map(e => e.scores[cat.id] || 5),
+    // A check-in without this score (one-tap, or optional-only) leaves a gap instead of a made-up 5.
+    data: entries.map(e => Number.isFinite(e.scores[cat.id]) ? e.scores[cat.id] : null),
     borderColor: cat.color,
     backgroundColor: cat.color + '18',
     tension: 0.3,
@@ -64,7 +65,7 @@ function makeIntradayData(entries, visible) {
     pointHoverRadius: 7,
     borderWidth: 2.5,
     fill: false,
-    spanGaps: false,
+    spanGaps: true,
   }));
   
   return { labels, datasets };
@@ -134,7 +135,7 @@ function aggregateByDay(entries, days) {
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(now); d.setDate(d.getDate() - i);
     const key = dayKey(d);
-    result[key] = { label: days <= 7 ? d.toLocaleDateString([], { weekday: 'short' }) : shortDate(d), values: {} };
+    result[key] = { label: days <= 7 ? d.toLocaleDateString([], { weekday: 'short' }) : shortDate(d), values: {}, quick: [] };
     CATS.forEach(c => result[key].values[c.id] = []);
   }
   entries.forEach(e => {
@@ -143,6 +144,8 @@ function aggregateByDay(entries, days) {
       CATS.forEach(c => {
         if (e.scores[c.id] != null) result[key].values[c.id].push(e.scores[c.id]);
       });
+      // One-tap check-ins carry a single overall level and no per-scale scores.
+      if (typeof isQuickCheckin === 'function' && isQuickCheckin(e)) result[key].quick.push(e.scores.overall);
     }
   });
   return result;
@@ -178,6 +181,8 @@ function makeTrendsData(agg, visible) {
       data: Object.values(agg).map(d => {
         const allVals = [];
         CATS.forEach(cat => allVals.push(...d.values[cat.id]));
+        // Weigh a one-tap check-in like a full one (four scores).
+        (d.quick || []).forEach(v => allVals.push(v, v, v, v));
         return allVals.length ? allVals.reduce((a,b)=>a+b,0)/allVals.length : null;
       }),
       borderColor: '#a78bfa',
@@ -617,7 +622,8 @@ function exportAsCSV(data, filename, totalEntries) {
     data.mood_entries.forEach(entry => {
       const date = new Date(entry.ts);
       const scores = entry.scores || {};
-      const avg = ((scores.body || 0) + (scores.energy || 0) + (scores.mood || 0) + (scores.mind || 0)) / 4;
+      const quickOnly = typeof isQuickCheckin === 'function' && isQuickCheckin(entry);
+      const avg = quickOnly ? scores.overall : ((scores.body || 0) + (scores.energy || 0) + (scores.mood || 0) + (scores.mind || 0)) / 4;
       
       csvContent += [
         date.toLocaleDateString(),

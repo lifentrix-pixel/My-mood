@@ -1,6 +1,7 @@
 /* ── Mood Tracking ── */
 
 function buildSliders() {
+  buildQuickCheckin();
   const container = $('#sliders-container');
   CATS.forEach(cat => {
     const card = document.createElement('div');
@@ -208,6 +209,7 @@ function handleSubmit() {
   }, 1500);
   
   showToast(saved === false ? 'Check-in saved to backup storage ✓' : 'Check-in saved ✓');
+  refreshQuickCheckinTitle();
 }
 
 function renderTodayStats() {
@@ -243,7 +245,19 @@ function renderToday() {
     card.className = 'entry-card';
     card.style.animationDelay = `${i * 0.06}s`;
     
-    let scoresHTML = CATS.map(cat => {
+    const quick = isQuickCheckin(entry);
+    const hasPrimary = CATS.some(cat => Number.isFinite(entry.scores?.[cat.id]));
+    let scoresHTML = quick ? (() => {
+      const v = entry.scores.overall;
+      const pct = ((v - 1) / 9) * 100;
+      return `
+        <div class="entry-score">
+          <span class="score-emoji">✦</span>
+          <div class="entry-bar"><div class="entry-bar-fill" style="width:${pct}%;background:var(--accent)"></div></div>
+          <span class="entry-score-val">${fmt(v)}</span>
+        </div>
+        <div class="entry-quick-label">${quickCheckinLabel(entry)}</div>`;
+    })() : !hasPrimary ? '' : CATS.map(cat => {
       const v = entry.scores[cat.id] || 5;
       const pct = ((v - 1) / 9) * 100;
       return `
@@ -255,7 +269,7 @@ function renderToday() {
     }).join('');
     
     let notesHTML = '';
-    const noteKeys = Object.keys(entry.notes || {});
+    const noteKeys = Object.keys(entry.notes || {}).filter(k => k !== 'quick');
     if (noteKeys.length) {
       notesHTML = '<div class="entry-notes">' + noteKeys.map(k => {
         const cat = CATS.find(c => c.id === k);
@@ -309,4 +323,88 @@ function renderToday() {
   });
   
   $('#today-date').textContent = dateStr(new Date());
+}
+
+
+/* ── One-tap check-in ──
+   For low-battery moments: one tap saves a check-in.
+   Stored as scores.overall (an estimate on the usual 1–10 scale, taken from
+   the person's own recent range) plus notes.quick (what was actually tapped).
+   The four main scores are left empty, so nothing is invented for them. */
+const QUICK_CHOICES = [
+  { id: 'low',   label: 'Low',   band: 'p17', fallback: 3.5 },
+  { id: 'usual', label: 'Usual', band: 'p50', fallback: 5 },
+  { id: 'good',  label: 'Good',  band: 'p83', fallback: 6.5 }
+];
+
+function isQuickCheckin(entry) {
+  const s = entry && entry.scores;
+  return !!s && Number.isFinite(s.overall) && !CATS.some(cat => Number.isFinite(s[cat.id]));
+}
+
+function quickCheckinLabel(entry) {
+  const text = entry && entry.notes && entry.notes.quick;
+  return text ? String(text).replace(/[<>&]/g, '') : 'One-tap check-in';
+}
+
+function quickCheckinLevel(choice) {
+  let bands = null;
+  try {
+    if (typeof fcBuildPersonalBands === 'function') bands = fcBuildPersonalBands(loadEntries(), Date.now());
+  } catch (error) {
+    console.warn('Quick check-in: personal range unavailable', error);
+  }
+  const raw = bands && Number.isFinite(bands[choice.band]) ? bands[choice.band] : choice.fallback;
+  return Math.max(1, Math.min(10, Math.round(raw * 10) / 10));
+}
+
+function refreshQuickCheckinTitle() {
+  const title = $('#quick-checkin-title');
+  if (!title) return;
+  const entries = loadEntries();
+  const last = entries.length ? Math.max(...entries.map(e => e.ts || 0)) : 0;
+  const quiet = !last || Date.now() - last > 24 * 3600000;
+  title.textContent = quiet
+    ? "It's been a while. One tap counts as a check-in."
+    : 'Low on battery? One tap counts as a check-in.';
+}
+
+function buildQuickCheckin() {
+  const box = $('#quick-checkin');
+  if (!box) return;
+  box.innerHTML = `
+    <div class="quick-checkin-title" id="quick-checkin-title"></div>
+    <div class="quick-checkin-row">
+      ${QUICK_CHOICES.map(c => `
+        <button type="button" class="quick-checkin-btn" data-quick="${c.id}">
+          ${c.label}<small>for me</small>
+        </button>`).join('')}
+    </div>
+  `;
+  box.querySelectorAll('.quick-checkin-btn').forEach(btn => {
+    btn.addEventListener('click', () => saveQuickCheckin(btn.dataset.quick));
+  });
+  refreshQuickCheckinTitle();
+}
+
+function saveQuickCheckin(choiceId) {
+  const choice = QUICK_CHOICES.find(c => c.id === choiceId);
+  if (!choice) return;
+  const buttons = document.querySelectorAll('.quick-checkin-btn');
+  buttons.forEach(b => { b.disabled = true; });
+  setTimeout(() => buttons.forEach(b => { b.disabled = false; }), 1500);
+
+  const now = Date.now();
+  const entry = {
+    id: 'ci-' + now,
+    ts: now,
+    scores: { overall: quickCheckinLevel(choice) },
+    notes: { quick: `One-tap: ${choice.label.toLowerCase()} for me` }
+  };
+  const saved = saveEntry(entry);
+  refreshQuickCheckinTitle();
+  showToast(saved === false ? 'Check-in saved to backup storage ✓' : `Check-in saved: ${choice.label.toLowerCase()} for me ✓`, () => {
+    deleteEntry(now);
+    refreshQuickCheckinTitle();
+  });
 }
