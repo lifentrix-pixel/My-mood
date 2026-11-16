@@ -970,6 +970,309 @@ function mergeActivities(local, remote) {
   return merged;
 }
 
+/* ── Cloud corrections ──
+   Rows fixed in Supabase outside the app (daycheck, chat) come back into the
+   app on sync. A row counts as a correction when it is marked end_source
+   'manual', was written by daycheck or chat, or has an uncertain end.
+   The cloud version wins, unless the entry was also edited on this phone since
+   the last pull: then the phone version stays and the entry gets a ⚠ marker.
+   The first time, nothing is applied until Natalija reviews and taps Apply;
+   a backup of all time entries is saved to IndexedDB before that first apply. */
+const CC_ENABLED_KEY = 'innerscape_cloud_corrections_on';
+const CC_SINCE_KEY = 'innerscape_cloud_corrections_last_pull';
+const CC_BACKUP_KEY = 'innerscape_time_entries_backup_before_cloud_corrections';
+const CC_FIELDS = ['startTime', 'endTime', 'activityId', 'subActivityName', 'subActivityId',
+  'subSubActivityName', 'subSubActivityId', 'tracking_mode', 'endSource', 'endUncertain'];
+const CC_SUB_FIELDS = ['subActivityName', 'subActivityId', 'subSubActivityName', 'subSubActivityId'];
+let _ccRows = [];
+let _ccPreview = null;
+
+function isCloudCorrection(row) {
+  return !!row && (row.end_source === 'manual' || row.source === 'claude_daycheck' ||
+    row.source === 'manual_claude' || row.end_uncertain === true);
+}
+
+function ccNorm(field, value) {
+  if (field === 'endUncertain') return !!value;
+  if (field === 'tracking_mode') return value || 'primary';
+  return value === undefined || value === '' ? null : value;
+}
+
+function ccLocalValues(entry) {
+  const v = {
+    startTime: entry.startTime ?? entry.start_time,
+    endTime: entry.endTime ?? entry.end_time,
+    activityId: canonicalActivityId(entry.activityId || entry.activity_id),
+    subActivityName: entry.subActivityName || entry.subActivity,
+    subActivityId: entry.subActivityId,
+    subSubActivityName: entry.subSubActivityName,
+    subSubActivityId: entry.subSubActivityId,
+    tracking_mode: entry.tracking_mode || entry.trackingMode,
+    endSource: entry.endSource,
+    endUncertain: entry.endUncertain
+  };
+  CC_FIELDS.forEach(f => { v[f] = ccNorm(f, v[f]); });
+  return v;
+}
+
+// What the entry should look like after taking the cloud version. Sub-activity
+// fields only come from the cloud when it has them (older rows never stored the
+// ids), unless the activity itself was changed there.
+function ccCloudValues(row, local) {
+  const cloud = {
+    startTime: row.start_time, endTime: row.end_time,
+    activityId: canonicalActivityId(row.activity_id),
+    subActivityName: row.sub_activity, subActivityId: row.sub_activity_id,
+    subSubActivityName: row.sub_sub_activity, subSubActivityId: row.sub_sub_activity_id,
+    tracking_mode: row.tracking_mode, endSource: row.end_source, endUncertain: row.end_uncertain
+  };
+  CC_FIELDS.forEach(f => { cloud[f] = ccNorm(f, cloud[f]); });
+  if (local && cloud.activityId === local.activityId) {
+    CC_SUB_FIELDS.forEach(f => { if (cloud[f] === null) cloud[f] = local[f]; });
+  }
+  // Never blank a time the phone has.
+  if (local) ['startTime', 'endTime'].forEach(f => { if (cloud[f] === null) cloud[f] = local[f]; });
+  return cloud;
+}
+
+function ccFingerprint(values) {
+  return JSON.stringify(CC_FIELDS.map(f => ccNorm(f, values[f])));
+}
+
+// Pure: works out what would change, without touching anything.
+function planCloudCorrections(entries, rows, since) {
+  const byId = new Map((entries || []).filter(e => e && e.id).map(e => [e.id, e]));
+  const changes = [];
+  (rows || []).forEach(row => {
+    if (!isCloudCorrection(row) || _deletedIds.has(row.id)) return;
+    const entry = byId.get(row.id);
+    if (!entry) return; // new rows are added by the normal pull
+    const before = ccLocalValues(entry);
+    const after = ccCloudValues(row, before);
+    const fields = CC_FIELDS.filter(f => before[f] !== after[f]);
+    if (!fields.length) return;
+    const editedHere = (entry.editedAt || 0) > since || entry.pendingManualEdit || entry.syncConflict;
+    if (editedHere) {
+      // Cloud unchanged since we last took it: the phone edit is simply newer.
+      if (entry.cloudFp && entry.cloudFp === ccFingerprint(after)) {
+        if (!entry.pendingManualEdit && !entry.syncConflict) changes.push({ id: row.id, before, after, fields, kind: 'push' });
+        return;
+      }
+      if (entry.syncConflict && entry.syncConflict.fp === ccFingerprint(after)) return; // already marked
+      changes.push({ id: row.id, before, after, fields, kind: 'conflict' });
+      return;
+    }
+    changes.push({ id: row.id, before, after, fields, kind: 'apply' });
+  });
+  return changes;
+}
+
+function applyCloudCorrections(entries, changes) {
+  const byId = new Map(entries.map(e => [e.id, e]));
+  let changed = 0;
+  changes.forEach(change => {
+    const entry = byId.get(change.id);
+    if (!entry) return;
+    if (change.kind === 'apply') {
+      CC_FIELDS.forEach(f => { entry[f] = change.after[f]; });
+      entry.cloudFp = ccFingerprint(change.after);
+      delete entry.syncConflict;
+    } else if (change.kind === 'conflict') {
+      entry.syncConflict = { at: Date.now(), fp: ccFingerprint(change.after), cloud: change.after };
+    } else if (change.kind === 'push') {
+      entry.pendingManualEdit = true;
+    }
+    changed++;
+  });
+  return changed;
+}
+
+async function backupTimeEntriesOnce() {
+  try {
+    if (await idbGet(CC_BACKUP_KEY)) return true;
+    await idbSet(CC_BACKUP_KEY, { at: Date.now(), entries: safeLoad('innerscape_time_entries') });
+    return true;
+  } catch (e) {
+    console.warn('Time entry backup failed, not applying cloud corrections:', e);
+    return false;
+  }
+}
+
+async function runCloudCorrections(rows) {
+  _ccRows = rows || [];
+  let enabled = false;
+  try { enabled = localStorage.getItem(CC_ENABLED_KEY) === '1'; } catch (e) {}
+  const since = enabled ? parseInt(localStorage.getItem(CC_SINCE_KEY) || '0', 10) : 0;
+  const entries = safeLoad('innerscape_time_entries');
+  const changes = planCloudCorrections(entries, _ccRows, since);
+  if (!enabled) {
+    _ccPreview = changes;
+    renderCloudCorrectionsBanner();
+    return 0;
+  }
+  if (changes.length) {
+    if (!(await backupTimeEntriesOnce())) return 0;
+    applyCloudCorrections(entries, changes);
+    safeSaveSync('innerscape_time_entries', entries);
+    if (typeof renderTimerStats === 'function') try { renderTimerStats(); } catch (e) {}
+  }
+  try { localStorage.setItem(CC_SINCE_KEY, String(Date.now())); } catch (e) {}
+  return changes.length;
+}
+
+// Only rows we just saw in the cloud: a pending edit must never create a row.
+async function pushPendingManualEdits(timeEntries) {
+  const cloudIds = new Set(_ccRows.map(r => r.id));
+  const pending = timeEntries.filter(e => e.pendingManualEdit && e.id && cloudIds.has(e.id));
+  if (!pending.length) return { ok: true, count: 0 };
+  // end_source 'manual_edit' tells the database this is a deliberate hand edit;
+  // it stores it as 'manual'. No other columns are sent.
+  const result = await upsertRows('time_entries', pending.map(e => ({
+    id: e.id,
+    start_time: e.startTime || null,
+    end_time: e.endTime || null,
+    activity_id: canonicalActivityId(e.activityId) || null,
+    end_source: 'manual_edit'
+  })));
+  const sent = new Set(pending.map(e => e.id));
+  const entries = safeLoad('innerscape_time_entries');
+  entries.forEach(e => {
+    if (!sent.has(e.id)) return;
+    delete e.pendingManualEdit;
+    e.endSource = 'manual';
+    e.cloudFp = ccFingerprint(ccLocalValues(e));
+  });
+  safeSaveSync('innerscape_time_entries', entries);
+  return result;
+}
+
+// Called by the entry edit screens.
+function markTimeEntryEdited(entry) {
+  if (!entry) return;
+  entry.editedAt = Date.now();
+  if (entry.cloudFp && !entry.syncConflict) entry.pendingManualEdit = true;
+}
+
+function resolveCloudConflict(id) {
+  const entries = loadTimeEntries();
+  const entry = entries.find(e => e.id === id);
+  if (!entry || !entry.syncConflict) return;
+  const cloud = entry.syncConflict.cloud;
+  const acts = loadActivities();
+  const label = v => {
+    const act = acts.find(a => a.id === v.activityId);
+    return `${act ? act.name : 'Unknown activity'} ${timeStr(v.startTime)}–${v.endTime ? timeStr(v.endTime) : '…'}${v.endUncertain ? '?' : ''}`;
+  };
+  const keepMine = confirm(
+    `This entry was also changed in Supabase.\n\nYours: ${label(ccLocalValues(entry))}\nSupabase: ${label(cloud)}\n\n` +
+    `OK = keep yours (it is sent to Supabase)\nCancel = use the Supabase version`);
+  if (keepMine) {
+    entry.cloudFp = entry.syncConflict.fp;
+    entry.pendingManualEdit = true;
+    entry.editedAt = Date.now();
+  } else {
+    CC_FIELDS.forEach(f => { entry[f] = cloud[f]; });
+    entry.cloudFp = entry.syncConflict.fp;
+    delete entry.pendingManualEdit;
+    delete entry.editedAt;
+  }
+  delete entry.syncConflict;
+  saveTimeEntries(entries);
+  if (typeof renderTimerStats === 'function') renderTimerStats();
+  showToast(keepMine ? 'Kept your version ✓' : 'Using the Supabase version ✓');
+}
+
+/* First-time review: a banner, then a before/after list with Apply. */
+function ccDescribe(values) {
+  const acts = (typeof loadActivities === 'function') ? loadActivities() : [];
+  const act = acts.find(a => a.id === values.activityId);
+  const fmt = ms => ms ? new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Helsinki' }) : '…';
+  const sub = values.subSubActivityName || values.subActivityName;
+  return `${act ? `${act.emoji || ''} ${act.name}` : 'Unknown activity'}${sub ? ` · ${sub}` : ''} ` +
+    `${fmt(values.startTime)}–${fmt(values.endTime)}${values.endUncertain ? '?' : ''}`;
+}
+
+function ccEscape(text) {
+  return String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function renderCloudCorrectionsBanner() {
+  let banner = document.getElementById('cc-banner');
+  const count = (_ccPreview || []).length;
+  let dismissed = false;
+  try { dismissed = sessionStorage.getItem('cc-banner-dismissed') === '1'; } catch (e) {}
+  if (!count || dismissed) { if (banner) banner.remove(); return; }
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'cc-banner';
+    document.body.appendChild(banner);
+  }
+  banner.innerHTML = `<span>Supabase has ${count} correction${count === 1 ? '' : 's'} for your activity log.</span>
+    <button type="button" class="cc-btn cc-pri" id="cc-review">Review</button>
+    <button type="button" class="cc-btn" id="cc-later" aria-label="Not now">✕</button>`;
+  banner.querySelector('#cc-review').onclick = openCloudCorrectionsReview;
+  banner.querySelector('#cc-later').onclick = () => {
+    try { sessionStorage.setItem('cc-banner-dismissed', '1'); } catch (e) {}
+    banner.remove();
+  };
+}
+
+function openCloudCorrectionsReview() {
+  const changes = (_ccPreview || []).slice().sort((a, b) => (a.after.startTime || 0) - (b.after.startTime || 0));
+  let modal = document.getElementById('cc-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'cc-modal';
+    document.body.appendChild(modal);
+  }
+  let lastDay = '';
+  const items = changes.map(c => {
+    const day = new Date(c.after.startTime || c.before.startTime).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/Helsinki' });
+    const head = day !== lastDay ? `<h4>${ccEscape(day)}</h4>` : '';
+    lastDay = day;
+    const note = c.kind === 'conflict'
+      ? '<em>⚠ You also changed this on your phone. Your version stays and gets a ⚠ marker.</em>'
+      : c.kind === 'push' ? '<em>Your newer phone edit will be sent to Supabase.</em>' : '';
+    return `${head}<div class="cc-item"><div class="cc-before">${ccEscape(ccDescribe(c.before))}</div>
+      <div class="cc-after">→ ${ccEscape(ccDescribe(c.after))}</div>${note}</div>`;
+  }).join('');
+  modal.innerHTML = `<div class="cc-sheet" role="dialog" aria-modal="true" aria-labelledby="cc-title">
+    <h3 id="cc-title">Corrections from Supabase</h3>
+    <p>Before → after. A backup of all your activity entries is saved first.</p>
+    <div class="cc-list">${items || '<p>Nothing to change.</p>'}</div>
+    <div class="cc-actions"><button type="button" class="cc-btn" id="cc-cancel">Not now</button>
+    <button type="button" class="cc-btn cc-pri" id="cc-apply">Apply</button></div></div>`;
+  modal.querySelector('#cc-cancel').onclick = () => modal.remove();
+  modal.querySelector('#cc-apply').onclick = async () => {
+    const btn = modal.querySelector('#cc-apply');
+    btn.disabled = true;
+    if (!(await backupTimeEntriesOnce())) { showToast('Backup failed, nothing changed'); btn.disabled = false; return; }
+    try { localStorage.setItem(CC_ENABLED_KEY, '1'); } catch (e) {}
+    const entries = safeLoad('innerscape_time_entries');
+    applyCloudCorrections(entries, planCloudCorrections(entries, _ccRows, 0));
+    safeSaveSync('innerscape_time_entries', entries);
+    try { localStorage.setItem(CC_SINCE_KEY, String(Date.now())); } catch (e) {}
+    _ccPreview = null;
+    modal.remove();
+    renderCloudCorrectionsBanner();
+    if (typeof renderTimerStats === 'function') try { renderTimerStats(); } catch (e) {}
+    showToast('Corrections applied ✓');
+  };
+}
+
+// Rollback: restores the time entries saved before the first apply.
+async function restoreTimeEntriesFromCloudCorrectionsBackup() {
+  const backup = await idbGet(CC_BACKUP_KEY);
+  if (!backup || !Array.isArray(backup.entries)) { console.warn('No backup found'); return false; }
+  safeSaveSync('innerscape_time_entries', backup.entries);
+  try { localStorage.removeItem(CC_ENABLED_KEY); localStorage.removeItem(CC_SINCE_KEY); } catch (e) {}
+  console.log(`Restored ${backup.entries.length} time entries from ${new Date(backup.at).toISOString()}`);
+  return true;
+}
+window.markTimeEntryEdited = markTimeEntryEdited;
+window.resolveCloudConflict = resolveCloudConflict;
+window.restoreTimeEntriesFromCloudCorrectionsBackup = restoreTimeEntriesFromCloudCorrectionsBackup;
+
 async function pullFromSupabase() {
   if (!navigator.onLine) return;
   updateSyncStatus('Pulling...', 'syncing');
@@ -1056,6 +1359,9 @@ async function pullFromSupabase() {
       });
       localStorage.setItem('innerscape_oura_data', JSON.stringify(localOura));
     }
+
+    try { await runCloudCorrections(tRows); }
+    catch (e) { console.warn('Cloud corrections failed:', e); }
 
     console.log(`Pull complete: ${pulled} new entries from cloud`);
     return pulled;
@@ -1229,6 +1535,10 @@ async function syncToSupabase(force, _skipStatusGuard) {
       : skippedSyncStep('time_entries children', 'time entry parents failed');
     if (parentTimeResult.status === 'fulfilled' && childTimeResult.status === 'fulfilled') {
       try { localStorage.setItem(TE_BACKFILL_KEY, String(Date.now())); } catch (e) {}
+    }
+    if (parentTimeResult.status === 'fulfilled' && childTimeResult.status === 'fulfilled') {
+      const manualEditResult = await settleSyncStep('time_entries manual edits', () => pushPendingManualEdits(timeEntries));
+      if (manualEditResult.status === 'rejected') console.warn('Manual edit push failed, will retry:', manualEditResult.reason?.message);
     }
     // One-time: fill the sub-activity columns on this device's rows that are
     // already in the cloud. Only id + the four sub columns are sent, and only for

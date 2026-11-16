@@ -244,7 +244,7 @@ function renderDayTimeline(entries, activities, todayStart) {
 
     html += `
       <div class="ao-block" style="--ac:${color}">
-        <div class="ao-block-bar" style="background:${color}"></div>
+        <div class="ao-block-bar${entry.endUncertain ? ' end-uncertain-bar' : ''}" style="background:${color}"></div>
         <div class="ao-block-content">
           <div class="ao-block-body">
             <div class="ao-block-left">
@@ -256,7 +256,7 @@ function renderDayTimeline(entries, activities, todayStart) {
             </div>
             <div class="ao-block-right">
               <div class="ao-block-dur">${aoFmtDur(dur)}</div>
-              <div class="ao-block-time">${fmtTime(new Date(entry.startTime))} – ${fmtTime(new Date(entry.endTime))}</div>
+              <div class="ao-block-time">${fmtTime(new Date(entry.startTime))} – ${fmtTime(new Date(entry.endTime))}${entry.endUncertain ? '<span class="end-uncertain" title="End time uncertain">?</span>' : ''}${entry.syncConflict ? ' <span class="ao-sync-conflict" title="Also changed in Supabase">⚠</span>' : ''}</div>
               <div class="ao-block-actions">
                 <button class="ao-edit-btn" onclick="editActivityEntry('${entry.id || entry.startTime}')" title="Edit entry">✏️</button>
                 <button class="ao-delete-btn" onclick="deleteActivityEntry('${entry.id || entry.startTime}')" title="Delete entry">🗑️</button>
