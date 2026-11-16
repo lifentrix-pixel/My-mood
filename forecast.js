@@ -2672,7 +2672,9 @@ function fcGetScore(e, dim) {
 function fcAvgScore(e) {
   const s = e.scores || e;
   const vals = [s.body, s.energy, s.mood, s.mind].filter(v => v && v > 0);
-  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 5;
+  if (vals.length) return vals.reduce((a, b) => a + b, 0) / vals.length;
+  // One-tap check-in: a single overall level, no per-scale scores.
+  return Number.isFinite(s.overall) && s.overall > 0 ? s.overall : 5;
 }
 
 function fcAvg(arr) { return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0; }
@@ -2698,7 +2700,7 @@ function fcBuildPersonalBands(entries, now) {
     const lo = Math.floor(pos), hi = Math.ceil(pos);
     return vals[lo] + (vals[hi] - vals[lo]) * (pos - lo);
   };
-  return { p10: q(0.10), p33: q(1 / 3), p67: q(2 / 3), p90: q(0.90), days: vals.length };
+  return { p10: q(0.10), p17: q(1 / 6), p33: q(1 / 3), p50: q(0.5), p67: q(2 / 3), p83: q(5 / 6), p90: q(0.90), days: vals.length };
 }
 
 /* Replays the day-ahead forecast over past days and measures how far it
