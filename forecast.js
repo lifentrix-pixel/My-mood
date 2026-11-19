@@ -1,5 +1,23 @@
 /* ── 🔮 Forecast v4 — Personal Insights Engine ── */
 
+/* Honest-forecast pass (Nov 2026).
+   Cards whose arithmetic the data does not support are paused, not deleted.
+   Set a flag to false to bring that part back. */
+const FC_PAUSED = {
+  activityBoosts: true, // "What Works", "Bring back X", withdrawal lines: with/without days on trimmed timer history
+  weekday: true,        // weekday lines and weekday adjustments: no weekday effect in the data
+  keywords: true,       // keyword reading of notes and food descriptions
+  medication: true,     // "taken vs skipped": older days wrongly count as skipped
+  recovery: true        // "What helped" lists whatever is logged most often, and only counts dips that lifted
+};
+
+// Sleep older than this is not "last night" and must not steer today's numbers.
+const FC_SLEEP_FRESH_MS = 3 * 86400000;
+
+// Where the person's own days usually sit; set on each page build.
+let fcPersonalBands = null;
+let fcTrackRecordCache = null;
+
 function showForecastPage() {
   const entries = loadEntries().sort((a, b) => a.ts - b.ts);
   const container = document.getElementById('forecast-content');
@@ -26,6 +44,7 @@ function showForecastPage() {
   const mediaSessions = fcLoadArray('innerscape_media_sessions');
   const oura = fcLoadOuraData();
   const dataQualityContext = fcGetDataQualityContext();
+  fcPersonalBands = fcBuildPersonalBands(entries, now);
 
   // Core calculations
   const recent24 = entries.filter(e => now - e.ts < 24 * 3600000);
@@ -63,8 +82,8 @@ function showForecastPage() {
   // 8. Tomorrow's Prediction
   html.push(fcBuildPrediction(entries, timeEntries, activities, oura, velocity, now));
 
-  // 9. What Works For You
-  html.push(fcBuildWhatWorks(entries, timeEntries, activities, foodEntries, medLogs, medications, now));
+  // 9. What Works For You (paused: see FC_PAUSED)
+  if (!FC_PAUSED.activityBoosts) html.push(fcBuildWhatWorks(entries, timeEntries, activities, foodEntries, medLogs, medications, now));
 
   // 10. Spiral Risk
   html.push(fcBuildSpiralRisk(entries, recent24, oura));
@@ -73,7 +92,7 @@ function showForecastPage() {
   html.push(fcBuildSleepCard(oura, entries));
 
   // 12. Recovery Insights (after sleep, only when low)
-  html.push(fcBuildRecoveryInsights(entries, timeEntries, activities, foodEntries, now));
+  if (!FC_PAUSED.recovery) html.push(fcBuildRecoveryInsights(entries, timeEntries, activities, foodEntries, now));
 
   // 13. Your Trajectory (weekly trends)
   html.push(fcBuildTrajectory(entries, now));
@@ -95,6 +114,9 @@ function showForecastPage() {
 
   // 19. Your Patterns (collapsible — historical)
   html.push(fcBuildPatterns(entries, now));
+
+  // 20. What is switched off, and why
+  html.push(fcBuildPausedNote());
 
   html.push('</div>');
   container.innerHTML = html.join('');
@@ -144,6 +166,7 @@ function fcBuildHero(entries, currentAvg, prevAvg, velocity, now) {
           ${fcTrendArrow(velocity)} ${fcTrendLabel(velocity)}
           ${prevAvg !== null ? `<span class="fc-vs">(was ${prevAvg.toFixed(1)} yesterday)</span>` : ''}
         </div>
+        ${fcPersonalBands ? `<div class="fc-week-compare">Your usual range is <strong>${fcPersonalBands.p33.toFixed(1)}</strong> to <strong>${fcPersonalBands.p67.toFixed(1)}</strong> (last ${fcPersonalBands.days} days with check-ins)</div>` : ''}
         ${sparkline}
         ${weekComparison}
       </div>
@@ -268,9 +291,9 @@ function fcBuildTodayBrief(entries, timeEntries, activities, foodEntries, medLog
   const pressure = dims[0];
   const lever = fcPickTodayLever(entries, timeEntries, activities, foodEntries, medLogs, medications, oura, dims, now);
   const timeSignal = fcBuildTimeWindowSignal(entries, now);
-  const textSignal = fcBuildTextSignal(entries, dreams, quickNotes, now);
-  const sources = fcBuildSourceStats(entries, timeEntries, foodEntries, medLogs, oura, dreams, quickNotes, [], [], [], now);
-  const confidence = fcForecastConfidence(entries, sources, now, dataQualityContext);
+  const textSignal = FC_PAUSED.keywords ? null : fcBuildTextSignal(entries, dreams, quickNotes, now);
+  // Measured, not assumed: how far day-ahead forecasts have actually landed from the real day.
+  const track = fcMeasureTrackRecord(entries, now);
 
   const signals = [];
   if (pressure) {
@@ -309,10 +332,11 @@ function fcBuildTodayBrief(entries, timeEntries, activities, foodEntries, medLog
           <div class="fc-card-header"><span>🧭</span> Today's Brief</div>
           <div class="fc-brief-summary">${model.label}. Forecast is <strong>${baselineLabel}</strong>.</div>
         </div>
-        <div class="fc-confidence-pill" style="--conf:${confidence}%">
-          <span>${confidence}%</span>
-          <small>confidence</small>
-        </div>
+        ${track ? `
+        <div class="fc-confidence-pill" style="--conf:100%" title="Average gap between the day-ahead forecast and the real day, over your last ${track.days} forecast days">
+          <span>±${track.miss.toFixed(1)}</span>
+          <small>usual miss</small>
+        </div>` : ''}
       </div>
 
       <div class="fc-today-meter">
@@ -352,8 +376,8 @@ function fcBuildTodayModel(entries, oura, now, velocity) {
   const currentAvg = fcAvg(currentEntries.map(fcAvgScore));
   const baselineEntries = entries.filter(e => now - e.ts >= 24 * 3600000 && now - e.ts < 60 * 86400000);
   const baselineAvg = baselineEntries.length >= 5 ? fcAvg(baselineEntries.map(fcAvgScore)) : fcAvg(entries.map(fcAvgScore));
-  const dayProfile = fcGetDayProfile(entries, now, 0);
-  const sleep = fcLatestSleepSignal(oura);
+  const dayProfile = FC_PAUSED.weekday ? null : fcGetDayProfile(entries, now, 0);
+  const sleep = fcLatestSleepSignal(oura, now);
   let score = currentAvg + velocity * 0.35;
   const factors = [];
 
@@ -422,7 +446,7 @@ function fcPickTodayLever(entries, timeEntries, activities, foodEntries, medLogs
   const candidates = [];
   const todayStart = startOfDay(new Date(now)).getTime();
   const hour = new Date(now).getHours();
-  const sleep = fcLatestSleepSignal(oura);
+  const sleep = fcLatestSleepSignal(oura, now);
 
   if (sleep && sleep.score && sleep.score < 68) {
     candidates.push({
@@ -435,7 +459,7 @@ function fcPickTodayLever(entries, timeEntries, activities, foodEntries, medLogs
     });
   }
 
-  const boosts = fcFindActivityBoosts(entries, timeEntries, activities)
+  const boosts = (FC_PAUSED.activityBoosts ? [] : fcFindActivityBoosts(entries, timeEntries, activities))
     .map(b => {
       const lastSession = timeEntries
         .filter(t => t.activityId === b.id)
@@ -595,7 +619,6 @@ function fcBuildTextSignal(entries, dreams, quickNotes, now) {
 
 function fcBuildDataPulse(entries, timeEntries, foodEntries, medLogs, oura, dreams, quickNotes, meditationEntries, stoolEntries, mediaSessions, now, dataQualityContext = null) {
   const sources = fcBuildSourceStats(entries, timeEntries, foodEntries, medLogs, oura, dreams, quickNotes, meditationEntries, stoolEntries, mediaSessions, now);
-  const confidence = fcForecastConfidence(entries, sources, now, dataQualityContext);
   const active = sources.filter(s => s.status === 'active').length;
   const quiet = sources.filter(s => s.status === 'quiet').length;
   const trustNote = fcBuildTrustNote(dataQualityContext, sources);
@@ -622,9 +645,6 @@ function fcBuildDataPulse(entries, timeEntries, foodEntries, medLogs, oura, drea
           </div>
         `;
         }).join('')}
-      </div>
-      <div class="fc-confidence-line">
-        <div class="fc-confidence-fill" style="width:${confidence}%"></div>
       </div>
     </div>
   `;
@@ -908,7 +928,7 @@ function fcBuildActiveInsights(entries, timeEntries, activities, foodEntries, me
   const insights = [];
 
   // 1. Activity that helps most + days since last session
-  const boosts = fcFindActivityBoosts(entries, timeEntries, activities);
+  const boosts = FC_PAUSED.activityBoosts ? [] : fcFindActivityBoosts(entries, timeEntries, activities);
   if (boosts.length) {
     const top = boosts[0];
     const lastSession = timeEntries
@@ -931,7 +951,7 @@ function fcBuildActiveInsights(entries, timeEntries, activities, foodEntries, me
   }
 
   // 1b. Activity withdrawal patterns
-  const withdrawals = fcDetectWithdrawals(entries, timeEntries, activities, now);
+  const withdrawals = FC_PAUSED.activityBoosts ? [] : fcDetectWithdrawals(entries, timeEntries, activities, now);
   withdrawals.forEach(w => {
     insights.push({
       emoji: w.emoji || '⏳',
@@ -944,7 +964,7 @@ function fcBuildActiveInsights(entries, timeEntries, activities, foodEntries, me
   const todayDow = new Date().getDay();
   const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const todayEntries = entries.filter(e => new Date(e.ts).getDay() === todayDow);
-  if (todayEntries.length >= 3) {
+  if (!FC_PAUSED.weekday && todayEntries.length >= 3) {
     const todayAvg = fcAvg(todayEntries.map(fcAvgScore));
     const overallAvg = fcAvg(entries.map(fcAvgScore));
     const diff = todayAvg - overallAvg;
@@ -993,7 +1013,7 @@ function fcBuildActiveInsights(entries, timeEntries, activities, foodEntries, me
   }
 
   // 3b. Specific food keyword analysis
-  const foodKeywordInsights = fcAnalyzeFoodKeywords(entries, foodEntries);
+  const foodKeywordInsights = FC_PAUSED.keywords ? [] : fcAnalyzeFoodKeywords(entries, foodEntries);
   foodKeywordInsights.forEach(fi => insights.push(fi));
 
   // 4. Sleep impact (if Oura data)
@@ -1039,8 +1059,8 @@ function fcBuildActiveInsights(entries, timeEntries, activities, foodEntries, me
     }
   }
 
-  // 6. Medication insight
-  medications.forEach(med => {
+  // 6. Medication insight (paused: see FC_PAUSED)
+  (FC_PAUSED.medication ? [] : medications).forEach(med => {
     const logs = medLogs.filter(l => l.medicationId === med.id);
     if (logs.length < 5) return;
     const takenDays = new Set(logs.map(l => dayKey(l.timestamp)));
@@ -1068,7 +1088,7 @@ function fcBuildActiveInsights(entries, timeEntries, activities, foodEntries, me
   });
 
   // 7. Positive note detection
-  const noteInsights = fcDetectPositiveNotes(entries, now);
+  const noteInsights = FC_PAUSED.keywords ? [] : fcDetectPositiveNotes(entries, now);
   noteInsights.forEach(ni => insights.push(ni));
 
   if (!insights.length) return '';
@@ -1164,8 +1184,9 @@ function fcBuildWhatWorks(entries, timeEntries, activities, foodEntries, medLogs
    PREDICTION — Tomorrow's Forecast
    ═══════════════════════════════════ */
 
-function fcBuildPrediction(entries, timeEntries, activities, oura, velocity, now) {
-  if (entries.length < 10) return '';
+// The arithmetic only, so the same sum can be replayed over past days to measure it.
+function fcComputePrediction(entries, oura, velocity, now) {
+  if (entries.length < 10) return null;
 
   const recent = entries.filter(e => now - e.ts < 24 * 3600000);
   const currentAvg = recent.length ? fcAvg(recent.map(fcAvgScore)) : fcAvgScore(entries[entries.length - 1]);
@@ -1174,21 +1195,23 @@ function fcBuildPrediction(entries, timeEntries, activities, oura, velocity, now
   let predicted = currentAvg + velocity * 0.5;
 
   // Day-of-week factor
-  const tomorrow = (new Date().getDay() + 1) % 7;
+  const tomorrow = (new Date(now).getDay() + 1) % 7;
   const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const tomorrowEntries = entries.filter(e => new Date(e.ts).getDay() === tomorrow);
   let dowAdjust = 0;
-  if (tomorrowEntries.length >= 3) {
-    dowAdjust = (fcAvg(tomorrowEntries.map(fcAvgScore)) - overallAvg) * 0.3;
+  if (!FC_PAUSED.weekday) {
+    const tomorrowEntries = entries.filter(e => new Date(e.ts).getDay() === tomorrow);
+    if (tomorrowEntries.length >= 3) {
+      dowAdjust = (fcAvg(tomorrowEntries.map(fcAvgScore)) - overallAvg) * 0.3;
+    }
   }
   predicted += dowAdjust;
 
-  // Sleep factor
+  // Sleep factor (only a recent night counts)
   let sleepAdjust = 0;
   let sleepNote = '';
   if (oura && oura.sleep && oura.sleep.length) {
     const sorted = [...oura.sleep].sort((a, b) => (b.day || '').localeCompare(a.day || ''));
-    const lastScore = sorted[0]?.score;
+    const lastScore = fcSleepIsFresh(sorted[0]?.day, now) ? sorted[0]?.score : null;
     if (lastScore) {
       if (lastScore < 60) { sleepAdjust = -0.5; sleepNote = 'poor sleep'; }
       else if (lastScore < 70) { sleepAdjust = -0.2; sleepNote = 'below-average sleep'; }
@@ -1270,6 +1293,18 @@ function fcBuildPrediction(entries, timeEntries, activities, oura, velocity, now
   if (sleepNote) factors.push(sleepNote);
   if (timeNote) factors.push(timeNote);
 
+  return { predicted, low, high, factors, patternResult };
+}
+
+function fcBuildPrediction(entries, timeEntries, activities, oura, velocity, now) {
+  const result = fcComputePrediction(entries, oura, velocity, now);
+  if (!result) return '';
+  const { predicted, low, high, factors, patternResult } = result;
+  const track = fcMeasureTrackRecord(entries, now);
+  const trackHtml = track
+    ? `<div class="fc-prediction-factors" style="margin-top:8px">Checked against your last ${track.days} forecast days: this guess has been off by <strong>${track.miss.toFixed(1)}</strong> points on average.</div>`
+    : '';
+
   const patternHtml = patternResult.count >= 2
     ? `<div class="fc-pattern-match">📊 Found <strong>${patternResult.count} similar moments</strong> in your history — in similar moments, you averaged <strong>${patternResult.avgOutcome.toFixed(1)}</strong> next day</div>`
     : '';
@@ -1287,6 +1322,7 @@ function fcBuildPrediction(entries, timeEntries, activities, oura, velocity, now
       </div>
       <div class="fc-prediction-label">You'll likely feel around <strong>${predicted.toFixed(1)}</strong> tomorrow</div>
       <div class="fc-prediction-factors">Based on: ${factors.join(' · ')}</div>
+      ${trackHtml}
       ${patternHtml}
     </div>
   `;
@@ -1367,7 +1403,7 @@ function fcBuildSpiralRisk(entries, recent, oura) {
   // Oura
   if (oura && oura.sleep && oura.sleep.length) {
     const sorted = [...oura.sleep].sort((a, b) => (b.day || '').localeCompare(a.day || ''));
-    const lastScore = sorted[0]?.score;
+    const lastScore = fcSleepIsFresh(sorted[0]?.day, Date.now()) ? sorted[0]?.score : null;
     if (lastScore && lastScore < 55) { score += 10; reasons.push('Very poor sleep (Oura)'); }
   }
 
@@ -1410,6 +1446,8 @@ function fcBuildSleepCard(oura, entries) {
   const sorted = [...oura.sleep].sort((a, b) => (b.day || '').localeCompare(a.day || ''));
   const lastNight = sorted[0];
   if (!lastNight) return '';
+  // A night from weeks ago is not "last night": show nothing rather than something stale.
+  if (!fcSleepIsFresh(lastNight.day, Date.now())) return '';
 
   const score = lastNight.score;
   const hrv = lastNight.average_hrv || null;
@@ -1825,8 +1863,8 @@ function fcBuildPatternWarnings(entries, recent, timeEntries, activities, now) {
     warnings.push({ icon: '🧠', title: 'Mental fog detected', desc: 'Low mind clarity often precedes broader drops.', severity: 'warning' });
   }
 
-  // Proactive: activity withdrawal warning
-  if (timeEntries && activities) {
+  // Proactive: activity withdrawal warning (paused: see FC_PAUSED)
+  if (!FC_PAUSED.activityBoosts && timeEntries && activities) {
     const boosts = fcFindActivityBoosts(entries, timeEntries, activities);
     boosts.slice(0, 3).forEach(b => {
       const lastSession = timeEntries
@@ -2513,13 +2551,19 @@ function fcForecastConfidence(entries, sources, now, dataQualityContext = null) 
   return Math.max(25, Math.min(95, Math.round(score)));
 }
 
-function fcLatestSleepSignal(oura) {
+function fcSleepIsFresh(day, now) {
+  const ts = fcDayToTs(day);
+  return !!ts && now - ts >= -86400000 && now - ts <= FC_SLEEP_FRESH_MS;
+}
+
+function fcLatestSleepSignal(oura, now = Date.now()) {
   if (!oura || !Array.isArray(oura.sleep) || !oura.sleep.length) return null;
   const sorted = [...oura.sleep]
     .filter(s => s && (s.score || s.score === 0))
     .sort((a, b) => (fcDayToTs(b.day) || 0) - (fcDayToTs(a.day) || 0));
   const last = sorted[0];
   if (!last) return null;
+  if (!fcSleepIsFresh(last.day, now)) return null;
   const score = Math.round(Number(last.score));
   let adjust = 0;
   if (score < 55) adjust = -0.65;
@@ -2628,7 +2672,9 @@ function fcGetScore(e, dim) {
 function fcAvgScore(e) {
   const s = e.scores || e;
   const vals = [s.body, s.energy, s.mood, s.mind].filter(v => v && v > 0);
-  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 5;
+  if (vals.length) return vals.reduce((a, b) => a + b, 0) / vals.length;
+  // One-tap check-in: a single overall level, no per-scale scores.
+  return Number.isFinite(s.overall) && s.overall > 0 ? s.overall : 5;
 }
 
 function fcAvg(arr) { return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0; }
@@ -2641,7 +2687,87 @@ function fcGetVelocity(recent) {
   return second - first;
 }
 
+/* Personal range: where this person's own days usually sit (last 90 days,
+   or all history when that is too thin). Labels and colours are read against
+   this instead of against fixed cut-offs. */
+function fcBuildPersonalBands(entries, now) {
+  let vals = Object.values(fcDailyAverages(entries.filter(e => now - e.ts < 90 * 86400000)));
+  if (vals.length < 14) vals = Object.values(fcDailyAverages(entries));
+  if (vals.length < 14) return null;
+  vals.sort((a, b) => a - b);
+  const q = p => {
+    const pos = (vals.length - 1) * p;
+    const lo = Math.floor(pos), hi = Math.ceil(pos);
+    return vals[lo] + (vals[hi] - vals[lo]) * (pos - lo);
+  };
+  return { p10: q(0.10), p17: q(1 / 6), p33: q(1 / 3), p50: q(0.5), p67: q(2 / 3), p83: q(5 / 6), p90: q(0.90), days: vals.length };
+}
+
+/* Replays the day-ahead forecast over past days and measures how far it
+   landed from the real day. This is what the page reports instead of a
+   confidence percentage. */
+function fcMeasureTrackRecord(entries, now) {
+  const key = `${dayKey(now)}|${entries.length}`;
+  if (fcTrackRecordCache && fcTrackRecordCache.key === key) return fcTrackRecordCache.value;
+
+  let value = null;
+  try {
+    const dayAvg = fcDailyAverages(entries);
+    const lastTsByDay = {};
+    entries.forEach(e => {
+      const dk = dayKey(e.ts);
+      if (!lastTsByDay[dk] || e.ts > lastTsByDay[dk]) lastTsByDay[dk] = e.ts;
+    });
+    const today = dayKey(now);
+    const days = Object.keys(dayAvg).sort().filter(dk => dk < today);
+    const misses = [];
+    for (let i = days.length - 1; i >= 1 && misses.length < 60; i--) {
+      const target = days[i], prev = days[i - 1];
+      // Only score real day-ahead guesses: the two days must be neighbours.
+      if (fcDayToTs(target) - fcDayToTs(prev) > 30 * 3600000) continue;
+      const simNow = lastTsByDay[prev] + 1;
+      const past = entries.filter(e => e.ts < simNow);
+      if (past.length < 30) break;
+      const recent = past.filter(e => simNow - e.ts < 24 * 3600000);
+      const vel = fcGetVelocity(recent.length >= 2 ? recent : past.slice(-5));
+      const p = fcComputePrediction(past, null, vel, simNow);
+      if (p) misses.push(Math.abs(p.predicted - dayAvg[target]));
+    }
+    if (misses.length >= 10) value = { miss: fcAvg(misses), days: misses.length };
+  } catch (error) {
+    console.warn('Forecast track record unavailable:', error);
+  }
+
+  fcTrackRecordCache = { key, value };
+  return value;
+}
+
+function fcBuildPausedNote() {
+  const names = [];
+  if (FC_PAUSED.activityBoosts) names.push('What Works and activity boosts');
+  if (FC_PAUSED.weekday) names.push('weekday patterns');
+  if (FC_PAUSED.keywords) names.push('keyword reading of notes');
+  if (FC_PAUSED.medication) names.push('medication comparison');
+  if (FC_PAUSED.recovery) names.push('recovery tips');
+  if (!names.length) return '';
+  return `
+    <div class="fc-card">
+      <div class="fc-card-header"><span>⏸</span> Paused for rebuild</div>
+      <div class="fc-prediction-factors">${names.join(' · ')}. These were giving answers your data does not support, so they are switched off until they are rebuilt.</div>
+    </div>
+  `;
+}
+
 function fcStateColor(v) {
+  const b = fcPersonalBands;
+  if (b) {
+    // Relative bands always put some days at the bottom, so no alarm red here:
+    // alarm belongs to the Alerts and Spiral Risk cards.
+    if (v >= b.p67) return '#34d399';
+    if (v >= b.p33) return '#7dd3fc';
+    if (v >= b.p10) return '#fbbf24';
+    return '#fb923c';
+  }
   if (v >= 6) return '#34d399';
   if (v >= 4.5) return '#fbbf24';
   if (v >= 3) return '#fb923c';
@@ -2649,6 +2775,14 @@ function fcStateColor(v) {
 }
 
 function fcStateLabel(v) {
+  const b = fcPersonalBands;
+  if (b) {
+    if (v >= b.p90) return 'High for you';
+    if (v >= b.p67) return 'Upper third for you';
+    if (v >= b.p33) return 'Typical for you';
+    if (v >= b.p10) return 'Lower third for you';
+    return 'Low for you';
+  }
   if (v >= 7) return 'Doing well 💚';
   if (v >= 5.5) return 'Okay';
   if (v >= 4) return 'Struggling';
