@@ -1238,6 +1238,7 @@ function installDataHandoffLayer() {
         entry.startTime = startMs;
         entry.endTime = endMs;
         entry.note = note || undefined;
+        if (typeof markTimeEntryEdited === 'function') markTimeEntryEdited(entry);
         if (note) {
           entry.note_type = entry.note_type || 'session_reflection';
           entry.privacy_level = entry.privacy_level || 'normal';

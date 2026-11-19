@@ -1261,6 +1261,7 @@ function renderTimerStats() {
       if (e.session_quality === 'focused') sessionBadges.push('<span class="timer-entry-badge badge-focused">Focused</span>');
       if (e.session_quality === 'distracted') sessionBadges.push('<span class="timer-entry-badge badge-distracted">Distracted</span>');
       if (e.logging_issue === 'improperly_logged') sessionBadges.push('<span class="timer-entry-badge badge-improper">Improperly logged</span>');
+      if (e.syncConflict) sessionBadges.push(`<button type="button" class="timer-entry-badge badge-sync-conflict" data-conflict="${e.id}">⚠ Also changed in Supabase</button>`);
       const environment = getTimeEntryEnvironment(e);
       if (environment?.name) {
         const envLabel = `${environment.emoji || '📍'} ${environment.name}`;
@@ -1273,7 +1274,7 @@ function renderTimerStats() {
         <span class="timer-timeline-emoji">${act.emoji}</span>
         <div class="timer-entry-info">
           <span class="timer-entry-name">${act.name}${e.meditationRounds ? ` · ${e.meditationRounds} rounds` : ''}</span>
-          <span class="timer-entry-times">${timeStr(e.startTime)} – ${timeStr(e.endTime)}  ·  ${formatDuration(dur)}</span>
+          <span class="timer-entry-times">${timeStr(e.startTime)} – ${timeStr(e.endTime)}${e.endUncertain ? '<span class="end-uncertain" title="End time uncertain">?</span>' : ''}  ·  ${formatDuration(dur)}</span>
           ${sessionBadges.length ? `<div class="timer-entry-badges">${sessionBadges.join('')}</div>` : ''}
           ${qualitySegments}
           ${e.note ? `<span class="timer-entry-note">📝 ${e.note}</span>` : ''}
@@ -1284,6 +1285,8 @@ function renderTimerStats() {
         </div>
       `;
       row.querySelector('.timer-entry-edit').addEventListener('click', () => openEditEntryModal(e, act));
+      const conflictBtn = row.querySelector('.badge-sync-conflict');
+      if (conflictBtn && typeof resolveCloudConflict === 'function') conflictBtn.addEventListener('click', () => resolveCloudConflict(e.id));
       row.querySelector('.timer-entry-delete').addEventListener('click', () => deleteTimeEntry(e.id));
       timelineEl.appendChild(row);
     });
@@ -1524,6 +1527,7 @@ function saveEditEntry() {
       entry.startTime = startMs;
       entry.endTime = endMs;
       entry.note = note || undefined;
+      if (typeof markTimeEntryEdited === 'function') markTimeEntryEdited(entry);
       saveTimeEntries(entries);
       closeEditEntryModal();
       renderTimerStats();
